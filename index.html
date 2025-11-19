@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agreemetrix AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: 'rgba(var(--color-brand-500), 0.05)',
+                100: 'rgba(var(--color-brand-500), 0.1)',
+                400: 'rgba(var(--color-brand-400), 1)',
+                500: 'rgba(var(--color-brand-500), 1)', 
+                600: 'rgba(var(--color-brand-600), 1)',
+                700: 'rgba(var(--color-brand-700), 1)',
+                900: 'rgba(var(--color-brand-900), 1)',
+              },
+              dark: {
+                950: 'var(--bg-950)', // Main background
+                900: 'var(--bg-900)', // Card background
+                800: 'var(--bg-800)', // Lighter card
+                700: 'var(--border-700)', // Borders
+              },
+              // Remap standard colors to variables for theme switching
+              white: 'var(--text-main)',
+              slate: {
+                50: 'var(--slate-50)',
+                100: 'var(--slate-100)',
+                200: 'var(--slate-200)', // Primary Text (inverted in light mode)
+                300: 'var(--slate-300)',
+                400: 'var(--slate-400)', // Muted Text
+                500: 'var(--slate-500)',
+                600: 'var(--slate-600)',
+                700: 'var(--slate-700)',
+                800: 'var(--slate-800)',
+                900: 'var(--slate-900)',
+              },
+              accent: {
+                cyan: '#06b6d4',
+                purple: '#8b5cf6',
+                pink: '#ec4899',
+                blue: '#3b82f6',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            animation: {
+              'blob': 'blob 10s infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '200% 0' },
+                '100%': { backgroundPosition: '-200% 0' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root {
+        /* Default Dark Theme (Slate/Teal) */
+        --bg-950: #020617;
+        --bg-900: #0f172a;
+        --bg-800: #1e293b;
+        --border-700: #334155;
+        
+        --color-brand-400: 45, 212, 191;   /* #2dd4bf */
+        --color-brand-500: 20, 184, 166;   /* #14b8a6 */
+        --color-brand-600: 13, 148, 136;   /* #0d9488 */
+        --color-brand-700: 15, 118, 110;
+        --color-brand-900: 19, 78, 74;
+
+        --text-main: #ffffff;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0; /* Lightest gray text for dark mode */
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-800: #1e293b;
+        --slate-900: #0f172a;
+        
+        --bg-gradient-from: #1e293b;
+        --bg-gradient-to: #020617;
+      }
+
+      /* Light Mode - INVERTED TEXT COLORS */
+      .theme-light {
+        --bg-950: #f8fafc; /* Background */
+        --bg-900: #ffffff; /* Cards */
+        --bg-800: #f1f5f9; /* Elements */
+        --border-700: #cbd5e1;
+
+        --color-brand-400: 13, 148, 136; /* Darker teal for visibility on white */
+        --color-brand-500: 15, 118, 110;
+        --color-brand-600: 17, 94, 89;
+
+        --text-main: #0f172a; /* Black text */
+        
+        /* Invert the slates so 'slate-200' (primary text) becomes dark */
+        --slate-50: #020617;
+        --slate-100: #0f172a;
+        --slate-200: #1e293b; /* Dark text */
+        --slate-300: #334155; /* Medium dark text */
+        --slate-400: #475569; /* Muted text */
+        --slate-500: #64748b;
+        --slate-600: #94a3b8;
+        --slate-700: #cbd5e1;
+        --slate-800: #e2e8f0;
+        --slate-900: #f1f5f9;
+        
+        --bg-gradient-from: #f1f5f9;
+        --bg-gradient-to: #ffffff;
+      }
+
+      /* Blue Theme */
+      .theme-blue {
+        --bg-950: #0f172a; 
+        --bg-900: #172554;
+        --bg-800: #1e3a8a;
+        --border-700: #1d4ed8;
+
+        --color-brand-400: 96, 165, 250;
+        --color-brand-500: 59, 130, 246;
+        --color-brand-600: 37, 99, 235;
+        
+        --text-main: #ffffff;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+
+        --bg-gradient-from: #1e3a8a;
+        --bg-gradient-to: #020617;
+      }
+
+      /* Pink Theme */
+      .theme-pink {
+        --bg-950: #2e0214;
+        --bg-900: #500724; 
+        --bg-800: #831843;
+        --border-700: #9d174d;
+
+        --color-brand-400: 244, 114, 182;
+        --color-brand-500: 236, 72, 153;
+        --color-brand-600: 219, 39, 119;
+        
+        --text-main: #ffffff;
+        --slate-200: #fbcfe8;
+        --slate-300: #f9a8d4;
+        --slate-400: #f472b6;
+        
+        --bg-gradient-from: #831843;
+        --bg-gradient-to: #000000;
+      }
+
+      /* White/Minimal Theme */
+      .theme-white {
+        --bg-950: #ffffff;
+        --bg-900: #ffffff;
+        --bg-800: #f3f4f6;
+        --border-700: #e5e7eb;
+
+        --color-brand-400: 31, 41, 55;
+        --color-brand-500: 17, 24, 39;
+        --color-brand-600: 0, 0, 0;
+        
+        --text-main: #030712;
+        --slate-50: #000000;
+        --slate-100: #111827;
+        --slate-200: #1f2937; /* Dark text */
+        --slate-300: #374151;
+        --slate-400: #6b7280;
+        --slate-500: #9ca3af;
+        
+        --bg-gradient-from: #ffffff;
+        --bg-gradient-to: #f9fafb;
+      }
+
+      body { 
+        font-family: 'Inter', system-ui, sans-serif; 
+        background-color: var(--bg-950);
+        background-image: radial-gradient(at 50% 0%, var(--bg-gradient-from) 0%, var(--bg-gradient-to) 70%);
+        background-attachment: fixed;
+        color: var(--slate-200);
+        min-height: 100vh;
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+      
+      /* Custom scrollbar for themes */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+      ::-webkit-scrollbar-thumb { background: var(--border-700); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--slate-500); }
+
+      .glass-panel { 
+        background: rgba(var(--bg-900), 0.6); 
+        backdrop-filter: blur(16px); 
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-700);
+      }
+      
+      .neon-glow {
+        box-shadow: 0 0 15px rgba(var(--color-brand-500), 0.4);
+      }
+      
+      .dot-grid-bg {
+        background-image: radial-gradient(var(--border-700) 1px, transparent 1px);
+        background-size: 20px 20px;
+        opacity: 0.3;
+      }
+
+      .animation-delay-2000 { animation-delay: 2s; }
+      .animation-delay-4000 { animation-delay: 4s; }
+      
+      /* Fix for SVGs to inherit text color */
+      .text-white { color: var(--text-main); }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
