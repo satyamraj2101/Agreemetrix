@@ -163,7 +163,53 @@ export interface FieldDefinition { id: string; name: string; key: string; type: 
 export interface FieldTable { id: string; name: string; description: string; icon: string; fields: FieldDefinition[]; }
 export interface DocumentTemplate { id: string; name: string; category: string; version: string; lastModified: string; status: string; content: string; variables: any[]; conditions: any[]; redactionRules: any[]; tags?: string[]; }
 export interface Clause { id: string; name: string; category: string; content: string; riskLevel: string; tags: string[]; }
-export interface Counterparty { id: string; name: string; type: string; region: string; riskScore: number; activeContracts: number; totalValue: number; }
+
+export interface Counterparty { 
+  id: string; 
+  name: string; 
+  type: string; // 'Customer' | 'Vendor' | 'Partner'
+  status: 'Active' | 'Onboarding' | 'Inactive' | 'Blocked';
+  region: string; 
+  industry: string;
+  website?: string;
+  
+  // Risk & Performance
+  riskScore: number; 
+  activeContracts: number; 
+  totalValue: number; 
+  
+  // Profile
+  legalName?: string;
+  dbaName?: string;
+  taxId?: string;
+  vatNumber?: string;
+  dunsNumber?: string;
+  incorporationDate?: string;
+  
+  // Address
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+  addressCountry?: string;
+  
+  // Financial
+  paymentTerms?: string;
+  currency?: string;
+  bankName?: string;
+  bankAccountLast4?: string;
+  swiftCode?: string;
+  
+  // Contact
+  primaryContactName?: string;
+  primaryContactEmail?: string;
+  primaryContactPhone?: string;
+  primaryContactRole?: string;
+
+  tags?: string[];
+  notes?: string;
+}
+
 export interface RiskItem { id: string; contractId: string; description: string; severity: string; status: string; dueDate: string; }
 export interface SyncLog { id: string; timestamp: string; integrationId: string; direction: string; status: string; records: number; message: string; }
 export interface ChatMessage { id: string; sender: 'user' | 'system'; text: string; timestamp: Date; }
