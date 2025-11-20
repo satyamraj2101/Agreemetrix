@@ -11,6 +11,8 @@
         theme: {
           extend: {
             colors: {
+              'real-white': '#ffffff',
+              'real-black': '#000000',
               brand: {
                 50: 'rgba(var(--color-brand-500), 0.05)',
                 100: 'rgba(var(--color-brand-500), 0.1)',
@@ -56,6 +58,8 @@
               'float': 'float 6s ease-in-out infinite',
               'shimmer': 'shimmer 2s linear infinite',
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'logo-pulse': 'logo-pulse 3s ease-in-out infinite',
+              'text-scan': 'text-scan 4s linear infinite',
             },
             keyframes: {
               blob: {
@@ -71,6 +75,14 @@
               shimmer: {
                 '0%': { backgroundPosition: '200% 0' },
                 '100%': { backgroundPosition: '-200% 0' }
+              },
+              'logo-pulse': {
+                '0%, 100%': { boxShadow: '0 0 15px rgba(var(--color-brand-500), 0.2)' },
+                '50%': { boxShadow: '0 0 25px rgba(var(--color-brand-500), 0.6)' }
+              },
+              'text-scan': {
+                '0%, 100%': { backgroundPosition: '-200% 0' },
+                '50%': { backgroundPosition: '200% 0' }
               }
             }
           }
@@ -230,6 +242,16 @@
         background-image: radial-gradient(var(--border-700) 1px, transparent 1px);
         background-size: 20px 20px;
         opacity: 0.3;
+      }
+      
+      .logo-scan-text {
+        background: linear-gradient(to right, #fff 20%, var(--color-brand-400) 40%, #fff 60%);
+        background-size: 200% auto;
+        color: #fff;
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: text-scan 4s linear infinite;
       }
 
       .animation-delay-2000 { animation-delay: 2s; }

@@ -1,5 +1,74 @@
 
-import { Contract, ContractStatus, Clause, UserRole, IntegrationApp, RiskItem, Counterparty, FieldTable, SyncLog, DocumentTemplate } from '../types';
+import { 
+  Contract, ContractStatus, Clause, UserRole, IntegrationApp, RiskItem, Counterparty, 
+  FieldTable, SyncLog, DocumentTemplate, User, Department, RoleDefinition, Permission, 
+  UserGroup, Organization, WorkflowStage, WorkflowTemplate 
+} from '../types';
+
+export const MOCK_ORGANIZATION: Organization = {
+  id: 'org_001',
+  name: 'Pearson Specter Litt',
+  domain: 'pearsonspecter.com',
+  primaryContactEmail: 'admin@pearsonspecter.com',
+  address: '601 Lexington Avenue, New York, NY 10022',
+  subscriptionTier: 'Enterprise',
+  licenseCount: 50,
+  licenseUsed: 12
+};
+
+export const MOCK_DEPARTMENTS: Department[] = [
+  { id: 'dept_legal', name: 'Legal', headId: 'u1', description: 'General Counsel and Corporate Law', memberCount: 5 },
+  { id: 'dept_sales', name: 'Sales', headId: 'u4', description: 'Global Sales and Partnerships', memberCount: 12 },
+  { id: 'dept_finance', name: 'Finance', headId: 'u5', description: 'Accounting and Procurement', memberCount: 4 },
+  { id: 'dept_hr', name: 'Human Resources', headId: 'u6', description: 'Talent and Culture', memberCount: 3 },
+  { id: 'dept_it', name: 'IT & Security', headId: 'u7', description: 'Infrastructure and InfoSec', memberCount: 6 }
+];
+
+export const MOCK_PERMISSIONS: Permission[] = [
+  { id: 'p1', key: 'contract.view', name: 'View Contracts', description: 'Can view contract details', module: 'Contracts' },
+  { id: 'p2', key: 'contract.create', name: 'Create Contracts', description: 'Can create new contracts', module: 'Contracts' },
+  { id: 'p3', key: 'contract.edit', name: 'Edit Contracts', description: 'Can edit existing contracts', module: 'Contracts' },
+  { id: 'p4', key: 'contract.delete', name: 'Delete Contracts', description: 'Can delete contracts', module: 'Contracts' },
+  { id: 'p5', key: 'contract.approve', name: 'Approve Contracts', description: 'Can approve workflow stages', module: 'Workflows' },
+  { id: 'p6', key: 'user.manage', name: 'Manage Users', description: 'Can add/edit/delete users', module: 'Users' },
+  { id: 'p7', key: 'report.view', name: 'View Reports', description: 'Access to BI dashboards', module: 'Reports' },
+  { id: 'p8', key: 'settings.manage', name: 'Manage Settings', description: 'Global system configuration', module: 'Settings' },
+];
+
+export const MOCK_ROLES: RoleDefinition[] = [
+  { 
+    id: 'role_admin', name: 'Administrator', description: 'Full system access', isSystem: true, usersCount: 2,
+    permissions: ['contract.view', 'contract.create', 'contract.edit', 'contract.delete', 'contract.approve', 'user.manage', 'report.view', 'settings.manage']
+  },
+  { 
+    id: 'role_legal', name: 'Legal Counsel', description: 'Can manage and approve all legal documents', isSystem: false, usersCount: 5,
+    permissions: ['contract.view', 'contract.create', 'contract.edit', 'contract.approve', 'report.view']
+  },
+  { 
+    id: 'role_sales', name: 'Sales Representative', description: 'Can request and view own contracts', isSystem: false, usersCount: 12,
+    permissions: ['contract.view', 'contract.create']
+  },
+  { 
+    id: 'role_viewer', name: 'Read Only', description: 'View only access', isSystem: true, usersCount: 0,
+    permissions: ['contract.view']
+  }
+];
+
+export const MOCK_GROUPS: UserGroup[] = [
+  { id: 'g1', name: 'US Legal Team', description: 'Attorneys handling North American jurisdiction', members: ['u1', 'u2'] },
+  { id: 'g2', name: 'EU Compliance', description: 'GDPR and EU regulation specialists', members: ['u3'] },
+  { id: 'g3', name: 'Deal Desk', description: 'Cross-functional team for high-value deals', members: ['u4', 'u5'] },
+];
+
+export const MOCK_USERS: User[] = [
+  { id: 'u1', name: 'Harvey Specter', role: UserRole.ADMIN, email: 'harvey@pearsonspecter.com', status: 'Active', departmentId: 'dept_legal', lastLogin: '2 mins ago' },
+  { id: 'u2', name: 'Mike Ross', role: UserRole.LEGAL, email: 'mike@pearsonspecter.com', status: 'Active', departmentId: 'dept_legal', lastLogin: '1 hour ago' },
+  { id: 'u3', name: 'Rachel Zane', role: UserRole.ADMIN, email: 'rachel@pearsonspecter.com', status: 'Active', departmentId: 'dept_legal', lastLogin: '4 hours ago' },
+  { id: 'u4', name: 'Louis Litt', role: UserRole.SALES, email: 'louis@pearsonspecter.com', status: 'Active', departmentId: 'dept_sales', lastLogin: '1 day ago' },
+  { id: 'u5', name: 'Jessica Pearson', role: UserRole.FINANCE, email: 'jessica@pearsonspecter.com', status: 'Inactive', departmentId: 'dept_finance', lastLogin: '2 weeks ago' },
+  { id: 'u6', name: 'Donna Paulsen', role: UserRole.HR, email: 'donna@pearsonspecter.com', status: 'Active', departmentId: 'dept_hr', lastLogin: '10 mins ago' },
+  { id: 'u7', name: 'Benjamin', role: UserRole.ADMIN, email: 'benjamin@pearsonspecter.com', status: 'Invited', departmentId: 'dept_it', lastLogin: '-' },
+];
 
 export const MOCK_CONTRACTS: Contract[] = [
   {
@@ -97,13 +166,6 @@ export const MOCK_CLAUSES: Clause[] = [
     riskLevel: 'Low',
     tags: ['Standard']
   }
-];
-
-export const MOCK_USERS = [
-  { id: 1, name: 'Harvey Specter', role: UserRole.LEGAL, email: 'harvey@agreemetrix.ai' },
-  { id: 2, name: 'Mike Ross', role: UserRole.LEGAL, email: 'mike@agreemetrix.ai' },
-  { id: 3, name: 'Rachel Zane', role: UserRole.ADMIN, email: 'rachel@agreemetrix.ai' },
-  { id: 4, name: 'Sales Team Lead', role: UserRole.SALES, email: 'sales@agreemetrix.ai' },
 ];
 
 export const MOCK_PARTIES: Counterparty[] = [
@@ -206,6 +268,7 @@ export const MOCK_TEMPLATES: DocumentTemplate[] = [
       { id: 'c1', name: 'EU Jurisdiction', condition: 'Region == "EU"', content: 'This Agreement shall be governed by the laws of Ireland.' }
     ],
     redactionRules: [],
+    tags: ['Standard', 'Low Risk', 'General'],
     content: `<h1>MUTUAL NON-DISCLOSURE AGREEMENT</h1>
 <p>This Mutual Non-Disclosure Agreement (the "Agreement") is made effective as of <span class="variable">{{Effective Date}}</span>, by and between Agreemetrix Inc. and <span class="variable">{{Counterparty Name}}</span>.</p>
 <p>The parties intend to engage in discussions regarding a potential business relationship...</p>
@@ -228,6 +291,7 @@ export const MOCK_TEMPLATES: DocumentTemplate[] = [
     redactionRules: [
       { id: 'r1', role: UserRole.SALES, description: 'Hide Employee Hourly Rates' }
     ],
+    tags: ['US Only', 'Services', 'Finance'],
     content: `<h1>MASTER SERVICES AGREEMENT</h1>
 <p>This MSA is entered into...</p>
 <h3>4. Fees and Payment</h3>
@@ -246,6 +310,94 @@ export const MOCK_TEMPLATES: DocumentTemplate[] = [
     variables: [],
     conditions: [],
     redactionRules: [],
+    tags: ['APAC', 'Draft', 'Review Pending'],
     content: `<h1>MASTER SERVICES AGREEMENT (APAC REGION)</h1><p>Template content pending legal review...</p>`
   }
+];
+
+export const INITIAL_STAGES: WorkflowStage[] = [
+  { id: 'stg_draft', name: 'Drafting', color: '#94a3b8', order: 0 },
+  { id: 'stg_review', name: 'Review', color: '#3b82f6', order: 1 },
+  { id: 'stg_approval', name: 'Approval', color: '#eab308', order: 2 },
+  { id: 'stg_sign', name: 'Signature', color: '#a855f7', order: 3 },
+  { id: 'stg_active', name: 'Active', color: '#22c55e', order: 4 },
+];
+
+export const INITIAL_TEMPLATES: WorkflowTemplate[] = [
+    {
+      id: 'wf_nda',
+      name: 'Standard NDA Flow',
+      description: 'Basic automated NDA generation with rapid signature routing.',
+      category: 'NDA',
+      tags: ['Simple', 'Automated'],
+      updated: '2024-03-01',
+      schema: {
+          stages: INITIAL_STAGES,
+          nodes: [
+             { id: 'n1', category: 'trigger', type: 'manual_request', label: 'NDA Request', x: 100, y: 200, config: { stageId: 'stg_draft' } },
+             { id: 'n2', category: 'action', type: 'generate_document', label: 'Generate NDA', x: 400, y: 200, config: { stageId: 'stg_review', templateId: 'tpl_1' } },
+             { id: 'n3', category: 'action', type: 'signature', label: 'Send for eSign', x: 700, y: 200, config: { stageId: 'stg_sign', signatureProvider: 'docusign' } },
+             { id: 'n4', category: 'action', type: 'slack_notify', label: 'Notify Sales', x: 1000, y: 200, config: { stageId: 'stg_active' } }
+          ],
+          connections: [
+              { id: 'c1', source: 'n1', target: 'n2' },
+              { id: 'c2', source: 'n2', target: 'n3' },
+              { id: 'c3', source: 'n3', target: 'n4' }
+          ]
+      }
+    },
+    {
+        id: 'wf_msa',
+        name: 'High-Value MSA Approval',
+        description: 'Includes logic gates for contract value and multi-departmental review.',
+        category: 'MSA',
+        tags: ['Complex', 'Approval Chain'],
+        updated: '2024-02-15',
+        schema: {
+            stages: INITIAL_STAGES,
+            nodes: [
+                { id: 'n1', category: 'trigger', type: 'crm_opportunity', label: 'Opp Won (SFDC)', x: 50, y: 300, config: { stageId: 'stg_draft' } },
+                { id: 'n2', category: 'condition', type: 'condition', label: 'Value > $50k?', x: 350, y: 300, config: { rules: [{id: 'r1', field: 'contract_value', operator: 'greater_than', value: '50000', logic: 'AND'}] } },
+                // True Path
+                { id: 'n3', category: 'approval', type: 'internal_approval', label: 'Finance Review', x: 650, y: 200, config: { stageId: 'stg_approval', approverType: 'role', approverId: 'Finance' } },
+                { id: 'n4', category: 'approval', type: 'internal_approval', label: 'Legal Review', x: 950, y: 200, config: { stageId: 'stg_approval', approverType: 'role', approverId: 'Legal' } },
+                // False Path
+                { id: 'n5', category: 'action', type: 'generate_document', label: 'Auto-Generate MSA', x: 650, y: 450, config: { stageId: 'stg_review', templateId: 'tpl_2' } },
+                
+                { id: 'n6', category: 'action', type: 'signature', label: 'Execute Contract', x: 1250, y: 325, config: { stageId: 'stg_sign' } }
+            ],
+            connections: [
+                { id: 'c1', source: 'n1', target: 'n2' },
+                { id: 'c2', source: 'n2', target: 'n3', label: 'True', handleId: 'true_out' },
+                { id: 'c3', source: 'n2', target: 'n5', label: 'False', handleId: 'false_out' },
+                { id: 'c4', source: 'n3', target: 'n4' },
+                { id: 'c5', source: 'n4', target: 'n6' },
+                { id: 'c6', source: 'n5', target: 'n6' }
+            ]
+        }
+    },
+    {
+        id: 'wf_vendor',
+        name: 'Vendor Onboarding',
+        description: 'Streamlined intake for new suppliers with compliance checks.',
+        category: 'Vendor',
+        tags: ['Procurement', 'Compliance'],
+        updated: '2024-03-10',
+        schema: {
+            stages: INITIAL_STAGES,
+            nodes: [
+                { id: 'n1', category: 'trigger', type: 'form_submission', label: 'Vendor Portal', x: 100, y: 250, config: { stageId: 'stg_draft' } },
+                { id: 'n2', category: 'integration', type: 'webhook_out', label: 'Risk Scan API', x: 400, y: 250, config: { endpoint: 'https://api.riskcheck.com/scan' } },
+                { id: 'n3', category: 'condition', type: 'condition', label: 'Risk Score < 50?', x: 700, y: 250, config: { rules: [{id: 'r1', field: 'risk_score', operator: 'less_than', value: '50', logic: 'AND'}] } },
+                { id: 'n4', category: 'action', type: 'generate_document', label: 'Standard Agreement', x: 1000, y: 150, config: { stageId: 'stg_sign', templateId: 'tpl_1' } },
+                { id: 'n5', category: 'action', type: 'email', label: 'Reject Vendor', x: 1000, y: 350, config: { stageId: 'stg_active', emailSubject: 'Application Status' } }
+            ],
+            connections: [
+                { id: 'c1', source: 'n1', target: 'n2' },
+                { id: 'c2', source: 'n2', target: 'n3' },
+                { id: 'c3', source: 'n3', target: 'n4', label: 'True', handleId: 'true_out' },
+                { id: 'c4', source: 'n3', target: 'n5', label: 'False', handleId: 'false_out' }
+            ]
+        }
+    }
 ];

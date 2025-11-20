@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import WorkflowBuilder from './pages/WorkflowBuilder';
@@ -15,13 +15,23 @@ import Masters from './pages/Masters';
 import FieldDatabase from './pages/FieldDatabase';
 import DocumentTemplates from './pages/DocumentTemplates';
 import BusinessIntelligence from './pages/BusinessIntelligence';
+import LegacyMigration from './pages/LegacyMigration';
+import Landing from './pages/Landing';
+import Auth from './pages/Auth';
+import UserManagement from './pages/UserManagement';
 
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Auth mode="login" />} />
+        <Route path="/signup" element={<Auth mode="signup" />} />
+
+        {/* Protected App Routes */}
+        <Route element={<Layout><Outlet /></Layout>}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/bi" element={<BusinessIntelligence />} />
           <Route path="/workflow-ai" element={<WorkflowBuilder />} />
           <Route path="/templates" element={<DocumentTemplates />} />
@@ -29,17 +39,18 @@ const App: React.FC = () => {
           <Route path="/fields" element={<FieldDatabase />} />
           <Route path="/contract/:id" element={<ContractViewer />} />
           <Route path="/integrations" element={<Integrations />} />
-          
-          {/* New Fully Implemented Modules */}
+          <Route path="/legacy-migration" element={<LegacyMigration />} />
           <Route path="/clauses" element={<ClauseLibrary />} />
           <Route path="/parties" element={<Parties />} />
           <Route path="/risks" element={<RiskDashboard />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/masters" element={<Masters />} />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
+          <Route path="/users" element={<UserManagement />} />
+        </Route>
+        
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </HashRouter>
   );
 };

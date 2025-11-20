@@ -1,985 +1,658 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, Button, Input, Badge, Select } from '../components/UIComponents';
-import { ChatMessage, WorkflowNode, WorkflowStage, UserRole, WorkflowTemplate } from '../types';
-import { MOCK_INTEGRATIONS } from '../mock/data';
-import { 
-  Send, Bot, User, Play, Settings, Network, CheckSquare, X, GitBranch, Trash2, 
-  LayoutTemplate, Save, MousePointer2, GripVertical, Sparkles, MoreVertical, 
-  RotateCcw, PenTool, Search, Edit2, Plus, Zap, Code, Terminal, ArrowRight, 
-  ArrowLeft, Tag, MoveLeft, MoveRight, ChevronRight, ChevronLeft, CheckCircle, PlayCircle,
-  CloudLightning
-} from 'lucide-react';
+import { WorkflowNode, WorkflowConnection, WorkflowCategory, WorkflowStageDefinition, WorkflowTemplate } from '../types';
+import { WorkflowNodeCard } from '../components/workflow/WorkflowNode';
+import { WorkflowToolbar } from '../components/workflow/WorkflowToolbar';
+import { PropertiesPanel } from '../components/workflow/PropertiesPanel';
+import { Button, Badge } from '../components/UIComponents';
+import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo } from 'lucide-react';
+import { INITIAL_TEMPLATES } from '../mock/data';
 
-// Initial Stages
-const INITIAL_STAGES: WorkflowStage[] = [
-  { id: 'stage_1', name: 'Intake & Request', order: 0, color: 'border-yellow-500' },
-  { id: 'stage_2', name: 'Internal Review', order: 1, color: 'border-blue-500' },
-  { id: 'stage_3', name: 'Negotiation', order: 2, color: 'border-purple-500' },
-  { id: 'stage_4', name: 'Approval', order: 3, color: 'border-red-500' },
-  { id: 'stage_5', name: 'Sign & Store', order: 4, color: 'border-green-500' },
+const INITIAL_STAGES: WorkflowStageDefinition[] = [
+  { id: 'stg_draft', name: 'Drafting', color: '#94a3b8', order: 0 },
+  { id: 'stg_review', name: 'Review', color: '#3b82f6', order: 1 },
+  { id: 'stg_approval', name: 'Approval', color: '#eab308', order: 2 },
+  { id: 'stg_sign', name: 'Signature', color: '#a855f7', order: 3 },
+  { id: 'stg_active', name: 'Active', color: '#22c55e', order: 4 },
 ];
 
-const STAGE_COLORS = [
-  { label: 'Yellow', value: 'border-yellow-500', bg: 'bg-yellow-500' },
-  { label: 'Blue', value: 'border-blue-500', bg: 'bg-blue-500' },
-  { label: 'Purple', value: 'border-purple-500', bg: 'bg-purple-500' },
-  { label: 'Red', value: 'border-red-500', bg: 'bg-red-500' },
-  { label: 'Green', value: 'border-green-500', bg: 'bg-green-500' },
-  { label: 'Pink', value: 'border-pink-500', bg: 'bg-pink-500' },
-  { label: 'Orange', value: 'border-orange-500', bg: 'bg-orange-500' },
-  { label: 'Cyan', value: 'border-cyan-500', bg: 'bg-cyan-500' },
-];
-
-// Sample Workflow Data
-const SAMPLE_WORKFLOW: WorkflowNode[] = [
-  { id: '1', stageId: 'stage_1', label: 'Sales Request', type: 'trigger', details: 'Source: Salesforce Opportunity > $50k' },
-  { id: '2', stageId: 'stage_1', label: 'Standard Check', type: 'condition', details: 'Is on Standard Paper?' },
-  { id: '3', stageId: 'stage_2', label: 'Legal Review', type: 'approval', role: UserRole.LEGAL, details: 'Assigned to: Legal Team Queue' },
-  { id: '4', stageId: 'stage_4', label: 'CFO Approval', type: 'approval', role: UserRole.FINANCE, details: 'Required if value > $100k' },
-  { id: '5', stageId: 'stage_5', label: 'E-Sign', type: 'action', details: 'Provider: DocuSign' },
-];
-
-const INITIAL_TEMPLATES: WorkflowTemplate[] = [
-  { 
-    id: 't1', 
-    name: 'Standard NDA Workflow', 
-    description: 'Simple 2-step approval for non-disclosure agreements.', 
-    tags: ['Legal', 'Quick'], 
-    nodes: SAMPLE_WORKFLOW.slice(0, 3),
-    updated: '2 days ago', 
-    category: 'Legal' 
-  },
-  { 
-    id: 't2', 
-    name: 'High-Value MSA Review', 
-    description: 'Multi-department approval chain for >$100k contracts.', 
-    tags: ['Finance', 'Complex'], 
-    nodes: SAMPLE_WORKFLOW,
-    updated: '1 week ago', 
-    category: 'Finance' 
-  },
-  { 
-    id: 't3', 
-    name: 'Vendor Onboarding', 
-    description: 'Compliance check, security review, and finance setup.', 
-    tags: ['Procurement'], 
-    nodes: SAMPLE_WORKFLOW,
-    updated: '3 days ago', 
-    category: 'Procurement' 
-  },
-  { 
-    id: 't4', 
-    name: 'Fast-Track Sales Order', 
-    description: 'Auto-approval logic for standard terms.', 
-    tags: ['Sales'], 
-    nodes: SAMPLE_WORKFLOW.slice(0, 2),
-    updated: 'Yesterday', 
-    category: 'Sales' 
-  },
-];
-
-// --- CONFIGURATION CONSTANTS ---
-
-const TRIGGER_PROVIDERS = [
-  { label: 'System / Manual Form', value: 'manual' },
-  ...MOCK_INTEGRATIONS.filter(i => ['CRM', 'ERP'].includes(i.category)).map(i => ({ label: i.name, value: i.id }))
-];
-
-const ACTION_PROVIDERS = [
-  { label: 'Agreemetrix System', value: 'system' },
-  ...MOCK_INTEGRATIONS.map(i => ({ label: i.name, value: i.id }))
-];
-
-const APP_EVENTS: Record<string, { label: string; value: string }[]> = {
-  'manual': [
-    { label: 'User Submits Intake Form', value: 'form_submit' },
-    { label: 'Incoming Webhook (API)', value: 'webhook' }
-  ],
-  'sf': [
-    { label: 'New Opportunity Created', value: 'opp_created' },
-    { label: 'Opportunity Stage Changed', value: 'opp_stage' },
-    { label: 'Contract Value Changed', value: 'val_change' }
-  ],
-  'hubspot': [
-    { label: 'Deal Moved to Won', value: 'deal_won' },
-    { label: 'Company Created', value: 'company_new' }
-  ],
-  'jira': [
-    { label: 'Issue Transitioned', value: 'issue_trans' },
-    { label: 'New Legal Ticket', value: 'ticket_new' }
-  ]
-};
-
-const APP_ACTIONS: Record<string, { label: string; value: string }[]> = {
-  'system': [
-    { label: 'Send Email Notification', value: 'email' },
-    { label: 'Generate Document from Template', value: 'doc_gen' },
-    { label: 'Wait for Time Period', value: 'wait' }
-  ],
-  'sf': [
-    { label: 'Update Opportunity Stage', value: 'update_stage' },
-    { label: 'Create Contract Record', value: 'create_rec' },
-    { label: 'Post to Chatter', value: 'chatter' }
-  ],
-  'slack': [
-    { label: 'Send Channel Message', value: 'msg_channel' },
-    { label: 'Send Direct Message', value: 'msg_dm' }
-  ],
-  'jira': [
-    { label: 'Create Jira Ticket', value: 'create_ticket' },
-    { label: 'Add Comment to Issue', value: 'add_comment' }
-  ],
-  'docusign': [
-    { label: 'Send Envelope for Signature', value: 'send_env' },
-    { label: 'Void Envelope', value: 'void_env' }
-  ],
-  'drive': [
-    { label: 'Upload Document', value: 'upload' },
-    { label: 'Create Folder', value: 'folder' }
-  ]
-};
+// Interface for history state
+interface HistoryState {
+  nodes: WorkflowNode[];
+  connections: WorkflowConnection[];
+}
 
 const WorkflowBuilder: React.FC = () => {
-  // View State
-  const [activeView, setActiveView] = useState<'editor' | 'templates'>('editor');
-  const [rightPanelTab, setRightPanelTab] = useState<'ai' | 'properties'>('ai');
-  const [logicMode, setLogicMode] = useState<'visual' | 'code'>('visual');
-  const [workflowName, setWorkflowName] = useState('Untitled Workflow');
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  // Canvas State
+  const [nodes, setNodes] = useState<WorkflowNode[]>([
+    { id: 'start', category: 'trigger', type: 'manual_request', label: 'Manual Request', x: 100, y: 300, config: { stageId: 'stg_draft' } }
+  ]);
+  const [connections, setConnections] = useState<WorkflowConnection[]>([]);
+  const [stages, setStages] = useState<WorkflowStageDefinition[]>(INITIAL_STAGES);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showStageManager, setShowStageManager] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   
-  // Testing & Publishing State
-  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [testStatus, setTestStatus] = useState<'idle' | 'running' | 'success'>('idle');
-  const [testSteps, setTestSteps] = useState<string[]>([]);
-  const [isPublished, setIsPublished] = useState(false);
-  const [publishToast, setPublishToast] = useState(false);
+  // Undo/Redo State
+  const [history, setHistory] = useState<HistoryState[]>([{ nodes: [
+    { id: 'start', category: 'trigger', type: 'manual_request', label: 'Manual Request', x: 100, y: 300, config: { stageId: 'stg_draft' } }
+  ], connections: [] }]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [isHistoryAction, setIsHistoryAction] = useState(false);
 
-  // Template Management State
-  const [templateSearch, setTemplateSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  // Viewport State
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
   
-  // Stage Management State
-  const [stages, setStages] = useState<WorkflowStage[]>(INITIAL_STAGES);
-  const [activeStageMenu, setActiveStageMenu] = useState<string | null>(null); // Which stage menu is open
-  const [activeAddMenu, setActiveAddMenu] = useState<string | null>(null); // Which stage add menu is open
-  const [showStageModal, setShowStageModal] = useState(false);
-  const [stageForm, setStageForm] = useState({ id: '', name: '', color: 'border-gray-500' });
-  const [isEditingStage, setIsEditingStage] = useState(false);
-
-  // Workflow Data State
-  const [workflow, setWorkflow] = useState<WorkflowNode[]>([]);
-  const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
+  // Interaction State
+  const [dragState, setDragState] = useState<{
+     type: 'node' | 'connection'; 
+     id?: string; 
+     startPos?: {x: number, y: number};
+     sourceHandle?: string;
+  } | null>(null);
+  const [tempConnection, setTempConnection] = useState<{x1:number, y1:number, x2:number, y2:number} | null>(null);
   
-  // Templates State
-  const [templates, setTemplates] = useState<WorkflowTemplate[]>(INITIAL_TEMPLATES);
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [templateForm, setTemplateForm] = useState({ name: '', description: '', category: 'General', tags: '' });
+  // Simulation State
+  const [simState, setSimState] = useState<'idle' | 'running' | 'paused'>('idle');
+  const [activeSimNode, setActiveSimNode] = useState<string | null>(null);
+  const [simLog, setSimLog] = useState<string[]>([]);
 
-  // Node Configs
-  const [jqlCode, setJqlCode] = useState<Record<string, string>>({}); 
-  const [nodeConfigs, setNodeConfigs] = useState<Record<string, any>>({});
+  // Validation State
+  const [validationErrors, setValidationErrors] = useState<{nodeId: string, message: string}[]>([]);
 
-  // Chat State
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([{
-      id: '1',
-      sender: 'system',
-      text: 'Hello! I am the Agreemetrix Workflow Agent. Describe the workflow you want to build.',
-      timestamp: new Date(),
-  }]);
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // SVG Lines State
-  const [connections, setConnections] = useState<{x1:number, y1:number, x2:number, y2:number}[]>([]);
+  // Refs
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-
-  // --- Effects ---
+  // -- HISTORY MANAGEMENT --
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+     // If nodes or connections change, and it wasn't an undo/redo action, add to history
+     if (!isHistoryAction) {
+         const currentState = { nodes, connections };
+         // Check if significantly different from last state to avoid spam
+         const lastState = history[historyIndex];
+         if (JSON.stringify(lastState) !== JSON.stringify(currentState)) {
+             const newHistory = history.slice(0, historyIndex + 1);
+             newHistory.push(currentState);
+             setHistory(newHistory);
+             setHistoryIndex(newHistory.length - 1);
+         }
+     }
+     setIsHistoryAction(false);
+  }, [nodes, connections]);
 
-  useEffect(() => {
-    if (selectedNode) {
-        setRightPanelTab('properties');
-        setIsRightPanelOpen(true);
-    }
-  }, [selectedNode]);
-
-  // Close stage menus when clicking elsewhere
-  useEffect(() => {
-    const handleClickOutside = () => {
-        setActiveStageMenu(null);
-        setActiveAddMenu(null);
-    };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  // Recalculate lines
-  useEffect(() => {
-    const calculateConnections = () => {
-      if (!canvasRef.current) return;
-      const newConnections: any[] = [];
-      
-      const stageIds = stages.map(s => s.id);
-      
-      stageIds.forEach((stageId, idx) => {
-        if (idx === stageIds.length - 1) return;
-        const nextStageId = stageIds[idx + 1];
-
-        const currentStageNodes = workflow.filter(n => n.stageId === stageId);
-        const nextStageNodes = workflow.filter(n => n.stageId === nextStageId);
-
-        if (currentStageNodes.length > 0 && nextStageNodes.length > 0) {
-          const sourceNode = currentStageNodes[currentStageNodes.length - 1];
-          const targetNode = nextStageNodes[0];
-
-          const sourceEl = document.getElementById(`node-${sourceNode.id}`);
-          const targetEl = document.getElementById(`node-${targetNode.id}`);
-          const canvasRect = canvasRef.current?.getBoundingClientRect();
-
-          if (sourceEl && targetEl && canvasRect) {
-            const srcRect = sourceEl.getBoundingClientRect();
-            const tgtRect = targetEl.getBoundingClientRect();
-
-            // Improved curve logic
-            newConnections.push({
-              x1: (srcRect.right - canvasRect.left),
-              y1: (srcRect.top + srcRect.height / 2) - canvasRect.top,
-              x2: (tgtRect.left - canvasRect.left),
-              y2: (tgtRect.top + tgtRect.height / 2) - canvasRect.top
-            });
-          }
-        }
-      });
-      setConnections(newConnections);
-    };
-
-    const timer = setTimeout(calculateConnections, 100);
-    window.addEventListener('resize', calculateConnections);
-    return () => {
-      window.removeEventListener('resize', calculateConnections);
-      clearTimeout(timer);
-    };
-  }, [workflow, stages, activeView, isRightPanelOpen]); // Added isRightPanelOpen dependancy for resize
-
-  // --- Test & Publish Handlers ---
-
-  const handleTestRun = () => {
-    setIsTestModalOpen(true);
-    setTestStatus('running');
-    setTestSteps([]);
-    
-    // Simulate Test Steps
-    const steps = ['Validating Logic Gates...', 'Checking Role Assignments...', 'Verifying Integration Credentials...', 'Simulating Payload...'];
-    
-    steps.forEach((step, index) => {
-        setTimeout(() => {
-            setTestSteps(prev => [...prev, step]);
-            if (index === steps.length - 1) {
-                setTimeout(() => setTestStatus('success'), 500);
-            }
-        }, (index + 1) * 800);
-    });
+  const handleUndo = () => {
+     if (historyIndex > 0) {
+         setIsHistoryAction(true);
+         const prevState = history[historyIndex - 1];
+         setNodes(prevState.nodes);
+         setConnections(prevState.connections);
+         setHistoryIndex(historyIndex - 1);
+     }
   };
 
-  const handlePublish = () => {
-     setIsPublished(true);
-     setPublishToast(true);
-     setTimeout(() => setPublishToast(false), 3000);
-  };
-
-  // --- Stage Handlers ---
-
-  const handleAddStageClick = () => {
-    setStageForm({ id: '', name: '', color: 'border-gray-500' });
-    setIsEditingStage(false);
-    setShowStageModal(true);
-  };
-
-  const handleEditStageClick = (stage: WorkflowStage, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setStageForm({ id: stage.id, name: stage.name, color: stage.color });
-    setIsEditingStage(true);
-    setShowStageModal(true);
-    setActiveStageMenu(null);
-  };
-
-  const handleSaveStage = () => {
-    if (isEditingStage) {
-      setStages(prev => prev.map(s => s.id === stageForm.id ? { ...s, name: stageForm.name, color: stageForm.color } : s));
-    } else {
-      const newStage: WorkflowStage = {
-        id: `stage_${Date.now()}`,
-        name: stageForm.name || 'New Stage',
-        color: stageForm.color,
-        order: stages.length
-      };
-      setStages(prev => [...prev, newStage]);
-    }
-    setShowStageModal(false);
-  };
-
-  const handleDeleteStage = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setStages(prev => prev.filter(s => s.id !== id));
-    setWorkflow(prev => prev.filter(n => n.stageId !== id)); // Remove nodes in deleted stage
-    setActiveStageMenu(null);
-  };
-
-  const handleMoveStage = (index: number, direction: 'left' | 'right', e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newStages = [...stages];
-    if (direction === 'left' && index > 0) {
-      [newStages[index], newStages[index - 1]] = [newStages[index - 1], newStages[index]];
-    } else if (direction === 'right' && index < stages.length - 1) {
-      [newStages[index], newStages[index + 1]] = [newStages[index + 1], newStages[index]];
-    }
-    setStages(newStages);
-    setActiveStageMenu(null);
-  };
-
-  const toggleStageMenu = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setActiveStageMenu(activeStageMenu === id ? null : id);
-    setActiveAddMenu(null);
+  const handleRedo = () => {
+     if (historyIndex < history.length - 1) {
+         setIsHistoryAction(true);
+         const nextState = history[historyIndex + 1];
+         setNodes(nextState.nodes);
+         setConnections(nextState.connections);
+         setHistoryIndex(historyIndex + 1);
+     }
   };
   
-  const toggleAddMenu = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setActiveAddMenu(activeAddMenu === id ? null : id);
-    setActiveStageMenu(null);
-  };
-
-  // --- Workflow Handlers ---
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const userMsg: ChatMessage = { id: Date.now().toString(), sender: 'user', text: input, timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsTyping(true);
-    setTimeout(() => {
-      const systemMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: 'system',
-        text: 'I have analyzed your request. Based on standard best practices, I have drafted a workflow flow below.',
-        timestamp: new Date(),
-        workflowPreview: SAMPLE_WORKFLOW
+  // Keyboard Shortcuts
+  useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+              e.preventDefault();
+              handleUndo();
+          }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+              e.preventDefault();
+              handleRedo();
+          }
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+              if (selectedNodeId && !document.activeElement?.tagName.match(/INPUT|TEXTAREA/)) {
+                  handleDeleteNode(selectedNodeId);
+              }
+          }
       };
-      setMessages(prev => [...prev, systemMsg]);
-      setWorkflow(SAMPLE_WORKFLOW);
-      setIsTyping(false);
-    }, 1200);
-  };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId, historyIndex]);
 
-  const handleDragStart = (e: React.DragEvent, nodeId: string) => {
-    e.dataTransfer.setData('nodeId', nodeId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
+  // -- CANVAS HELPERS --
 
-  const handleToolDragStart = (e: React.DragEvent, type: string) => {
-    e.dataTransfer.setData('type', type);
-    e.dataTransfer.effectAllowed = 'copy';
-  };
-
-  const handleDrop = (e: React.DragEvent, stageId: string) => {
-    e.preventDefault();
-    const nodeId = e.dataTransfer.getData('nodeId');
-    const toolType = e.dataTransfer.getData('type') as WorkflowNode['type'];
-
-    if (nodeId) {
-      setWorkflow(prev => prev.map(node => 
-        node.id === nodeId ? { ...node, stageId } : node
-      ));
-    } else if (toolType) {
-      handleAddNode(toolType, stageId);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleAddNode = (type: WorkflowNode['type'], stageId: string) => {
-    const newNode: WorkflowNode = {
-      id: Date.now().toString(),
-      stageId,
-      label: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      type,
-      details: 'Configure details in panel'
+  const screenToCanvas = (sx: number, sy: number) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (sx - rect.left - pan.x) / zoom,
+      y: (sy - rect.top - pan.y) / zoom
     };
-    setWorkflow(prev => [...prev, newNode]);
-    setSelectedNode(newNode);
   };
 
-  const updateSelectedNode = (updates: Partial<WorkflowNode>) => {
-    if (!selectedNode) return;
-    const updatedNode = { ...selectedNode, ...updates };
-    setSelectedNode(updatedNode);
-    setWorkflow(prev => prev.map(n => n.id === selectedNode.id ? updatedNode : n));
+  const getHandleColor = (type?: string) => {
+     if (type === 'true_out') return '#22c55e';
+     if (type === 'false_out') return '#ef4444';
+     return '#64748b';
   };
 
-  const updateNodeConfig = (key: string, value: any) => {
-    if (!selectedNode) return;
-    setNodeConfigs(prev => ({
-      ...prev,
-      [selectedNode.id]: {
-        ...(prev[selectedNode.id] || {}),
-        [key]: value
-      }
-    }));
+  // -- HANDLERS --
+
+  const handleLoadTemplate = (template: WorkflowTemplate) => {
+      setStages(template.schema.stages);
+      setNodes(template.schema.nodes);
+      setConnections(template.schema.connections);
+      setShowTemplateModal(false);
+      setPan({x: 0, y: 0});
+      setZoom(0.9);
+      // Reset history
+      setHistory([{ nodes: template.schema.nodes, connections: template.schema.connections }]);
+      setHistoryIndex(0);
   };
 
-  // --- Template Handlers ---
-  const filteredTemplates = templates.filter(t => {
-    const matchesSearch = t.name.toLowerCase().includes(templateSearch.toLowerCase()) || 
-                          t.description.toLowerCase().includes(templateSearch.toLowerCase());
-    const matchesCategory = categoryFilter === 'All' || t.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleEditTemplate = (tpl: WorkflowTemplate) => {
-    setTemplateForm({
-        name: tpl.name,
-        description: tpl.description,
-        category: tpl.category,
-        tags: tpl.tags.join(', ')
-    });
-    setEditingTemplateId(tpl.id);
-    setShowSaveModal(true);
+  const handleDragStart = (e: React.DragEvent, category: WorkflowCategory, type: string, label: string) => {
+    e.dataTransfer.setData('category', category);
+    e.dataTransfer.setData('type', type);
+    e.dataTransfer.setData('label', label);
   };
 
-  const handleDeleteTemplate = (id: string) => {
-    setTemplates(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleLoadTemplate = (tpl: WorkflowTemplate) => {
-    setWorkflowName(tpl.name);
-    setWorkflow(tpl.nodes || []);
-    setActiveView('editor');
-  };
-
-  const handleSaveTemplateSubmit = () => {
-    const processedTags = templateForm.tags.split(',').map(s => s.trim()).filter(Boolean);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const category = e.dataTransfer.getData('category') as WorkflowCategory;
+    const type = e.dataTransfer.getData('type');
+    const label = e.dataTransfer.getData('label');
     
-    if (editingTemplateId) {
-        setTemplates(prev => prev.map(t => t.id === editingTemplateId ? {
-            ...t,
-            name: templateForm.name,
-            description: templateForm.description,
-            category: templateForm.category,
-            tags: processedTags
-        } : t));
-    } else {
-        const newTpl: WorkflowTemplate = {
-            id: `tpl-${Date.now()}`,
-            name: templateForm.name,
-            description: templateForm.description,
-            category: templateForm.category,
-            tags: processedTags,
-            nodes: [...workflow],
-            updated: 'Just now'
-        };
-        setTemplates(prev => [...prev, newTpl]);
+    if (!category || !type) return;
+
+    const pos = screenToCanvas(e.clientX, e.clientY);
+    const newNode: WorkflowNode = {
+      id: `node_${Date.now()}`,
+      category,
+      type,
+      label,
+      x: pos.x - 128, // Center horizontally (width 256/2)
+      y: pos.y - 40,
+      config: {}
+    };
+    setNodes([...nodes, newNode]);
+    setSelectedNodeId(newNode.id);
+  };
+
+  const handleDeleteNode = (nodeId: string) => {
+     setNodes(nodes.filter(n => n.id !== nodeId));
+     setConnections(connections.filter(c => c.source !== nodeId && c.target !== nodeId));
+     setSelectedNodeId(null);
+  };
+
+  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    setSelectedNodeId(nodeId);
+    if (e.button === 0) { // Left click
+       const pos = screenToCanvas(e.clientX, e.clientY);
+       setDragState({ type: 'node', id: nodeId, startPos: pos });
     }
-    setShowSaveModal(false);
-    setEditingTemplateId(null);
-    setTemplateForm({ name: '', description: '', category: 'General', tags: '' });
   };
 
-  const handleCreateNewFromModal = () => {
-    setEditingTemplateId(null);
-    setTemplateForm({ name: '', description: '', category: 'General', tags: '' });
-    setShowSaveModal(true);
+  const handleConnectionStart = (e: React.MouseEvent, nodeId: string, handleType: 'true_out' | 'false_out' | undefined) => {
+     e.stopPropagation();
+     // Get source node position for accurate start point
+     const sourceNode = nodes.find(n => n.id === nodeId);
+     if(!sourceNode) return;
+
+     const startX = sourceNode.x + 256; // Width of node
+     const startY = sourceNode.y + 40; // Middle of node approx
+
+     // Adjust for Condition handles
+     let actualY = startY;
+     if (handleType === 'true_out') actualY -= 12; // Adjusted to match visual handle position
+     if (handleType === 'false_out') actualY += 28;
+
+     setDragState({ type: 'connection', id: nodeId, sourceHandle: handleType });
+     setTempConnection({ x1: startX, y1: actualY, x2: startX, y2: actualY });
   };
 
-  // --- Components ---
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const pos = screenToCanvas(e.clientX, e.clientY);
 
-  const JQLEditor = ({ nodeId }: { nodeId: string }) => {
-    const code = jqlCode[nodeId] || `// Agreemetrix JQL\nIF contract.value > 50000 \nAND contract.risk_score >= 75\nTHEN \n   ROUTE_TO "Legal Review"\nELSE\n   AUTO_APPROVE`;
-    return (
-      <div className="flex flex-col h-64 bg-dark-950 border border-dark-700 rounded-lg overflow-hidden font-mono text-xs">
-        <div className="flex justify-between items-center px-3 py-2 bg-dark-900 border-b border-dark-700">
-           <span className="text-slate-400 flex items-center gap-2"><Terminal size={12} /> Logic Editor</span>
-           <Badge color="blue">JQL</Badge>
-        </div>
-        <textarea 
-          className="flex-1 bg-transparent p-3 text-slate-300 outline-none resize-none focus:bg-white/5 transition-colors"
-          value={code}
-          onChange={(e) => setJqlCode(prev => ({...prev, [nodeId]: e.target.value}))}
-          spellCheck={false}
-        ></textarea>
-      </div>
-    );
-  };
-
-  const renderPropertiesPanel = () => {
-    if (!selectedNode) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center">
-           <MousePointer2 size={32} className="mb-4 opacity-20" />
-           <p className="text-xs">Select a node to configure its properties.</p>
-        </div>
-      );
+    if (isPanning) {
+       setPan(prev => ({ x: prev.x + e.movementX, y: prev.y + e.movementY }));
+       return;
     }
 
-    const config = nodeConfigs[selectedNode.id] || {};
-    const providerId = config.providerId;
+    if (dragState?.type === 'node') {
+       const deltaX = pos.x - dragState.startPos!.x;
+       const deltaY = pos.y - dragState.startPos!.y;
+       
+       setNodes(nodes.map(n => n.id === dragState.id ? { ...n, x: n.x + deltaX, y: n.y + deltaY } : n));
+       setDragState({ ...dragState, startPos: pos }); // Reset start pos for smooth drag
+    }
 
-    return (
-      <div className="p-5 space-y-6 pb-20">
-         <div className="flex justify-between items-start">
-            <div>
-               <Badge color={
-                  selectedNode.type === 'trigger' ? 'yellow' : selectedNode.type === 'condition' ? 'blue' : selectedNode.type === 'approval' ? 'red' : 'green'
-               }>{selectedNode.type}</Badge>
-               <h3 className="text-lg font-bold text-white mt-1">{selectedNode.label}</h3>
+    if (dragState?.type === 'connection' && tempConnection) {
+       setTempConnection({ ...tempConnection, x2: pos.x, y2: pos.y });
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // Check if dropping connection on a node
+    if (dragState?.type === 'connection') {
+       // Simple hit detection (in real app use ref collision)
+       const pos = screenToCanvas(e.clientX, e.clientY);
+       // Find target node
+       const target = nodes.find(n => 
+          pos.x > n.x && pos.x < n.x + 256 && 
+          pos.y > n.y && pos.y < n.y + 100 &&
+          n.id !== dragState.id
+       );
+
+       if (target) {
+          const newConn: WorkflowConnection = {
+             id: `conn_${Date.now()}`,
+             source: dragState.id!,
+             target: target.id,
+             label: dragState.sourceHandle === 'true_out' ? 'True' : dragState.sourceHandle === 'false_out' ? 'False' : undefined,
+             handleId: dragState.sourceHandle as any
+          };
+          // Avoid duplicates
+          if (!connections.find(c => c.source === newConn.source && c.target === newConn.target && c.handleId === newConn.handleId)) {
+             setConnections([...connections, newConn]);
+          }
+       }
+    }
+
+    setDragState(null);
+    setTempConnection(null);
+  };
+
+  // -- VALIDATION ENGINE --
+  const validateWorkflow = () => {
+    const errors: typeof validationErrors = [];
+    
+    // 1. Orphan Check
+    nodes.forEach(node => {
+       if (node.category === 'trigger') return;
+       const isTarget = connections.some(c => c.target === node.id);
+       if (!isTarget) errors.push({ nodeId: node.id, message: 'Node is disconnected (Orphan)' });
+    });
+
+    // 2. Config Check
+    nodes.forEach(node => {
+       if (node.category === 'approval' && !node.config.approverType) {
+          errors.push({ nodeId: node.id, message: 'Missing Approver Configuration' });
+       }
+       if (node.category === 'condition' && (!node.config.rules || node.config.rules.length === 0)) {
+          errors.push({ nodeId: node.id, message: 'Condition has no rules' });
+       }
+       if (node.type === 'generate_document' && !node.config.templateId) {
+          errors.push({ nodeId: node.id, message: 'No Template Selected' });
+       }
+    });
+
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  // -- SIMULATION ENGINE --
+  const runSimulation = async () => {
+     if (!validateWorkflow()) {
+        alert("Please fix validation errors before simulating.");
+        return;
+     }
+     setSimState('running');
+     setSimLog(['Starting simulation...']);
+     
+     // BFS Walk
+     const processNode = async (id: string) => {
+        const node = nodes.find(n => n.id === id);
+        if(!node) return;
+
+        setActiveSimNode(id);
+        setSimLog(prev => [...prev, `Processing: ${node.label}`]);
+        
+        // Simulate delay if node is a delay node
+        if (node.type === 'delay') {
+            setSimLog(prev => [...prev, `Waiting ${node.config.delayTime} ${node.config.delayUnit}...`]);
+            await new Promise(r => setTimeout(r, 2000)); // Longer wait for visual effect
+        } else {
+            await new Promise(r => setTimeout(r, 800)); // Standard visual delay
+        }
+
+        const outbound = connections.filter(c => c.source === id);
+        if (outbound.length > 0) {
+           // Logic for splitting path (Mocking "True" for demo)
+           const nextConn = outbound.find(c => c.label === 'True') || outbound[0];
+           if (nextConn) {
+              processNode(nextConn.target);
+           } else {
+              setSimState('idle');
+              setActiveSimNode(null);
+              setSimLog(prev => [...prev, 'End of path.']);
+           }
+        } else {
+           setSimState('idle');
+           setActiveSimNode(null);
+           setSimLog(prev => [...prev, 'Workflow Complete.']);
+        }
+     };
+
+     processNode('start');
+  };
+
+  // -- RENDER HELPERS --
+
+  const renderConnections = () => {
+     return (
+       <svg className="absolute inset-0 pointer-events-none overflow-visible">
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+            </marker>
+            <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
+            </marker>
+            <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
+            </marker>
+          </defs>
+          {connections.map(conn => {
+             const source = nodes.find(n => n.id === conn.source);
+             const target = nodes.find(n => n.id === conn.target);
+             if (!source || !target) return null;
+
+             // Source coordinates adjusted for handle type
+             let sy = source.y + 40;
+             if (conn.handleId === 'true_out') sy -= 12;
+             if (conn.handleId === 'false_out') sy += 28;
+             const sx = source.x + 256;
+
+             const tx = target.x;
+             const ty = target.y + 40;
+
+             // Bezier
+             const d = `M ${sx} ${sy} C ${sx + 80} ${sy}, ${tx - 80} ${ty}, ${tx} ${ty}`;
+             const isTruePath = conn.handleId === 'true_out';
+             const isFalsePath = conn.handleId === 'false_out';
+             const strokeColor = isTruePath ? '#22c55e' : isFalsePath ? '#ef4444' : '#64748b';
+             const markerId = isTruePath ? 'url(#arrowhead-green)' : isFalsePath ? 'url(#arrowhead-red)' : 'url(#arrowhead)';
+
+             const isActivePath = activeSimNode === conn.source && simState === 'running';
+
+             return (
+               <g key={conn.id}>
+                  <path 
+                     d={d} 
+                     stroke={strokeColor} 
+                     strokeWidth={isActivePath ? "3" : "2"} 
+                     fill="none" 
+                     markerEnd={markerId}
+                     strokeDasharray={isActivePath ? "5,5" : "0"}
+                     className={isActivePath ? "animate-dash" : ""}
+                     style={{ animationDuration: '0.5s' }}
+                  />
+                  {/* Label Background */}
+                  {conn.label && (
+                     <rect x={(sx+tx)/2 - 15} y={(sy+ty)/2 - 10} width="30" height="20" rx="4" fill="#020617" stroke={strokeColor} strokeWidth="1" />
+                  )}
+                  {conn.label && (
+                     <text x={(sx+tx)/2} y={(sy+ty)/2 + 4} textAnchor="middle" fill={strokeColor} fontSize="10" fontWeight="bold">{conn.label}</text>
+                  )}
+               </g>
+             );
+          })}
+          {tempConnection && (
+             <path 
+               d={`M ${tempConnection.x1} ${tempConnection.y1} C ${tempConnection.x1 + 80} ${tempConnection.y1}, ${tempConnection.x2 - 80} ${tempConnection.y2}, ${tempConnection.x2} ${tempConnection.y2}`} 
+               stroke={getHandleColor(dragState?.sourceHandle)} 
+               strokeWidth="2" 
+               strokeDasharray="5,5"
+               fill="none" 
+               markerEnd={dragState?.sourceHandle === 'true_out' ? 'url(#arrowhead-green)' : dragState?.sourceHandle === 'false_out' ? 'url(#arrowhead-red)' : 'url(#arrowhead)'}
+             />
+          )}
+       </svg>
+     );
+  };
+
+  const saveJSON = () => {
+     const schema = {
+        meta: { name: "Workflow Export", version: "2.0", created: new Date().toISOString() },
+        stages,
+        nodes,
+        connections
+     };
+     const blob = new Blob([JSON.stringify(schema, null, 2)], { type: 'application/json' });
+     const url = URL.createObjectURL(blob);
+     const a = document.createElement('a');
+     a.href = url;
+     a.download = 'workflow_schema_v2.json';
+     a.click();
+  };
+
+  return (
+    <div className="flex h-screen bg-dark-950 text-slate-200 overflow-hidden font-sans">
+      <style>{`
+        @keyframes dash {
+          to { stroke-dashoffset: -10; }
+        }
+        .animate-dash {
+           animation: dash 1s linear infinite;
+        }
+      `}</style>
+
+      {/* 1. Toolbar */}
+      <WorkflowToolbar onDragStart={handleDragStart} />
+
+      {/* 2. Canvas Area */}
+      <div className="flex-1 flex flex-col relative h-full">
+         
+         {/* Header */}
+         <div className="h-16 bg-dark-950/80 backdrop-blur border-b border-dark-800 flex justify-between items-center px-6 z-30 shrink-0 shadow-sm">
+            <div className="flex items-center gap-4">
+               <h1 className="font-bold text-white flex items-center gap-2 text-lg">
+                  <MessageSquare size={20} className="text-brand-400"/> Workflow Studio
+               </h1>
+               
+               <div className="h-6 w-px bg-dark-700 mx-2"></div>
+               
+               <button 
+                 onClick={() => setShowTemplateModal(true)}
+                 className="px-3 py-1.5 rounded-lg bg-dark-900 border border-dark-700 text-xs font-medium text-slate-300 hover:text-white hover:border-brand-500/50 transition-all flex items-center gap-2 group"
+               >
+                 <LayoutTemplate size={14} className="text-slate-500 group-hover:text-brand-400"/> Templates
+               </button>
+
+               {/* Stage Manager Trigger */}
+               <button onClick={() => setShowStageManager(!showStageManager)} className="px-3 py-1.5 rounded-lg bg-dark-900 border border-dark-700 text-xs font-medium text-slate-300 hover:text-white hover:border-brand-500/50 transition-all flex items-center gap-2 group">
+                   <Layers size={14} className="text-slate-500 group-hover:text-brand-400"/> Stages ({stages.length})
+               </button>
+
+               {/* Undo / Redo */}
+               <div className="flex gap-1 ml-4">
+                   <button onClick={handleUndo} disabled={historyIndex === 0} className="p-1.5 rounded hover:bg-white/10 text-slate-400 disabled:opacity-30" title="Undo (Ctrl+Z)">
+                       <Undo size={16}/>
+                   </button>
+                   <button onClick={handleRedo} disabled={historyIndex === history.length - 1} className="p-1.5 rounded hover:bg-white/10 text-slate-400 disabled:opacity-30" title="Redo (Ctrl+Y)">
+                       <Redo size={16}/>
+                   </button>
+               </div>
             </div>
-            <button onClick={() => setSelectedNode(null)}><X size={16} className="text-slate-500 hover:text-white"/></button>
-         </div>
 
-         <div className="space-y-4">
-            <Input label="Node Name" value={selectedNode.label} onChange={(e) => updateSelectedNode({ label: e.target.value })} />
-            <Input label="Description" value={selectedNode.details || ''} onChange={(e) => updateSelectedNode({ details: e.target.value })} />
-            
-            {selectedNode.type === 'trigger' && (
-              <div className="space-y-3 p-3 bg-dark-900 rounded border border-dark-700">
-                 <h4 className="text-xs font-bold text-slate-500 uppercase">Trigger Configuration</h4>
-                 <Select label="Integration App" options={TRIGGER_PROVIDERS} value={providerId || 'manual'} onChange={(e) => updateNodeConfig('providerId', e.target.value)} />
-                 <Select label="Event" options={APP_EVENTS[providerId || 'manual'] || []} value={config.eventId || ''} onChange={(e) => updateNodeConfig('eventId', e.target.value)} />
-                 {providerId === 'sf' && (
-                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                     <Input label="Object Type" defaultValue="Opportunity" disabled={true} />
-                     <Input label="Stage Condition" placeholder="e.g. Closed Won" />
-                   </div>
-                 )}
-                 {providerId === 'manual' && config.eventId === 'webhook' && (
-                    <div className="p-2 bg-dark-950 rounded border border-dark-800 text-xs font-mono text-slate-400 break-all">POST /api/hooks/v1/trigger/{selectedNode.id}</div>
-                 )}
-              </div>
-            )}
-
-            {selectedNode.type === 'approval' && (
-              <div className="space-y-3 p-3 bg-dark-900 rounded border border-dark-700">
-                 <h4 className="text-xs font-bold text-slate-500 uppercase">Approval Settings</h4>
-                 <Select label="Responsible Role" options={[ {label: 'Legal Team', value: UserRole.LEGAL}, {label: 'Finance Team', value: UserRole.FINANCE}, {label: 'Sales Manager', value: UserRole.SALES}, {label: 'HR Department', value: UserRole.HR}, {label: 'System Admin', value: UserRole.ADMIN} ]} value={selectedNode.role || ''} onChange={(e) => updateSelectedNode({ role: e.target.value as UserRole })} />
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Assignment Logic</label>
-                    <div className="flex gap-2">
-                       <select className="bg-dark-950 border border-dark-700 rounded text-xs px-2 py-1 text-white w-24"><option>Always</option><option>If...</option></select>
-                       <input placeholder="e.g. Value > 50000" className="flex-1 bg-dark-950 border border-dark-700 rounded text-xs px-2 py-1 text-white" />
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1">Leave blank to always assign to this role.</p>
-                 </div>
-              </div>
-            )}
-
-            {selectedNode.type === 'action' && (
-               <div className="space-y-3 p-3 bg-dark-900 rounded border border-dark-700">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase">Action Configuration</h4>
-                  <Select label="Integration App" options={ACTION_PROVIDERS} value={providerId || 'system'} onChange={(e) => updateNodeConfig('providerId', e.target.value)} />
-                  <Select label="Action to Perform" options={APP_ACTIONS[providerId || 'system'] || []} value={config.actionId || ''} onChange={(e) => updateNodeConfig('actionId', e.target.value)} />
-                  {config.actionId === 'email' && (
-                     <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                        <Input label="Recipient (Email or Variable)" placeholder="{{contract.owner_email}}" />
-                        <Input label="Subject Line" placeholder="Review Required: {{contract.title}}" />
-                     </div>
-                  )}
-                  {providerId === 'slack' && (
-                     <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                        <Input label="Channel ID" placeholder="#legal-updates" />
-                        <textarea className="w-full bg-dark-950 border border-dark-700 rounded p-2 text-xs text-white" placeholder="Message body..." rows={3}></textarea>
-                     </div>
-                  )}
-                  {providerId === 'jira' && (
-                     <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                        <Input label="Project Key" placeholder="LEG" />
-                        <Select label="Issue Type" options={[{label: 'Task', value:'Task'}, {label:'Sub-task', value:'Sub-task'}]} />
-                     </div>
-                  )}
-               </div>
-            )}
-
-            {selectedNode.type === 'condition' && (
-               <div>
-                  <div className="flex justify-between items-center mb-2">
-                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Logic Engine</label>
-                     <div className="flex bg-dark-900 rounded p-0.5 border border-dark-700">
-                        <button onClick={() => setLogicMode('visual')} className={`px-2 py-1 text-[10px] rounded ${logicMode === 'visual' ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white'}`}>Visual</button>
-                        <button onClick={() => setLogicMode('code')} className={`px-2 py-1 text-[10px] rounded ${logicMode === 'code' ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white'}`}>JQL</button>
-                     </div>
+            <div className="flex items-center gap-3">
+               {validationErrors.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-red-400 mr-4 px-3 py-1 bg-red-500/10 rounded-full border border-red-500/20 animate-pulse">
+                     <AlertTriangle size={14}/> {validationErrors.length} Issues
                   </div>
-                  {logicMode === 'visual' ? (
-                     <div className="p-3 bg-dark-900 border border-dark-700 rounded-lg space-y-3">
-                        <div className="flex items-center gap-2 text-xs text-slate-300">
-                           <span className="font-bold text-brand-400">IF</span>
-                           <select className="bg-dark-950 border border-dark-700 rounded px-2 py-1 outline-none"><option>Contract Value</option><option>Risk Score</option></select>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-300">
-                           <select className="bg-dark-950 border border-dark-700 rounded px-2 py-1 outline-none"><option>Greater Than</option><option>Equals</option></select>
-                           <input className="bg-dark-950 border border-dark-700 rounded px-2 py-1 w-20 outline-none" defaultValue="50000" />
-                        </div>
-                        <Button variant="secondary" className="w-full text-xs mt-2">+ Add Condition</Button>
-                     </div>
-                  ) : (
-                     <JQLEditor nodeId={selectedNode.id} />
-                  )}
-               </div>
-            )}
-
-            <div className="pt-4 border-t border-dark-700">
-               <Button variant="ghost" className="w-full text-red-400 hover:bg-red-900/20 hover:text-red-300" onClick={() => { setWorkflow(prev => prev.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}>
-                 <Trash2 size={14} className="mr-2"/> Delete Node
+               )}
+               <Button variant="secondary" className="h-9 text-xs gap-2" onClick={runSimulation} disabled={simState === 'running'}>
+                  {simState === 'running' ? <Loader2 size={14} className="animate-spin"/> : <Play size={14}/>}
+                  {simState === 'running' ? 'Simulating...' : 'Live Preview'}
+               </Button>
+               <Button variant="primary" className="h-9 text-xs gap-2 shadow-lg shadow-brand-500/20" onClick={saveJSON}>
+                  <Save size={14}/> Publish Workflow
                </Button>
             </div>
          </div>
-      </div>
-    );
-  };
 
-  const renderEditor = () => (
-    <div className="flex h-full gap-px bg-dark-800 overflow-hidden">
-      {/* Left: Toolbox */}
-      <div className="w-14 bg-dark-950 border-r border-dark-700 flex flex-col items-center py-4 gap-4 z-20 shadow-xl">
-         <div className="p-2 bg-brand-500/10 rounded text-brand-400 mb-2"><PenTool size={20} /></div>
-         {[{ type: 'trigger', icon: Play, color: 'text-yellow-500', label: 'Trigger' }, { type: 'approval', icon: User, color: 'text-red-500', label: 'Approval' }, { type: 'condition', icon: GitBranch, color: 'text-blue-500', label: 'Condition' }, { type: 'action', icon: Zap, color: 'text-green-500', label: 'Action' }].map((tool) => (
-           <div key={tool.type} className="group relative" draggable onDragStart={(e) => handleToolDragStart(e, tool.type)}>
-             <div className={`p-3 rounded-lg bg-dark-900 border border-dark-700 text-slate-400 hover:bg-dark-800 hover:border-slate-500 hover:${tool.color} cursor-grab active:cursor-grabbing transition-all shadow-sm`}>
-               <tool.icon size={20} />
-             </div>
-             <div className="absolute left-full top-2 ml-2 px-2 py-1 bg-dark-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 border border-dark-600 shadow-lg">Drag {tool.label}</div>
-           </div>
-         ))}
-      </div>
-
-      {/* Center: Canvas (Stage Based) */}
-      <div className="flex-1 flex flex-col bg-dark-900 relative overflow-hidden dot-grid-bg">
-         <div className="h-14 bg-dark-950 border-b border-dark-700 flex justify-between items-center px-6 z-20 shadow-sm">
-            <div className="flex items-center gap-3">
-               <span className="font-bold text-white">{workflowName}</span>
-               {isPublished ? <Badge color="green">Active</Badge> : <Badge color="yellow">Draft</Badge>}
-            </div>
-            <div className="flex items-center gap-2">
-               <Button variant="ghost" className="text-xs" onClick={() => setWorkflow([])}><RotateCcw size={14} className="mr-1"/> Reset</Button>
-               <Button variant="secondary" className="text-xs" onClick={handleTestRun}><PlayCircle size={14} className="mr-1"/> Test Run</Button>
-               <Button variant="primary" className="text-xs" onClick={handlePublish} disabled={isPublished}><CloudLightning size={14} className="mr-1"/> {isPublished ? 'Published' : 'Publish'}</Button>
-               <Button variant="ghost" className="text-xs ml-2" onClick={() => setIsRightPanelOpen(!isRightPanelOpen)} title="Toggle Properties"><Settings size={16}/></Button>
-            </div>
-         </div>
-
-         <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 relative custom-scrollbar" ref={canvasRef}>
-             {/* SVG Layer for connections */}
-             <svg className="absolute inset-0 pointer-events-none z-0 w-full h-full overflow-visible">
-                <defs>
-                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
-                  </marker>
-                </defs>
-                {connections.map((conn, i) => (
-                  <path 
-                    key={i} 
-                    d={`M ${conn.x1} ${conn.y1} C ${conn.x1 + 60} ${conn.y1}, ${conn.x2 - 60} ${conn.y2}, ${conn.x2} ${conn.y2}`} 
-                    fill="none" 
-                    stroke="#64748b" 
-                    strokeWidth="2" 
-                    strokeDasharray="4 4" 
-                    markerEnd="url(#arrowhead)" 
-                    className="opacity-40" 
-                  />
-                ))}
-             </svg>
-
-             <div className="flex gap-6 h-full min-w-max pb-8">
-                 {stages.map((stage, index) => (
-                    <div 
-                      key={stage.id}
-                      className="w-72 flex flex-col bg-dark-950/80 border border-dark-700 rounded-xl h-full backdrop-blur-sm relative z-10 shadow-lg transition-all hover:border-dark-600"
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, stage.id)}
-                    >
-                       {/* Stage Header */}
-                       <div className={`p-3 border-t-4 ${stage.color} rounded-t-xl bg-dark-900/80 border-b border-dark-700 flex justify-between items-center relative`}>
-                          <h4 className="font-bold text-slate-200 text-sm uppercase tracking-wide truncate pr-2">{stage.name}</h4>
-                          <div className="flex gap-1 relative">
-                            <button 
-                                className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white" 
-                                onClick={(e) => toggleAddMenu(stage.id, e)} 
-                                title="Add Node"
-                            >
-                                <Plus size={14}/>
-                            </button>
-                            {activeAddMenu === stage.id && (
-                                <div className="absolute right-0 top-8 w-36 bg-dark-900 border border-dark-700 rounded-lg shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100 flex flex-col">
-                                    <div className="px-3 py-1 text-[10px] uppercase font-bold text-slate-500 border-b border-dark-800 mb-1">Add Node</div>
-                                    <button onClick={(e) => { e.stopPropagation(); handleAddNode('trigger', stage.id); setActiveAddMenu(null); }} className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2">
-                                        <Play size={12} className="text-yellow-500"/> Trigger
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleAddNode('action', stage.id); setActiveAddMenu(null); }} className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2">
-                                        <Zap size={12} className="text-green-500"/> Action
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleAddNode('condition', stage.id); setActiveAddMenu(null); }} className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2">
-                                        <GitBranch size={12} className="text-blue-500"/> Condition
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleAddNode('approval', stage.id); setActiveAddMenu(null); }} className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2">
-                                        <User size={12} className="text-red-500"/> Approval
-                                    </button>
-                                </div>
-                            )}
-
-                            <button className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white" onClick={(e) => toggleStageMenu(stage.id, e)}><MoreVertical size={14}/></button>
-                          </div>
-                          
-                          {/* Stage Menu Popover */}
-                          {activeStageMenu === stage.id && (
-                            <div className="absolute right-2 top-10 w-40 bg-dark-900 border border-dark-700 rounded-lg shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
-                               <button onClick={(e) => handleEditStageClick(stage, e)} className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2">
-                                  <Edit2 size={12} /> Edit Stage
-                               </button>
-                               <button onClick={(e) => handleMoveStage(index, 'left', e)} disabled={index === 0} className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed">
-                                  <MoveLeft size={12} /> Move Left
-                               </button>
-                               <button onClick={(e) => handleMoveStage(index, 'right', e)} disabled={index === stages.length - 1} className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed">
-                                  <MoveRight size={12} /> Move Right
-                               </button>
-                               <div className="border-t border-white/5 my-1"></div>
-                               <button onClick={(e) => handleDeleteStage(stage.id, e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-900/20 flex items-center gap-2">
-                                  <Trash2 size={12} /> Delete Stage
-                               </button>
-                            </div>
-                          )}
-                       </div>
-
-                       {/* Nodes Container */}
-                       <div className="flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar">
-                          {workflow.filter(n => n.stageId === stage.id).map((node) => (
-                             <div 
-                                id={`node-${node.id}`}
-                                key={node.id}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, node.id)}
-                                onClick={() => setSelectedNode(node)}
-                                className={`bg-dark-900 border rounded-lg p-3 cursor-pointer shadow-md group transition-all relative z-20 ${selectedNode?.id === node.id ? 'border-brand-500 ring-1 ring-brand-500/50 shadow-[0_0_15px_rgba(var(--color-brand-500),0.2)]' : 'border-dark-700 hover:border-slate-500 hover:-translate-y-0.5 hover:shadow-lg'}`}
-                             >
-                                <div className="flex justify-between items-start mb-2">
-                                   <div className="flex items-center gap-2">
-                                      {node.type === 'trigger' && <Play size={12} className="text-yellow-500"/>}
-                                      {node.type === 'condition' && <GitBranch size={12} className="text-blue-500"/>}
-                                      {node.type === 'approval' && <User size={12} className="text-red-500"/>}
-                                      {node.type === 'action' && <Zap size={12} className="text-green-500"/>}
-                                      <span className="text-[10px] font-bold uppercase text-slate-500">{node.type}</span>
-                                   </div>
-                                   <GripVertical size={12} className="text-dark-700 group-hover:text-slate-500 cursor-grab"/>
-                                </div>
-                                <p className="text-sm font-medium text-slate-200">{node.label}</p>
-                                {node.details && <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">{node.details}</p>}
-                                {node.type === 'approval' && node.role && <Badge color="gray" className="mt-1 text-[9px]">{node.role}</Badge>}
-                                {(node.type === 'condition' && jqlCode[node.id]) && (
-                                   <div className="mt-2 pt-2 border-t border-dark-700 flex items-center gap-1 text-[9px] text-brand-400"><Code size={8} /> Custom JQL</div>
-                                )}
-                             </div>
-                          ))}
-                          {workflow.filter(n => n.stageId === stage.id).length === 0 && (
-                             <div className="h-24 border-2 border-dashed border-dark-800 rounded-lg flex flex-col items-center justify-center text-slate-600 text-xs bg-dark-900/30">Drag items here</div>
-                          )}
-                       </div>
-                    </div>
-                 ))}
-                 
-                 {/* Add Stage Button */}
-                 <button onClick={handleAddStageClick} className="w-12 h-full rounded-xl border-2 border-dashed border-dark-700 hover:border-brand-500 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center text-slate-500 hover:text-brand-400 gap-2 bg-dark-950/50">
-                    <Plus size={20} />
-                    <span className="text-[10px] font-bold uppercase rotate-90 whitespace-nowrap">Add Stage</span>
-                 </button>
-             </div>
-         </div>
-      </div>
-
-      {/* Right: Properties Panel (Collapsible) */}
-      <div className={`bg-dark-950 border-l border-dark-700 flex flex-col z-30 shadow-2xl transition-all duration-300 ease-in-out ${isRightPanelOpen ? 'w-96 translate-x-0' : 'w-0 translate-x-full opacity-0 overflow-hidden'}`}>
-         <div className="flex border-b border-dark-700 min-w-[24rem]">
-            <button onClick={() => setRightPanelTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors ${rightPanelTab === 'ai' ? 'text-brand-400 border-b-2 border-brand-500 bg-brand-500/5' : 'text-slate-500 hover:text-slate-300'}`}><Sparkles size={14} /> AI Agent</button>
-            <button onClick={() => setRightPanelTab('properties')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors ${rightPanelTab === 'properties' ? 'text-brand-400 border-b-2 border-brand-500 bg-brand-500/5' : 'text-slate-500 hover:text-slate-300'}`}><Settings size={14} /> Config</button>
-            <button onClick={() => setIsRightPanelOpen(false)} className="px-3 border-l border-dark-700 text-slate-500 hover:text-white"><ChevronRight size={16} /></button>
-         </div>
-         {rightPanelTab === 'ai' && (
-            <div className="flex-1 flex flex-col overflow-hidden min-w-[24rem]">
-               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-dark-900/20">
-                  {messages.map((msg) => (
-                     <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${msg.sender === 'user' ? 'bg-dark-800 border-dark-700' : 'bg-brand-500/10 border-brand-500/20'}`}>{msg.sender === 'user' ? <User size={14} className="text-slate-400" /> : <Bot size={14} className="text-brand-400" />}</div>
-                        <div className={`max-w-[85%] p-3 rounded-lg text-xs border ${msg.sender === 'user' ? 'bg-dark-800 border-dark-700 text-slate-200' : 'bg-brand-500/5 border-brand-500/10 text-slate-200'}`}><p>{msg.text}</p>{msg.workflowPreview && <div className="mt-2 p-2 bg-dark-950 rounded border border-white/10 text-[10px] text-green-400 flex gap-1 items-center"><CheckSquare size={10}/> Preview Loaded</div>}</div>
-                     </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-               </div>
-               <div className="p-4 border-t border-dark-700 bg-dark-900">
-                  <div className="flex gap-2">
-                     <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Build a workflow..." className="h-9 text-xs" onKeyDown={(e) => e.key === 'Enter' && handleSend()} />
-                     <Button variant="neon" className="h-9 w-9 p-0 flex items-center justify-center" onClick={handleSend} disabled={isTyping}><Send size={14}/></Button>
+         {/* Stage Manager Panel (Overlay) */}
+         {showStageManager && (
+            <div className="absolute top-16 left-0 right-0 z-40 bg-dark-900/95 border-b border-dark-700 p-4 animate-in slide-in-from-top-2 shadow-xl backdrop-blur-md">
+               <div className="max-w-4xl mx-auto">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Lifecycle Stages Configuration</h4>
+                  <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                     {stages.map((stage, i) => (
+                        <div key={stage.id} className="flex items-center gap-2 bg-dark-950 border border-dark-700 p-2 rounded-lg shrink-0 group hover:border-brand-500/30 transition-colors min-w-[150px]">
+                           <div className="w-3 h-3 rounded-full" style={{backgroundColor: stage.color}}></div>
+                           <span className="text-sm font-bold text-white">{stage.name}</span>
+                           <div className="flex-1"></div>
+                           <button className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setStages(stages.filter(s => s.id !== stage.id))}><Trash2 size={14}/></button>
+                        </div>
+                     ))}
+                     <button 
+                        onClick={() => setStages([...stages, {id: `stg_${Date.now()}`, name: 'New Stage', color: '#64748b', order: stages.length}])}
+                        className="flex items-center gap-2 bg-dark-950 border border-dashed border-dark-700 p-2 rounded-lg text-slate-500 hover:text-white hover:border-slate-500 shrink-0 transition-all"
+                     >
+                        <Plus size={14}/> Add Stage
+                     </button>
                   </div>
                </div>
             </div>
          )}
-         {rightPanelTab === 'properties' && <div className="flex-1 overflow-y-auto custom-scrollbar min-w-[24rem]">{renderPropertiesPanel()}</div>}
-      </div>
-    </div>
-  );
 
-  const renderTemplatesView = () => (
-     <div className="flex flex-col h-full bg-dark-900">
-        <div className="p-6 border-b border-dark-700 flex justify-between items-center bg-dark-950">
-            <div className="flex items-center gap-4">
-                <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                    <Input placeholder="Search templates..." className="pl-9 h-10 bg-dark-900" value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} />
-                </div>
-                <div className="w-48"><Select options={[{ label: 'All Categories', value: 'All' }, { label: 'Legal', value: 'Legal' }, { label: 'Finance', value: 'Finance' }, { label: 'Sales', value: 'Sales' }, { label: 'Procurement', value: 'Procurement' }, { label: 'HR', value: 'HR' }]} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} /></div>
-            </div>
-            <Button variant="primary" onClick={() => setActiveView('editor')}><Plus size={16} className="mr-2" /> Create from Scratch</Button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredTemplates.map(tpl => (
-                    <Card key={tpl.id} noPadding className="group hover:border-brand-500/40 transition-all relative flex flex-col h-full">
-                        <div className="p-5 flex-1 flex flex-col">
-                            <div className="flex justify-between items-start mb-3">
-                                <Badge color="gray">{tpl.category}</Badge>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleEditTemplate(tpl)} className="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Edit Details"><Edit2 size={14} /></button>
-                                    <button onClick={() => handleDeleteTemplate(tpl.id)} className="p-1.5 hover:bg-red-500/10 rounded text-slate-400 hover:text-red-400 transition-colors" title="Delete Template"><Trash2 size={14} /></button>
-                                </div>
-                            </div>
-                            <h3 className="font-bold text-white text-lg mb-2 group-hover:text-brand-400 transition-colors">{tpl.name}</h3>
-                            <p className="text-sm text-slate-400 line-clamp-3 mb-4 flex-1">{tpl.description}</p>
-                            <div className="flex flex-wrap gap-2 mb-4">{tpl.tags.map((tag: string, i: number) => (<span key={i} className="text-[10px] px-2 py-1 rounded bg-dark-800 border border-dark-700 text-slate-400 flex items-center gap-1"><Tag size={10} /> {tag}</span>))}</div>
-                            <div className="pt-4 border-t border-dark-700 flex items-center justify-between">
-                                <div className="text-xs text-slate-500"><span className="block">{tpl.nodes.length} Steps</span><span className="block opacity-60">{tpl.updated}</span></div>
-                                <Button variant="secondary" className="text-xs h-8" onClick={() => handleLoadTemplate(tpl)}>Use Template <ArrowRight size={12} className="ml-1" /></Button>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-        </div>
-     </div>
-  );
-
-  return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col relative">
-       <div className="flex items-center justify-between mb-4">
-          <div className="flex p-1 bg-dark-900 rounded-lg border border-dark-700">
-             <button onClick={() => setActiveView('editor')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'editor' ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Network size={14} /> Designer</button>
-             <button onClick={() => setActiveView('templates')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'templates' ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><LayoutTemplate size={14} /> Templates</button>
-          </div>
-       </div>
-
-       <div className="flex-1 bg-dark-950 border border-dark-700 rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
-          {activeView === 'editor' ? renderEditor() : renderTemplatesView()}
-          
-          {/* Publish Toast */}
-          {publishToast && (
-              <div className="absolute bottom-8 right-8 bg-green-500 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 z-[100]">
-                  <CheckCircle size={20} />
-                  <div>
-                      <p className="font-bold text-sm">Published Successfully!</p>
-                      <p className="text-xs opacity-90">Workflow is now active v1.0</p>
+         {/* Template Modal */}
+         {showTemplateModal && (
+            <div className="absolute inset-0 z-50 bg-dark-950/80 backdrop-blur-sm flex items-center justify-center p-10 animate-in fade-in">
+               <div className="bg-dark-900 w-full max-w-5xl h-[80vh] rounded-2xl border border-dark-700 shadow-2xl flex flex-col overflow-hidden">
+                  <div className="p-6 border-b border-dark-800 flex justify-between items-center bg-dark-950/50">
+                     <div>
+                        <h2 className="text-2xl font-bold text-white">Workflow Templates</h2>
+                        <p className="text-slate-400 text-sm">Jumpstart your process with pre-configured logic flows.</p>
+                     </div>
+                     <button onClick={() => setShowTemplateModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} className="text-slate-500 hover:text-white"/></button>
                   </div>
-              </div>
-          )}
-       </div>
-
-       {/* Test Run Modal */}
-       {isTestModalOpen && (
-           <div className="absolute inset-0 z-50 flex items-center justify-center bg-dark-950/80 backdrop-blur-sm animate-in fade-in">
-               <div className="w-full max-w-lg bg-dark-900 border border-dark-700 rounded-xl shadow-2xl overflow-hidden">
-                   <div className="p-4 border-b border-dark-700 bg-dark-950 flex justify-between items-center">
-                       <h3 className="font-bold text-white flex items-center gap-2"><PlayCircle size={18} className="text-brand-400"/> Workflow Test Simulator</h3>
-                       <button onClick={() => setIsTestModalOpen(false)} className="text-slate-500 hover:text-white"><X size={18}/></button>
-                   </div>
-                   <div className="p-6 bg-dark-900 min-h-[300px]">
-                       <div className="space-y-4 font-mono text-xs">
-                           {testSteps.map((step, i) => (
-                               <div key={i} className="flex items-center gap-3 text-slate-300 animate-in slide-in-from-left-2">
-                                   <span className="text-brand-500">➜</span> {step}
-                               </div>
-                           ))}
-                           {testStatus === 'running' && (
-                               <div className="flex items-center gap-2 text-slate-500 animate-pulse">
-                                   <div className="w-2 h-2 bg-slate-500 rounded-full"></div> Processing...
-                               </div>
-                           )}
-                           {testStatus === 'success' && (
-                               <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 flex items-center gap-3 animate-in zoom-in">
-                                   <CheckCircle size={24} />
-                                   <div>
-                                       <p className="font-bold text-sm">Test Completed Successfully</p>
-                                       <p className="text-[10px] opacity-80">No logic errors or broken paths detected.</p>
-                                   </div>
-                               </div>
-                           )}
-                       </div>
-                   </div>
-                   <div className="p-4 border-t border-dark-700 bg-dark-950 flex justify-end">
-                       <Button variant="secondary" onClick={() => setIsTestModalOpen(false)}>{testStatus === 'success' ? 'Close' : 'Cancel Test'}</Button>
-                   </div>
+                  <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 custom-scrollbar bg-dark-950/30">
+                     {INITIAL_TEMPLATES.map(template => (
+                        <div 
+                           key={template.id} 
+                           onClick={() => handleLoadTemplate(template)}
+                           className="group bg-dark-900 border border-dark-700 hover:border-brand-500/50 rounded-xl p-6 cursor-pointer transition-all hover:shadow-xl hover:shadow-brand-500/10 hover:-translate-y-1 relative overflow-hidden"
+                        >
+                           <div className="absolute top-0 right-0 p-16 bg-brand-500/5 rounded-full blur-2xl -mr-8 -mt-8 transition-opacity opacity-50 group-hover:opacity-100"></div>
+                           <div className="flex justify-between items-start mb-4">
+                              <div className="p-3 bg-dark-800 rounded-lg text-slate-400 group-hover:text-brand-400 group-hover:bg-brand-500/10 transition-colors">
+                                 <LayoutTemplate size={24}/>
+                              </div>
+                              <Badge color="gray">{template.category}</Badge>
+                           </div>
+                           <h3 className="text-lg font-bold text-white mb-2 group-hover:text-brand-400 transition-colors">{template.name}</h3>
+                           <p className="text-xs text-slate-400 mb-4 h-10 line-clamp-2 leading-relaxed">{template.description}</p>
+                           <div className="flex gap-2 mb-4">
+                              {template.tags.map(tag => (
+                                 <span key={tag} className="text-[10px] bg-dark-950 border border-dark-700 px-2 py-1 rounded text-slate-500">{tag}</span>
+                              ))}
+                           </div>
+                           <div className="flex items-center text-xs text-slate-500 pt-4 border-t border-dark-800">
+                              <Layers size={12} className="mr-1"/> {template.schema.nodes.length} Steps
+                              <span className="mx-2">•</span>
+                              Updated {template.updated}
+                           </div>
+                        </div>
+                     ))}
+                  </div>
                </div>
-           </div>
-       )}
+            </div>
+         )}
 
-       {/* Template Modal */}
-       {showSaveModal && (
-           <div className="absolute inset-0 bg-dark-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-               <div className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-                   <div className="p-4 border-b border-dark-700 flex justify-between items-center bg-dark-800/50">
-                       <h3 className="text-lg font-bold text-white flex items-center gap-2"><Save size={18} className="text-brand-400"/> {editingTemplateId ? 'Edit Template Metadata' : 'Save as New Template'}</h3>
-                       <button onClick={() => setShowSaveModal(false)} className="text-slate-500 hover:text-white"><X size={18}/></button>
-                   </div>
-                   <div className="p-6 space-y-4">
-                       <Input label="Template Name" value={templateForm.name} onChange={(e) => setTemplateForm({...templateForm, name: e.target.value})} />
-                       <Select label="Category" options={[{ label: 'General', value: 'General' }, { label: 'Legal', value: 'Legal' }, { label: 'Finance', value: 'Finance' }, { label: 'Sales', value: 'Sales' }, { label: 'Procurement', value: 'Procurement' }, { label: 'HR', value: 'HR' }]} value={templateForm.category} onChange={(e) => setTemplateForm({...templateForm, category: e.target.value})} />
-                       <div><label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Description</label><textarea className="w-full rounded-lg bg-dark-950/50 border border-dark-700 px-3 py-2.5 text-sm text-white h-24 resize-none" value={templateForm.description} onChange={(e) => setTemplateForm({...templateForm, description: e.target.value})}></textarea></div>
-                       <Input label="Tags (comma separated)" placeholder="e.g. NDA, Quick, Automated" value={templateForm.tags} onChange={(e) => setTemplateForm({...templateForm, tags: e.target.value})} />
-                   </div>
-                   <div className="p-4 border-t border-dark-700 bg-dark-800/30 flex justify-end gap-3">
-                       <Button variant="ghost" onClick={() => setShowSaveModal(false)}>Cancel</Button>
-                       <Button variant="primary" onClick={handleSaveTemplateSubmit}>{editingTemplateId ? 'Update Template' : 'Create Template'}</Button>
-                   </div>
+         {/* Interactive Layer */}
+         <div 
+            className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
+            ref={canvasRef}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseDown={(e) => { 
+               if(e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle click or Shift+Click
+                  setIsPanning(true); 
+               } 
+            }}
+            onMouseLeave={() => { setIsPanning(false); setDragState(null); }}
+            onDragOver={(e) => e.preventDefault()} // Allow drop
+            onDrop={handleDrop}
+            onKeyDown={(e) => { if(e.code === 'Space') document.body.style.cursor = 'grab'; }}
+            onKeyUp={() => document.body.style.cursor = 'default'}
+            tabIndex={0}
+         >
+            {/* Grid Background */}
+            <div 
+               className="absolute inset-0 pointer-events-none opacity-20"
+               style={{
+                  backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)',
+                  backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
+                  backgroundPosition: `${pan.x}px ${pan.y}px`
+               }}
+            />
+
+            {/* Transform Container */}
+            <div 
+               className="absolute inset-0 transform-gpu origin-top-left"
+               style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
+               }}
+            >
+               {renderConnections()}
+               
+               {nodes.map(node => {
+                  const stage = stages.find(s => s.id === node.config.stageId);
+                  return (
+                     <WorkflowNodeCard 
+                        key={node.id}
+                        node={node}
+                        zoom={1} // Node handles its own zoom visuals if needed, but usually container scales
+                        stageName={stage?.name}
+                        stageColor={stage?.color}
+                        isSelected={selectedNodeId === node.id}
+                        isValid={!validationErrors.find(e => e.nodeId === node.id)}
+                        isSimActive={activeSimNode === node.id}
+                        onMouseDown={handleNodeMouseDown}
+                        onHandleMouseDown={handleConnectionStart}
+                     />
+                  )
+               })}
+            </div>
+
+            {/* Controls Overlay */}
+            <div className="absolute bottom-8 left-8 flex flex-col gap-2 z-30">
+               <div className="bg-dark-900/90 backdrop-blur border border-dark-700 rounded-lg shadow-xl p-1 flex flex-col">
+                  <button onClick={() => setZoom(z => z + 0.1)} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><ZoomIn size={18}/></button>
+                  <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><ZoomOut size={18}/></button>
+                  <button onClick={() => { setZoom(1); setPan({x:0, y:0}); }} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Maximize size={18}/></button>
                </div>
-           </div>
-       )}
+            </div>
 
-       {/* Stage Config Modal */}
-       {showStageModal && (
-          <div className="absolute inset-0 bg-dark-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-             <div className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-dark-700 flex justify-between items-center bg-dark-800/50">
-                   <h3 className="text-lg font-bold text-white flex items-center gap-2"><LayoutTemplate size={18} className="text-brand-400"/> {isEditingStage ? 'Edit Stage' : 'Add New Stage'}</h3>
-                   <button onClick={() => setShowStageModal(false)} className="text-slate-500 hover:text-white"><X size={18}/></button>
-                </div>
-                <div className="p-6 space-y-4">
-                   <Input label="Stage Name" value={stageForm.name} onChange={(e) => setStageForm({...stageForm, name: e.target.value})} placeholder="e.g. Legal Review" />
-                   <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Stage Color Indicator</label>
-                      <div className="grid grid-cols-4 gap-3">
-                         {STAGE_COLORS.map(color => (
-                            <button key={color.value} onClick={() => setStageForm({...stageForm, color: color.value})} className={`h-8 rounded-lg ${color.bg} opacity-80 hover:opacity-100 transition-all ring-2 ring-offset-2 ring-offset-dark-900 ${stageForm.color === color.value ? 'ring-white scale-110' : 'ring-transparent'}`} title={color.label}></button>
-                         ))}
-                      </div>
-                   </div>
-                </div>
-                <div className="p-4 border-t border-dark-700 bg-dark-800/30 flex justify-end gap-3">
-                   <Button variant="ghost" onClick={() => setShowStageModal(false)}>Cancel</Button>
-                   <Button variant="primary" onClick={handleSaveStage}>{isEditingStage ? 'Save Changes' : 'Create Stage'}</Button>
-                </div>
-             </div>
-          </div>
-       )}
+            {/* Simulation Log Overlay */}
+            {simState !== 'idle' && (
+               <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-dark-900/90 backdrop-blur border border-green-500/30 rounded-xl p-4 shadow-2xl w-96 animate-in slide-in-from-top-4 z-40">
+                  <h4 className="text-xs font-bold text-green-400 uppercase mb-2 flex items-center gap-2"><Play size={12}/> Running Simulation</h4>
+                  <div className="h-32 overflow-y-auto custom-scrollbar space-y-1">
+                     {simLog.map((log, i) => (
+                        <div key={i} className="text-[10px] font-mono text-slate-300 border-l-2 border-dark-700 pl-2 animate-in fade-in slide-in-from-left-2">{log}</div>
+                     ))}
+                  </div>
+               </div>
+            )}
+
+         </div>
+      </div>
+
+      {/* 3. Properties Panel */}
+      <PropertiesPanel 
+         node={nodes.find(n => n.id === selectedNodeId) || null}
+         stages={stages}
+         onChange={(updated) => setNodes(nodes.map(n => n.id === updated.id ? updated : n))}
+         onClose={() => setSelectedNodeId(null)}
+         onDelete={handleDeleteNode}
+      />
     </div>
   );
 };

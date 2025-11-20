@@ -4,7 +4,8 @@ export enum UserRole {
   LEGAL = 'Legal',
   SALES = 'Sales',
   HR = 'HR',
-  FINANCE = 'Finance'
+  FINANCE = 'Finance',
+  VIEWER = 'Viewer'
 }
 
 export enum ContractStatus {
@@ -15,59 +16,127 @@ export enum ContractStatus {
   EXPIRED = 'Expired'
 }
 
-export interface Contract {
+export type WorkflowCategory = 'trigger' | 'approval' | 'condition' | 'action' | 'integration' | 'stage' | 'utility';
+
+export type ActionType = 
+  | 'generate_document' 
+  | 'upload_version' 
+  | 'send_review' 
+  | 'redlining' 
+  | 'signature' 
+  | 'email' 
+  | 'update_record' 
+  | 'slack_notify'
+  | 'stage_transition'
+  | 'create_task'
+  | 'delay';
+
+export interface ConditionRule {
   id: string;
-  title: string;
-  counterparty: string;
-  value: number;
-  status: ContractStatus;
-  startDate: string;
-  renewalDate: string;
-  riskScore: number; // 0-100
-  owner: string;
-  type: string;
+  field: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty';
+  value: string | number;
+  logic: 'AND' | 'OR';
 }
 
-export interface WorkflowStage {
-  id: string;
-  name: string;
-  order: number;
-  color: string;
+export interface WorkflowNodeConfig {
+  // General
+  description?: string;
+  stageId?: string; // The stage this node belongs to or transitions to
+
+  // Approval Config
+  approverType?: 'user' | 'role' | 'group' | 'dynamic';
+  approverId?: string; // ID of role or user
+  approvalOrder?: 'serial' | 'parallel';
+  escalationTime?: number; // Hours
+  escalationTarget?: string;
+
+  // Condition Config
+  rules?: ConditionRule[];
+  
+  // Integration Config
+  integrationId?: string;
+  endpoint?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
+  headers?: { key: string; value: string }[];
+  payload?: string; // JSON structure
+  
+  // Action Config
+  actionType?: ActionType;
+  templateId?: string; // For document generation
+  signatureProvider?: 'docusign' | 'adobe' | 'hellosign';
+  signers?: { role: string; email?: string; type: 'internal' | 'external' }[];
+  emailSubject?: string;
+  emailBody?: string;
+  recipient?: string; // For email/review
+  
+  // Utility & Task Config
+  delayTime?: number;
+  delayUnit?: 'hours' | 'days' | 'weeks';
+  taskTitle?: string;
+  taskPriority?: 'High' | 'Medium' | 'Low';
+  taskAssignee?: string;
+  
+  // Scheduled Trigger
+  cronSchedule?: string;
 }
 
 export interface WorkflowNode {
   id: string;
-  stageId?: string; // New: Link node to a specific lifecycle stage
+  category: WorkflowCategory;
+  type: string; // Specific sub-type like 'salesforce_trigger' or 'generate_doc'
   label: string;
-  type: 'trigger' | 'action' | 'condition' | 'approval';
-  role?: UserRole;
-  details?: string;
-}
-
-export interface Clause {
-  id: string;
-  name: string;
-  category: string;
-  content: string;
-  riskLevel: 'Low' | 'Medium' | 'High';
-  tags: string[];
-}
-
-export interface IntegrationNode {
-  id: string;
-  name: string;
-  icon: string;
-  connected: boolean;
   x: number;
   y: number;
+  config: WorkflowNodeConfig;
+  isValid?: boolean;
+  validationError?: string;
 }
 
-export interface ChatMessage {
+export interface WorkflowConnection {
   id: string;
-  sender: 'user' | 'system';
-  text: string;
-  timestamp: Date;
-  workflowPreview?: WorkflowNode[];
+  source: string;
+  target: string;
+  label?: string;
+  handleId?: 'true_out' | 'false_out' | 'default';
+}
+
+export interface WorkflowStageDefinition {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+}
+
+export interface WorkflowSchema {
+  meta: {
+    name: string;
+    description?: string;
+    version: string;
+    created: string;
+    updated: string;
+  };
+  stages: WorkflowStageDefinition[];
+  nodes: WorkflowNode[];
+  connections: WorkflowConnection[];
+}
+
+// New Types needed for fixes
+export type WorkflowStage = WorkflowStageDefinition;
+
+// Updated to match Schema for full loading
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  updated: string;
+  schema: {
+    stages: WorkflowStageDefinition[];
+    nodes: WorkflowNode[];
+    connections: WorkflowConnection[];
+  };
 }
 
 export type SyncDirection = 'import' | 'export' | 'bidirectional';
@@ -77,124 +146,24 @@ export interface FieldMapping {
   externalField: string;
   internalVariable: string;
   direction: SyncDirection;
-  dataType: 'string' | 'number' | 'date' | 'boolean';
+  dataType: string;
   active: boolean;
 }
 
-export interface IntegrationApp {
-  id: string;
-  name: string;
-  category: 'CRM' | 'ERP' | 'Communication' | 'Storage' | 'Signature';
-  description: string;
-  icon: string;
-  installed: boolean;
-  status?: 'active' | 'error' | 'syncing';
-  mappings?: FieldMapping[]; // New: Store field mappings
-}
-
-export interface RiskItem {
-  id: string;
-  contractId: string;
-  description: string;
-  severity: 'Critical' | 'High' | 'Medium' | 'Low';
-  status: 'Open' | 'Mitigated' | 'Accepted';
-  dueDate: string;
-}
-
-export interface Counterparty {
-  id: string;
-  name: string;
-  type: 'Customer' | 'Vendor' | 'Partner';
-  region: string;
-  riskScore: number;
-  activeContracts: number;
-  totalValue: number;
-}
-
-// Logic Engine Types
-export type LogicOperator = 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains';
-export type LogicActionType = 'route_to' | 'assign_role' | 'require_field' | 'auto_approve';
-
-export interface LogicRule {
-  id: string;
-  variable: string;
-  operator: LogicOperator;
-  value: string;
-  actionType: LogicActionType;
-  target: string; // Node ID, Role Name, or Field ID
-}
-
-// Field Database Types
-export interface FieldDefinition {
-  id: string;
-  name: string;
-  key: string;
-  type: 'text' | 'number' | 'date' | 'select' | 'email' | 'currency' | 'relationship' | 'json';
-  source: 'system' | 'custom' | 'integration';
-  integrationAppId?: string; // e.g. 'sf'
-  externalField?: string; // e.g. 'Amount'
-  relatedTableId?: string; // for relationships
-  required: boolean;
-}
-
-export interface FieldTable {
-  id: string;
-  name: string;
-  description: string;
-  icon: string; // Lucide icon name
-  fields: FieldDefinition[];
-}
-
-export interface SyncLog {
-  id: string;
-  timestamp: string;
-  integrationId: string;
-  direction: 'Inbound' | 'Outbound';
-  status: 'Success' | 'Failed' | 'Warning';
-  records: number;
-  message: string;
-}
-
-// --- DOCUMENT TEMPLATE TYPES ---
-export interface TemplateVariable {
-  id: string;
-  name: string;
-  sourceField: string; // Links to FieldDefinition key
-}
-
-export interface ConditionalSection {
-  id: string;
-  name: string;
-  condition: string; // Simple string rep for MVP
-  content: string;
-}
-
-export interface RedactionRule {
-  id: string;
-  role: UserRole;
-  description: string;
-}
-
-export interface DocumentTemplate {
-  id: string;
-  name: string;
-  category: string; // MSA, NDA, etc.
-  version: string;
-  lastModified: string;
-  status: 'Draft' | 'Active' | 'Archived';
-  content: string; // HTML mock content
-  variables: TemplateVariable[];
-  conditions: ConditionalSection[];
-  redactionRules: RedactionRule[];
-}
-
-// --- WORKFLOW TEMPLATE TYPES ---
-export interface WorkflowTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  tags: string[];
-  nodes: WorkflowNode[];
-  updated: string;
-}
+// Re-exports with updated definitions
+export interface User { id: string; name: string; email: string; role: UserRole; status: string; departmentId?: string; lastLogin?: string; groups?: string[]; }
+export interface Organization { id: string; name: string; domain: string; primaryContactEmail: string; address: string; subscriptionTier: string; licenseCount: number; licenseUsed: number; }
+export interface Department { id: string; name: string; headId?: string; description?: string; memberCount: number; }
+export interface Permission { id: string; key: string; name: string; description: string; module: string; }
+export interface RoleDefinition { id: string; name: string; description: string; isSystem: boolean; permissions: string[]; usersCount: number; }
+export interface UserGroup { id: string; name: string; description: string; members: string[]; }
+export interface Contract { id: string; title: string; counterparty: string; value: number; status: ContractStatus; startDate: string; renewalDate: string; riskScore: number; owner: string; type: string; }
+export interface IntegrationApp { id: string; name: string; category: string; description: string; icon: string; installed: boolean; status?: string; mappings?: FieldMapping[]; }
+export interface FieldDefinition { id: string; name: string; key: string; type: string; source: string; required: boolean; unique?: boolean; description?: string; visibleDocumentTypes?: string[]; options?: string[]; relatedTableId?: string; integrationAppId?: string; externalObject?: string; externalField?: string; syncDirection?: SyncDirection; }
+export interface FieldTable { id: string; name: string; description: string; icon: string; fields: FieldDefinition[]; }
+export interface DocumentTemplate { id: string; name: string; category: string; version: string; lastModified: string; status: string; content: string; variables: any[]; conditions: any[]; redactionRules: any[]; tags?: string[]; }
+export interface Clause { id: string; name: string; category: string; content: string; riskLevel: string; tags: string[]; }
+export interface Counterparty { id: string; name: string; type: string; region: string; riskScore: number; activeContracts: number; totalValue: number; }
+export interface RiskItem { id: string; contractId: string; description: string; severity: string; status: string; dueDate: string; }
+export interface SyncLog { id: string; timestamp: string; integrationId: string; direction: string; status: string; records: number; message: string; }
+export interface ChatMessage { id: string; sender: 'user' | 'system'; text: string; timestamp: Date; }

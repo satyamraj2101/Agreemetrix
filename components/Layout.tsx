@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, FileText, Users, Settings, GitBranch, ShieldAlert, 
   Database, Network, Bot, Bell, Search, TableProperties, Palette, 
   Copy, X, UploadCloud, DollarSign, Calendar, CheckCircle2, ArrowRight, Clock,
-  PieChart, ChevronLeft, ChevronRight, Menu
+  PieChart, ChevronLeft, ChevronRight, Menu, AlertTriangle, Info, CheckSquare,
+  ArchiveRestore, LogOut, Key
 } from 'lucide-react';
-import { Button, Input, Select, Badge } from './UIComponents';
+import { Button, Input, Select, Badge, Logo } from './UIComponents';
 
 const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string; collapsed?: boolean }> = ({ to, icon: Icon, label, collapsed }) => {
   return (
@@ -38,6 +40,13 @@ const themes = [
   { id: 'theme-blue', label: 'Blue', color: '#1e3a8a' },
   { id: 'theme-pink', label: 'Pink', color: '#831843' },
   { id: 'theme-white', label: 'White', color: '#ffffff' },
+];
+
+const INITIAL_NOTIFICATIONS = [
+  { id: 1, title: 'New Contract Request', message: 'Sales team submitted NDA for Acme Corp', time: '2m ago', unread: true, type: 'info', icon: FileText },
+  { id: 2, title: 'Approval Required', message: 'MSA for TechFlow needs your review', time: '1h ago', unread: true, type: 'warning', icon: CheckSquare },
+  { id: 3, title: 'Risk Detected', message: 'High liability cap in Vendor Agreement', time: '3h ago', unread: false, type: 'alert', icon: ShieldAlert },
+  { id: 4, title: 'System Update', message: 'Maintenance scheduled for Sunday', time: '1d ago', unread: false, type: 'system', icon: Settings },
 ];
 
 const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -195,16 +204,47 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const pageTitle = location.pathname.split('/')[1] || 'Dashboard';
   const [currentTheme, setCurrentTheme] = useState('default');
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  
+  // Notification State
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const unreadCount = notifications.filter(n => n.unread).length;
 
   useEffect(() => {
     // Apply theme to body
     document.body.className = currentTheme === 'default' ? '' : currentTheme;
   }, [currentTheme]);
+
+  // Simulate an incoming notification for "activation" effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        const newNotif = { 
+            id: 99, 
+            title: 'AI Analysis Complete', 
+            message: 'Risk report for Q3 is ready to view.', 
+            time: 'Just now', 
+            unread: true, 
+            type: 'info', 
+            icon: Bot 
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(n => ({...n, unread: false})));
+  };
+
+  const handleLogout = () => {
+      navigate('/');
+  };
 
   return (
     <div className="flex h-screen overflow-hidden text-slate-200 relative transition-colors duration-500">
@@ -219,16 +259,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <aside 
         className={`bg-dark-950/95 border-r border-dark-700 flex flex-col z-20 backdrop-blur-xl shadow-2xl transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}
       >
-        <div className={`p-6 flex items-center gap-3 border-b border-dark-700 ${isSidebarCollapsed ? 'justify-center px-2' : ''}`}>
-          <div className="h-9 w-9 bg-gradient-to-br from-brand-400 to-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30 transform hover:rotate-12 transition-transform cursor-pointer flex-shrink-0">
-            <span className="text-white font-bold text-lg">A</span>
-          </div>
-          {!isSidebarCollapsed && (
-            <div className="animate-in fade-in duration-300 overflow-hidden">
-              <h1 className="font-bold text-white leading-none tracking-tight text-lg">AGREEMETRIX</h1>
-              <span className="text-[10px] text-brand-400 font-bold tracking-[0.2em] uppercase">Intelligence</span>
-            </div>
-          )}
+        <div className={`p-6 flex items-center justify-center border-b border-dark-700 ${isSidebarCollapsed ? 'px-2' : ''}`}>
+           <Link to="/dashboard" className="block hover:opacity-90 transition-opacity">
+              <Logo collapsed={isSidebarCollapsed} />
+           </Link>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar overflow-x-hidden">
@@ -239,11 +273,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                </p>
             )}
             <div className="space-y-1">
-              <NavItem to="/" icon={LayoutDashboard} label="Analytics" collapsed={isSidebarCollapsed} />
+              <NavItem to="/dashboard" icon={LayoutDashboard} label="Analytics" collapsed={isSidebarCollapsed} />
               <NavItem to="/bi" icon={PieChart} label="Business Intelligence" collapsed={isSidebarCollapsed} />
               <NavItem to="/repository" icon={FileText} label="Repository" collapsed={isSidebarCollapsed} />
               <NavItem to="/workflow-ai" icon={Bot} label="Workflow Builder" collapsed={isSidebarCollapsed} />
-              <NavItem to="/templates" icon={Copy} label="Doc Templates" collapsed={isSidebarCollapsed} />
+              <NavItem to="/templates" icon={Copy} label="Templates" collapsed={isSidebarCollapsed} />
               <NavItem to="/fields" icon={TableProperties} label="Field Database" collapsed={isSidebarCollapsed} />
               <NavItem to="/integrations" icon={Network} label="Integrations" collapsed={isSidebarCollapsed} />
             </div>
@@ -256,6 +290,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                </p>
             )}
             <div className="space-y-1">
+              <NavItem to="/legacy-migration" icon={ArchiveRestore} label="Legacy Migration" collapsed={isSidebarCollapsed} />
               <NavItem to="/clauses" icon={Database} label="Clause Library" collapsed={isSidebarCollapsed} />
               <NavItem to="/parties" icon={Users} label="Counterparties" collapsed={isSidebarCollapsed} />
               <NavItem to="/risks" icon={ShieldAlert} label="Risk & Obligations" collapsed={isSidebarCollapsed} />
@@ -269,6 +304,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                </p>
              )}
             <div className="space-y-1">
+               <NavItem to="/users" icon={Key} label="Users & Org" collapsed={isSidebarCollapsed} />
                <NavItem to="/settings" icon={Settings} label="Settings" collapsed={isSidebarCollapsed} />
                <NavItem to="/masters" icon={GitBranch} label="Masters" collapsed={isSidebarCollapsed} />
             </div>
@@ -276,16 +312,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </nav>
 
         <div className="p-4 border-t border-dark-700 bg-dark-900/30 backdrop-blur-sm">
-          <div className={`flex items-center gap-3 hover:bg-white/5 p-2 rounded-lg transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-slate-700 to-slate-600 border border-slate-500 flex items-center justify-center text-white font-medium shadow-md group-hover:ring-2 ring-brand-500 transition-all flex-shrink-0">
-              HS
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="flex-1 min-w-0 animate-in fade-in duration-300">
-                <p className="text-sm font-medium text-white truncate group-hover:text-brand-400 transition-colors">Harvey Specter</p>
-                <p className="text-xs text-slate-500 truncate">Admin Access</p>
-              </div>
-            )}
+          <div className={`flex items-center justify-between ${isSidebarCollapsed ? 'flex-col gap-3' : ''}`}>
+             <div className={`flex items-center gap-3 hover:bg-white/5 p-2 rounded-lg transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+               <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-slate-700 to-slate-600 border border-slate-500 flex items-center justify-center text-white font-medium shadow-md group-hover:ring-2 ring-brand-500 transition-all flex-shrink-0">
+                 HS
+               </div>
+               {!isSidebarCollapsed && (
+                 <div className="flex-1 min-w-0 animate-in fade-in duration-300">
+                   <p className="text-sm font-medium text-white truncate group-hover:text-brand-400 transition-colors">Harvey Specter</p>
+                   <p className="text-xs text-slate-500 truncate">Admin Access</p>
+                 </div>
+               )}
+             </div>
+             <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5" title="Sign Out">
+                <LogOut size={18} />
+             </button>
           </div>
         </div>
       </aside>
@@ -324,7 +365,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                      <button
                        key={theme.id}
                        onClick={() => { setCurrentTheme(theme.id); setShowThemeMenu(false); }}
-                       className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm transition-colors ${currentTheme === theme.id ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+                       className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm transition-colors ${currentTheme === theme.id ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'}`}
                      >
                        <div className="w-4 h-4 rounded-full border border-white/10 shadow-sm" style={{backgroundColor: theme.color}}></div>
                        {theme.label}
@@ -347,10 +388,63 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                />
              </div>
              
-             <button className="relative p-2 text-slate-400 hover:text-white transition-colors hover:bg-white/5 rounded-full">
-               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444] animate-pulse"></span>
-               <Bell size={20} />
-             </button>
+             {/* Notification Center */}
+             <div className="relative">
+               <button 
+                 onClick={() => setShowNotifications(!showNotifications)}
+                 className={`relative p-2 transition-colors hover:bg-white/5 rounded-full ${showNotifications ? 'text-white bg-white/5' : 'text-slate-400 hover:text-white'}`}
+               >
+                 {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444] animate-pulse"></span>
+                 )}
+                 <Bell size={20} />
+               </button>
+
+               {showNotifications && (
+                 <div className="absolute right-0 top-full mt-2 w-80 bg-dark-900 border border-dark-700 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-2 duration-200 backdrop-blur-2xl overflow-hidden">
+                    <div className="p-3 border-b border-dark-700 flex justify-between items-center bg-dark-950/50">
+                       <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                         Notifications {unreadCount > 0 && <span className="px-1.5 py-0.5 rounded bg-brand-500 text-[10px] text-white">{unreadCount}</span>}
+                       </h3>
+                       <button onClick={handleMarkAllRead} className="text-[10px] text-brand-400 hover:text-brand-300 transition-colors">Mark all read</button>
+                    </div>
+                    <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                       {notifications.map((notif) => (
+                         <div key={notif.id} className="p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group relative">
+                            {notif.unread && <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-500"></div>}
+                            <div className="flex gap-3">
+                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                 notif.type === 'warning' ? 'bg-yellow-500/10 text-yellow-500' : 
+                                 notif.type === 'alert' ? 'bg-red-500/10 text-red-500' : 
+                                 notif.type === 'system' ? 'bg-slate-500/10 text-slate-400' : 
+                                 'bg-brand-500/10 text-brand-500'
+                               }`}>
+                                  <notif.icon size={16} />
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-start mb-1">
+                                     <h4 className={`text-sm font-medium truncate ${notif.unread ? 'text-white' : 'text-slate-400'}`}>{notif.title}</h4>
+                                     <span className="text-[10px] text-slate-500 whitespace-nowrap ml-2">{notif.time}</span>
+                                  </div>
+                                  <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 group-hover:text-slate-300 transition-colors">{notif.message}</p>
+                                </div>
+                            </div>
+                         </div>
+                       ))}
+                       {notifications.length === 0 && (
+                          <div className="p-6 text-center text-slate-500 text-xs">No notifications.</div>
+                       )}
+                    </div>
+                    <div className="p-2 border-t border-dark-700 bg-dark-950/30 text-center">
+                       <button className="text-xs text-slate-500 hover:text-white transition-colors flex items-center justify-center gap-1 w-full py-1">
+                          View all activity <ArrowRight size={10} />
+                       </button>
+                    </div>
+                 </div>
+               )}
+               {showNotifications && <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>}
+             </div>
+
              <Button 
                 variant="neon" 
                 className="text-xs h-9 px-4 shadow-[0_0_15px_rgba(var(--color-brand-500),0.15)]"
