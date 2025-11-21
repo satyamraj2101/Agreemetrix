@@ -92,17 +92,24 @@ const RECENT_ACTIVITY = [
   { id: 1, user: 'Harvey Specter', action: 'approved', target: 'Acme MSA', time: '10 mins ago', icon: CheckCircle2, color: 'text-green-500' },
   { id: 2, user: 'Mike Ross', action: 'commented on', target: 'TechFlow License', time: '1 hour ago', icon: MoreHorizontal, color: 'text-blue-500' },
   { id: 3, user: 'System', action: 'flagged risk in', target: 'Vendor Agreement', time: '3 hours ago', icon: AlertTriangle, color: 'text-red-500' },
-  { id: 4, user: 'Rachel Zane', action: 'created', target: 'New Employee Contract', time: '5 hours ago', icon: FileText, color: 'text-purple-500' },
+  { id: 'new', user: 'Rachel Zane', action: 'created', target: 'New Employee Contract', time: '5 hours ago', icon: FileText, color: 'text-purple-500' },
 ];
 
 // --- COMPONENT ---
 
 const Dashboard: React.FC = () => {
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto">
+    <div className="space-y-6 max-w-[1600px] mx-auto relative">
       
+      {/* Neural Grid Background (Fixed behind content) */}
+      <div className="absolute inset-0 pointer-events-none animate-breathe z-0">
+         <div className="absolute inset-0 animate-grid-scan" 
+              style={{ backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(45, 212, 191, .3) 25%, rgba(45, 212, 191, .3) 26%, transparent 27%, transparent 74%, rgba(45, 212, 191, .3) 75%, rgba(45, 212, 191, .3) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(45, 212, 191, .3) 25%, rgba(45, 212, 191, .3) 26%, transparent 27%, transparent 74%, rgba(45, 212, 191, .3) 75%, rgba(45, 212, 191, .3) 76%, transparent 77%, transparent)', backgroundSize: '50px 50px' }}>
+         </div>
+      </div>
+
       {/* Executive Summary Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
         <div>
            <h1 className="text-2xl font-bold text-white tracking-tight">Executive Overview</h1>
            <p className="text-slate-400">Welcome back, Harvey. You have <span className="text-brand-400 font-bold">4 pending tasks</span> requiring attention.</p>
@@ -115,10 +122,13 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* KPI Cards with Live Scan Line */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 relative z-10">
         {KPI_DATA.map((kpi, idx) => (
-          <div key={idx} className={`p-5 rounded-xl bg-dark-900/60 border backdrop-blur-sm flex items-start justify-between hover:translate-y-[-2px] transition-transform duration-300 ${kpi.border}`}>
+          <div key={idx} className={`p-5 rounded-xl bg-dark-900/60 border backdrop-blur-sm flex items-start justify-between hover:translate-y-[-2px] transition-transform duration-300 relative overflow-hidden ${kpi.border}`}>
+             {/* Scan Line */}
+             <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-brand-400 to-transparent opacity-50 animate-scan-line pointer-events-none"></div>
+             
              <div>
                 <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{kpi.title}</p>
                 <h3 className="text-2xl font-bold text-white mb-1">{kpi.value}</h3>
@@ -136,7 +146,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-6 relative z-10">
         
         {/* Left Column: Pipeline & Trends */}
         <div className="col-span-12 lg:col-span-8 space-y-6">
@@ -154,7 +164,7 @@ const Dashboard: React.FC = () => {
                             cursor={{fill: 'rgba(255,255,255,0.05)'}}
                             contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff'}} 
                           />
-                          <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
+                          <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24} animationDuration={1500} animationBegin={300}>
                             {STAGE_DATA.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.fill} />
                             ))}
@@ -182,15 +192,15 @@ const Dashboard: React.FC = () => {
                           <XAxis dataKey="month" stroke="#64748b" tick={{fontSize: 11}} axisLine={false} tickLine={false} />
                           <YAxis stroke="#64748b" tick={{fontSize: 11}} axisLine={false} tickLine={false} />
                           <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff'}} />
-                          <Area type="monotone" dataKey="created" stroke="#3b82f6" fillOpacity={1} fill="url(#colorCreated)" strokeWidth={2} name="Created" />
-                          <Area type="monotone" dataKey="signed" stroke="#14b8a6" fillOpacity={1} fill="url(#colorSigned)" strokeWidth={2} name="Signed" />
+                          <Area type="monotone" dataKey="created" stroke="#3b82f6" fillOpacity={1} fill="url(#colorCreated)" strokeWidth={2} name="Created" animationDuration={2000} />
+                          <Area type="monotone" dataKey="signed" stroke="#14b8a6" fillOpacity={1} fill="url(#colorSigned)" strokeWidth={2} name="Signed" animationDuration={2000} animationBegin={500} />
                        </AreaChart>
                     </ResponsiveContainer>
                  </div>
               </Card>
            </div>
 
-           {/* Action Center Table */}
+           {/* Action Center Table with Hover Lines */}
            <Card title="Action Center" action={<Button variant="ghost" className="text-xs">View All Tasks</Button>} noPadding>
               <div className="overflow-x-auto">
                  <table className="w-full text-left text-sm text-slate-400">
@@ -205,29 +215,31 @@ const Dashboard: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                        {TASKS.map(task => (
-                          <tr key={task.id} className="hover:bg-white/5 transition-colors group">
-                             <td className="px-6 py-4 font-medium text-slate-200 flex items-center gap-2">
+                          <tr key={task.id} className="hover:bg-white/5 transition-colors group relative overflow-hidden">
+                             <td className="px-6 py-4 font-medium text-slate-200 flex items-center gap-2 relative z-10 group-hover:text-white transition-colors">
                                 {task.priority === 'Critical' && <AlertTriangle size={14} className="text-red-500" />}
                                 {task.title}
+                                {/* Hover Line */}
+                                <div className="absolute bottom-0 left-0 h-[1px] bg-brand-500/50 w-0 group-hover:w-full transition-all duration-500"></div>
                              </td>
-                             <td className="px-6 py-4">
+                             <td className="px-6 py-4 relative z-10">
                                 <div className="flex items-center gap-2 text-xs">
-                                   {task.type === 'Approval' ? <UserCheck size={14} className="text-blue-400" /> : 
-                                    task.type === 'Renewal' ? <Activity size={14} className="text-orange-400" /> :
-                                    <FileText size={14} className="text-slate-400" />}
+                                   {task.type === 'Approval' ? <UserCheck size={14} className="text-blue-400 group-hover:scale-110 transition-transform" /> : 
+                                    task.type === 'Renewal' ? <Activity size={14} className="text-orange-400 group-hover:scale-110 transition-transform" /> :
+                                    <FileText size={14} className="text-slate-400 group-hover:scale-110 transition-transform" />}
                                    {task.type}
                                 </div>
                              </td>
-                             <td className="px-6 py-4 text-xs">
+                             <td className="px-6 py-4 text-xs relative z-10">
                                 <Badge color={task.due === 'Overdue' ? 'red' : task.due === 'Today' ? 'yellow' : 'gray'}>{task.due}</Badge>
                              </td>
-                             <td className="px-6 py-4">
-                                <span className={`text-xs font-bold ${task.priority === 'High' || task.priority === 'Critical' ? 'text-red-400' : 'text-slate-500'}`}>
+                             <td className="px-6 py-4 relative z-10">
+                                <span className={`text-xs font-bold ${task.priority === 'High' || task.priority === 'Critical' ? 'text-red-400' : 'text-slate-500'} group-hover:text-white transition-colors`}>
                                    {task.priority}
                                 </span>
                              </td>
-                             <td className="px-6 py-4 text-right">
-                                <Button variant="secondary" className="h-7 text-xs px-3">Open</Button>
+                             <td className="px-6 py-4 text-right relative z-10">
+                                <Button variant="secondary" className="h-7 text-xs px-3 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">Open</Button>
                              </td>
                           </tr>
                        ))}
@@ -241,9 +253,12 @@ const Dashboard: React.FC = () => {
         {/* Right Column: Intelligence & Feed */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
            
-           {/* Renewal Radar */}
+           {/* Renewal Radar with Spinning Ring */}
            <Card title="Renewal Radar" className="h-[340px]">
-              <div className="h-full flex flex-col items-center justify-center -mt-2">
+              <div className="h-full flex flex-col items-center justify-center -mt-2 relative">
+                 {/* Rotating Ring */}
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180px] h-[180px] border-2 border-dashed border-dark-700 rounded-full animate-radar-spin pointer-events-none"></div>
+                 
                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                        <Pie
@@ -261,7 +276,7 @@ const Dashboard: React.FC = () => {
                        <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff'}} />
                     </PieChart>
                  </ResponsiveContainer>
-                 <div className="w-full space-y-3 px-4">
+                 <div className="w-full space-y-3 px-4 relative z-10">
                     {EXPIRY_DATA.map((item, i) => (
                        <div key={i} className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
@@ -275,27 +290,28 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           {/* Recent Activity */}
+           {/* Recent Activity with Pulse */}
            <Card title="Live Feed" className="h-auto">
               <div className="space-y-6 relative">
                  {/* Timeline Line */}
                  <div className="absolute left-3.5 top-2 bottom-2 w-px bg-dark-700"></div>
                  
-                 {RECENT_ACTIVITY.map(activity => (
-                    <div key={activity.id} className="relative flex gap-4">
-                       <div className={`w-8 h-8 rounded-full bg-dark-900 border border-dark-700 flex items-center justify-center z-10 shrink-0 ${activity.color}`}>
+                 {RECENT_ACTIVITY.map((activity, idx) => (
+                    <div key={activity.id} className="relative flex gap-4 group">
+                       {/* Pulse on first item (simulating new event) */}
+                       <div className={`w-8 h-8 rounded-full bg-dark-900 border border-dark-700 flex items-center justify-center z-10 shrink-0 ${activity.color} ${idx === 0 ? 'animate-feed-pulse' : ''}`}>
                           <activity.icon size={14} />
                        </div>
                        <div>
                           <p className="text-sm text-slate-300">
-                             <span className="font-bold text-white hover:underline cursor-pointer">{activity.user}</span> {activity.action} <span className="font-medium text-brand-400 hover:underline cursor-pointer">{activity.target}</span>
+                             <span className="font-bold text-white hover:underline cursor-pointer hover:text-brand-400 transition-colors">{activity.user}</span> {activity.action} <span className="font-medium text-brand-400 hover:underline cursor-pointer">{activity.target}</span>
                           </p>
                           <span className="text-xs text-slate-500 mt-1 block">{activity.time}</span>
                        </div>
                     </div>
                  ))}
               </div>
-              <Button variant="ghost" className="w-full mt-4 text-xs text-slate-500">View All History</Button>
+              <Button variant="ghost" className="w-full mt-4 text-xs text-slate-500 hover:text-white">View All History</Button>
            </Card>
 
         </div>

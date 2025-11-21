@@ -92,14 +92,14 @@ const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string; co
         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 group relative overflow-hidden mb-1 ${
           isActive
             ? 'bg-brand-500/10 text-white shadow-[inset_4px_0_0_0_rgba(var(--color-brand-500),1)]'
-            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-        } ${collapsed ? 'justify-center' : ''}`
+            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 hover:pl-4'
+        } ${collapsed ? 'justify-center hover:pl-3' : ''}`
       }
       title={collapsed ? label : ''}
     >
       {({ isActive }) => (
         <>
-          <Icon size={18} className={`transition-transform duration-300 flex-shrink-0 ${isActive ? 'text-brand-400' : 'group-hover:text-slate-200'}`} />
+          <Icon size={18} className={`transition-all duration-300 flex-shrink-0 ${isActive ? 'text-brand-400' : 'group-hover:text-slate-200'}`} />
           {!collapsed && (
              <div className="flex-1 flex justify-between items-center overflow-hidden">
                 <span className="truncate relative z-10">{label}</span>
@@ -407,7 +407,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   {pageTitle.replace('-', ' ')}
                 </h2>
                 {pageTitle === 'dashboard' && (
-                   <Badge color="brand" className="ml-2">Live</Badge>
+                   <Badge color="brand" className="ml-2 animate-pulse">Live</Badge>
                 )}
              </div>
           </div>
@@ -476,7 +476,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
              <div className="relative">
                 <Button 
                    variant="neon" 
-                   className="text-xs h-9 px-4 shadow-[0_0_15px_rgba(var(--color-brand-500),0.15)] gap-2 flex items-center"
+                   className="text-xs h-9 px-4 shadow-[0_0_15px_rgba(var(--color-brand-500),0.15)] gap-2 flex items-center hover:shadow-[0_0_25px_rgba(var(--color-brand-500),0.3)] hover:scale-105 transition-transform duration-200"
                    onClick={() => setShowQuickActions(!showQuickActions)}
                 >
                    <Plus size={14}/> Quick Actions {showQuickActions ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}

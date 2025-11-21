@@ -2,17 +2,19 @@
 import React from 'react';
 
 export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'neon' }> = ({ children, className = '', variant = 'primary', ...props }) => {
-  const baseStyle = "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-dark-950 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center relative overflow-hidden group";
+  const baseStyle = "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-dark-950 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center relative overflow-hidden group";
   const variants = {
-    primary: "bg-gradient-to-r from-brand-500 to-brand-600 text-real-white hover:to-brand-500 hover:shadow-[0_0_20px_rgba(var(--color-brand-500),0.4)] border border-transparent shadow-lg",
-    secondary: "bg-white/5 text-slate-200 border border-white/10 hover:bg-white/10 hover:border-white/20 backdrop-blur-sm hover:shadow-md",
+    primary: "bg-gradient-to-r from-brand-500 to-brand-600 text-real-white hover:to-brand-500 hover:shadow-[0_0_20px_rgba(var(--color-brand-500),0.4)] border border-transparent shadow-lg hover:-translate-y-0.5",
+    secondary: "bg-white/5 text-slate-200 border border-white/10 hover:bg-white/10 hover:border-white/20 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5",
     danger: "bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]",
     ghost: "text-slate-400 hover:bg-white/5 hover:text-white",
     neon: "bg-transparent border border-brand-400 text-brand-400 hover:bg-brand-500/10 hover:shadow-[0_0_15px_rgba(var(--color-brand-500),0.5),inset_0_0_5px_rgba(var(--color-brand-500),0.2)] text-shadow-sm font-bold tracking-wide"
   };
   return (
     <button className={`${baseStyle} ${variants[variant]} ${className}`} {...props}>
-      {children}
+      <span className="relative z-10 flex items-center gap-2 transform transition-transform duration-300 group-hover:translate-x-1">
+        {children}
+      </span>
       {variant === 'primary' && <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" style={{backgroundSize: '200% 100%'}}></div>}
     </button>
   );
@@ -115,38 +117,27 @@ export const Avatar: React.FC<{ name: string; src?: string; size?: 'sm' | 'md' |
 
 export const Logo: React.FC<{ collapsed?: boolean; className?: string }> = ({ collapsed, className = '' }) => {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="relative h-9 w-9 flex items-center justify-center flex-shrink-0">
-         {/* Outer Glow */}
-         <div className="absolute inset-0 bg-brand-500/30 rounded-xl blur-lg animate-pulse-slow"></div>
-         
-         {/* Main Shape Container */}
-         <div className="relative h-9 w-9 bg-gradient-to-br from-dark-800 to-dark-950 rounded-xl border border-brand-500/30 flex items-center justify-center shadow-xl overflow-hidden group">
-            
-            {/* Animated Circuit Background */}
-            <div className="absolute inset-0 opacity-20">
-                <svg width="100%" height="100%" viewBox="0 0 40 40">
-                   <pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse">
-                      <path d="M 8 0 L 0 0 0 8" fill="none" stroke="currentColor" className="text-brand-500" strokeWidth="0.5"/>
-                   </pattern>
-                   <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-            </div>
-
-            {/* The "A" Logo Mark */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 text-brand-400 drop-shadow-[0_0_8px_rgba(45,212,191,0.5)]">
-               <path d="M12 2L2 22H6L8 18H16L18 22H22L12 2Z" fill="currentColor" fillOpacity="0.2"/>
-               <path d="M12 2L2 22H6L8 18H16L18 22H22L12 2ZM12 6L15 15H9L12 6Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-               <circle cx="12" cy="8" r="1.5" className="fill-white animate-ping" style={{animationDuration: '3s'}}/>
+    <div className={`flex items-center gap-3 select-none group/logo ${className}`}>
+      {/* Icon Container */}
+      <div className="relative h-8 w-8 flex items-center justify-center flex-shrink-0">
+         <div className="absolute inset-0 bg-brand-500/20 rounded-lg blur-md opacity-0 group-hover/logo:opacity-100 transition-opacity duration-500"></div>
+         <div className="relative h-8 w-8 bg-gradient-to-br from-dark-800 to-dark-950 rounded-lg border border-brand-500/30 flex items-center justify-center shadow-lg overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-brand-500/10 to-transparent"></div>
+            {/* Neural Pulse SVG */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 text-brand-400 transform group-hover/logo:scale-110 transition-transform duration-300">
+               <path d="M12 2L2 22H22L12 2Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-neural-pulse"/>
+               <path d="M12 16V22" strokeWidth="2" strokeLinecap="round" className="animate-neural-pulse" style={{animationDelay: '0.5s'}}/>
+               <circle cx="12" cy="10" r="2" fill="white" className="animate-pulse-slow"/>
             </svg>
          </div>
       </div>
       
       {!collapsed && (
-        <div className="flex flex-col overflow-hidden whitespace-nowrap">
-           <span className="font-bold text-white leading-none tracking-tight text-base logo-scan-text">AGREEMETRIX</span>
-           <span className="text-[9px] text-brand-500 font-bold tracking-[0.3em] uppercase mt-0.5 flex items-center gap-1">
-              Intelligence <span className="w-1 h-1 rounded-full bg-brand-400 animate-pulse"></span>
+        <div className="flex items-center tracking-tight">
+           <span className="text-lg font-bold text-white">Agree</span>
+           <span className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-cyan-300">metrix</span>
+           <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-500/10 text-brand-400 border border-brand-500/20 tracking-wider uppercase">
+              AI
            </span>
         </div>
       )}
