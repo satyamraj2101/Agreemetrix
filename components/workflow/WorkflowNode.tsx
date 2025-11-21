@@ -6,14 +6,17 @@ import {
   AlertCircle, FileText, PenTool, MessageSquare, Mail, 
   UploadCloud, Database, MoreHorizontal, UserCheck, 
   Check, X, Clock, CheckSquare, Calendar, BrainCircuit, 
-  Split, Search
+  Split, Search, Loader2, Info
 } from 'lucide-react';
+import { SimpleTooltip } from '../UIComponents';
+import { NODE_DESCRIPTIONS } from '../../mock/data';
 
 interface NodeProps {
   node: WorkflowNode;
   isSelected: boolean;
   isValid?: boolean;
   isSimActive?: boolean;
+  simStatus?: 'pending' | 'running' | 'completed' | 'error';
   zoom: number;
   stageName?: string;
   stageColor?: string;
@@ -95,10 +98,7 @@ const CATEGORY_STYLES: Record<WorkflowCategory, {
 };
 
 const NodeIcon = ({ type, category }: { type: string, category: WorkflowCategory }) => {
-  // AI Nodes
   if (category === 'ai_agent') return <BrainCircuit size={16} />;
-  
-  // Specific Type overrides
   if (type.includes('document')) return <FileText size={16} />;
   if (type.includes('signature')) return <PenTool size={16} />;
   if (type.includes('email')) return <Mail size={16} />;
@@ -123,14 +123,15 @@ const NodeIcon = ({ type, category }: { type: string, category: WorkflowCategory
 };
 
 export const WorkflowNodeCard: React.FC<NodeProps> = ({ 
-  node, isSelected, isValid, isSimActive, zoom, stageName, stageColor, onMouseDown, onHandleMouseDown 
+  node, isSelected, isValid, isSimActive, simStatus, zoom, stageName, stageColor, onMouseDown, onHandleMouseDown 
 }) => {
   const style = CATEGORY_STYLES[node.category] || CATEGORY_STYLES.action;
+  const commentCount = node.comments?.length || 0;
 
   return (
     <div
       onMouseDown={(e) => onMouseDown(e, node.id)}
-      className={`absolute w-72 rounded-2xl transition-all duration-200 cursor-grab active:cursor-grabbing group select-none
+      className={`absolute w-72 rounded-2xl transition-all duration-200 cursor-grab active:cursor-grabbing group select-none animate-in zoom-in-95 fade-in duration-300
         ${isSelected ? 'z-30 scale-[1.02]' : 'z-20 scale-100'}
       `}
       style={{
@@ -153,6 +154,15 @@ export const WorkflowNodeCard: React.FC<NodeProps> = ({
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full z-50 animate-pulse shadow-[0_0_10px_#ef4444]"></div>
             )}
 
+            {/* Simulation Status Badge */}
+            {simStatus && simStatus !== 'pending' && (
+                <div className="absolute -top-2 -left-2 z-50">
+                    {simStatus === 'running' && <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-dark-900 shadow-lg animate-spin"><Loader2 size={12} className="text-white"/></div>}
+                    {simStatus === 'completed' && <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-dark-900 shadow-lg"><Check size={12} className="text-white"/></div>}
+                    {simStatus === 'error' && <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center border-2 border-dark-900 shadow-lg"><X size={12} className="text-white"/></div>}
+                </div>
+            )}
+
             {/* Header Section */}
             <div className={`bg-gradient-to-r ${style.headerGradient} p-4 relative`}>
                 <div className="flex items-center justify-between relative z-10">
@@ -165,8 +175,18 @@ export const WorkflowNodeCard: React.FC<NodeProps> = ({
                             <p className="text-[10px] text-slate-400 font-mono uppercase tracking-wide">{node.type.replace(/_/g, ' ')}</p>
                         </div>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal size={16} className="text-slate-400 hover:text-white cursor-pointer" />
+                    <div className="flex items-center gap-1">
+                       <SimpleTooltip content={NODE_DESCRIPTIONS[node.type] || "Standard workflow node"}>
+                          <div className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer">
+                             <Info size={14} />
+                          </div>
+                       </SimpleTooltip>
+                       {commentCount > 0 && (
+                          <div className="flex items-center justify-center bg-dark-950/50 rounded px-1.5 py-0.5 border border-white/10" title={`${commentCount} comments`}>
+                             <MessageSquare size={10} className="text-slate-300 mr-1"/>
+                             <span className="text-[9px] text-white font-bold">{commentCount}</span>
+                          </div>
+                       )}
                     </div>
                 </div>
                 
@@ -225,7 +245,7 @@ export const WorkflowNodeCard: React.FC<NodeProps> = ({
                     onMouseDown={(e) => onHandleMouseDown(e, node.id, 'true_out')}
                 >
                     <div className="w-3 h-3 rounded-full border-2 border-dark-950 bg-green-500 group-hover/handle:bg-green-400 group-hover/handle:scale-125 transition-all shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                    <span className="absolute top-4 text-[9px] font-bold text-green-500 bg-dark-950 px-1 rounded border border-dark-800 opacity-0 group-hover/handle:opacity-100 transition-opacity">TRUE</span>
+                    <span className="absolute top-4 text-[9px] font-bold text-green-500 bg-dark-950 px-1 rounded border border-dark-800 opacity-0 group-hover/handle:opacity-100 transition-opacity pointer-events-none">TRUE</span>
                 </div>
                 {/* False Path */}
                 <div 
@@ -233,7 +253,7 @@ export const WorkflowNodeCard: React.FC<NodeProps> = ({
                     onMouseDown={(e) => onHandleMouseDown(e, node.id, 'false_out')}
                 >
                     <div className="w-3 h-3 rounded-full border-2 border-dark-950 bg-red-500 group-hover/handle:bg-red-400 group-hover/handle:scale-125 transition-all shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-                    <span className="absolute top-4 text-[9px] font-bold text-red-500 bg-dark-950 px-1 rounded border border-dark-800 opacity-0 group-hover/handle:opacity-100 transition-opacity">FALSE</span>
+                    <span className="absolute top-4 text-[9px] font-bold text-red-500 bg-dark-950 px-1 rounded border border-dark-800 opacity-0 group-hover/handle:opacity-100 transition-opacity pointer-events-none">FALSE</span>
                 </div>
             </>
         ) : (

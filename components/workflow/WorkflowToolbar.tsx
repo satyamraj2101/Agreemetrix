@@ -5,8 +5,11 @@ import {
   Play, ShieldCheck, GitBranch, Zap, Network, GripVertical, 
   FileText, PenTool, MessageSquare, Mail, UploadCloud, 
   Database, Bell, ChevronDown, ChevronRight, UserCheck, Layers,
-  Clock, CheckSquare, Calendar, BrainCircuit, Search, Filter, Users
+  Clock, CheckSquare, Calendar, BrainCircuit, Search, Star, History,
+  AlertTriangle, FileCode, Share2, Workflow
 } from 'lucide-react';
+import { SimpleTooltip } from '../UIComponents';
+import { NODE_DESCRIPTIONS } from '../../mock/data';
 
 interface ToolbarProps {
   onDragStart: (e: React.DragEvent, category: WorkflowCategory, type: string, label: string) => void;
@@ -19,7 +22,7 @@ interface ToolGroup {
 }
 
 export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
-  const [openGroups, setOpenGroups] = useState<string[]>(['Triggers', 'AI Agents', 'Logic']);
+  const [openGroups, setOpenGroups] = useState<string[]>(['Favorites', 'Triggers', 'AI Agents']);
   const [searchTerm, setSearchTerm] = useState('');
 
   const toggleGroup = (title: string) => {
@@ -28,6 +31,15 @@ export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
 
   const toolGroups: ToolGroup[] = [
     {
+      title: 'Favorites',
+      icon: Star,
+      items: [
+        { category: 'trigger', type: 'manual_request', label: 'Manual Request', icon: UserCheck, color: 'text-green-400' },
+        { category: 'approval', type: 'internal_approval', label: 'Internal Approval', icon: ShieldCheck, color: 'text-blue-400' },
+        { category: 'document', type: 'generate_document', label: 'Generate Draft', icon: FileText, color: 'text-green-400' },
+      ]
+    },
+    {
       title: 'Triggers',
       icon: Play,
       items: [
@@ -35,7 +47,7 @@ export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
         { category: 'trigger', type: 'crm_opportunity', label: 'CRM Opportunity Won', icon: Database, color: 'text-blue-400' },
         { category: 'trigger', type: 'manual_request', label: 'Manual Request', icon: UserCheck, color: 'text-green-400' },
         { category: 'trigger', type: 'webhook_in', label: 'Incoming Webhook', icon: Network, color: 'text-purple-400' },
-        { category: 'trigger', type: 'scheduled_trigger', label: 'Scheduled Run', icon: Calendar, color: 'text-orange-400' },
+        { category: 'trigger', type: 'scheduled_run', label: 'Scheduled Run', icon: Calendar, color: 'text-orange-400' },
         { category: 'trigger', type: 'contract_imported', label: 'Contract Imported', icon: UploadCloud, color: 'text-teal-400' },
       ]
     },
@@ -74,7 +86,7 @@ export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
       icon: ShieldCheck,
       items: [
         { category: 'approval', type: 'internal_approval', label: 'Internal Approval', icon: ShieldCheck, color: 'text-blue-400' },
-        { category: 'approval', type: 'parallel_approval', label: 'Parallel Approval', icon: Users, color: 'text-purple-400' },
+        { category: 'approval', type: 'parallel_approval', label: 'Parallel Approval', icon: Layers, color: 'text-purple-400' },
         { category: 'action', type: 'send_review', label: 'Send for Review', icon: MessageSquare, color: 'text-yellow-400' },
       ]
     },
@@ -137,21 +149,22 @@ export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
              </button>
              
              {openGroups.includes(group.title) && (
-               <div className="mt-1 space-y-1 pl-2">
+               <div className="mt-1 space-y-1 pl-2 animate-in slide-in-from-top-2">
                  {group.items.map((item, idx) => (
-                   <div 
-                     key={idx}
-                     draggable
-                     onDragStart={(e) => onDragStart(e, item.category, item.type, item.label)}
-                     className={`flex items-center gap-3 p-2 rounded-lg border border-transparent hover:border-dark-700 hover:bg-dark-900 cursor-grab active:cursor-grabbing group transition-all`}
-                   >
-                     <div className={`w-7 h-7 rounded flex items-center justify-center bg-dark-800 border border-dark-700 group-hover:bg-dark-950 ${item.color}`}>
-                        <item.icon size={14} />
+                   <SimpleTooltip key={idx} content={NODE_DESCRIPTIONS[item.type] || "Drag to add to workflow"}>
+                     <div 
+                       draggable
+                       onDragStart={(e) => onDragStart(e, item.category, item.type, item.label)}
+                       className={`flex items-center gap-3 p-2 rounded-lg border border-transparent hover:border-dark-700 hover:bg-dark-900 cursor-grab active:cursor-grabbing group transition-all`}
+                     >
+                       <div className={`w-7 h-7 rounded flex items-center justify-center bg-dark-800 border border-dark-700 group-hover:bg-dark-950 ${item.color}`}>
+                          <item.icon size={14} />
+                       </div>
+                       <div>
+                          <span className="block text-sm font-medium text-slate-300 group-hover:text-white">{item.label}</span>
+                       </div>
                      </div>
-                     <div>
-                        <span className="block text-sm font-medium text-slate-300 group-hover:text-white">{item.label}</span>
-                     </div>
-                   </div>
+                   </SimpleTooltip>
                  ))}
                </div>
              )}
@@ -160,8 +173,8 @@ export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
       </div>
       
       <div className="p-4 border-t border-dark-800 bg-dark-900/50 shrink-0">
-        <div className="text-xs text-slate-500 text-center">
-          Drag nodes to the canvas to build
+        <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-2">
+          <History size={12}/> Drag nodes to canvas
         </div>
       </div>
     </div>

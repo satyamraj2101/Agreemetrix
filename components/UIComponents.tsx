@@ -153,3 +153,14 @@ export const Logo: React.FC<{ collapsed?: boolean; className?: string }> = ({ co
     </div>
   );
 };
+
+export const SimpleTooltip: React.FC<{ content: string; children: React.ReactNode }> = ({ content, children }) => {
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-48 p-2 bg-dark-900 border border-dark-700 rounded-lg shadow-xl text-xs text-slate-300 z-50 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none">
+        {content}
+      </div>
+    </div>
+  );
+};

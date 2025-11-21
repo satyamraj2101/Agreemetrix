@@ -26,76 +26,115 @@ export type ActionType =
   | 'signature' 
   | 'email' 
   | 'update_record' 
-  | 'slack_notify'
-  | 'stage_transition'
-  | 'create_task'
+  | 'slack_notify' 
+  | 'stage_transition' 
+  | 'create_task' 
   | 'delay';
 
 export interface ConditionRule {
   id: string;
   field: string;
-  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty';
+  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'in_list';
   value: string | number;
   logic: 'AND' | 'OR';
 }
 
 export interface WorkflowNodeConfig {
-  // General
+  // Common
+  label?: string;
   description?: string;
-  stageId?: string; // The stage this node belongs to or transitions to
+  retryPolicy?: { maxAttempts: number; backoff: 'linear' | 'exponential' };
+  runAsUser?: string;
 
-  // Approval Config
+  // Triggers
+  formId?: string; // For Form Submission
+  validateRules?: boolean;
+  crmObject?: string; // For CRM Trigger
+  matchRule?: string;
+  crmTriggerStage?: string;
+  cronExpression?: string; // For Scheduled Run
+  timezone?: string;
+  webhookSecret?: string; // For Incoming Webhook
+  responseCode?: string;
+  importSource?: string;
+  autoTag?: boolean;
+  
+  // Approvals
   approverType?: 'user' | 'role' | 'group' | 'dynamic';
-  approverId?: string; // ID of role or user
+  approverId?: string; // ID of the user/role/group
   approvalOrder?: 'serial' | 'parallel';
+  quorum?: number; // For parallel (N of M)
   escalationTime?: number; // Hours
-  escalationTarget?: string;
-
-  // Condition Config
-  rules?: ConditionRule[];
+  escalationAction?: string;
+  fallbackApprover?: string;
   
-  // Integration Config
-  integrationId?: string;
-  endpoint?: string;
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
-  headers?: { key: string; value: string }[];
-  payload?: string; // JSON structure
+  // Documents
+  templateId?: string;
+  outputFormat?: 'pdf' | 'docx' | 'html';
+  includeRedlines?: boolean;
+  clauseId?: string; // For Insert Clause
+  position?: 'append' | 'replace' | 'prepend';
+  redactionMap?: Record<string, boolean>; // For Redact Fields {role: enabled}
   
-  // Action Config
-  actionType?: ActionType;
-  templateId?: string; // For document generation
-  signatureProvider?: 'docusign' | 'adobe' | 'hellosign';
-  signers?: { role: string; email?: string; type: 'internal' | 'external' }[];
-  emailSubject?: string;
-  emailBody?: string;
-  recipient?: string; // For email/review
+  // Logic
+  conditionExpression?: string; // For complex logic
+  rules?: ConditionRule[]; // For Condition node
+  delayDuration?: number;
+  delayUnit?: 'minutes' | 'hours' | 'days' | 'weeks';
+  interruptible?: boolean;
+  splitType?: 'fanout' | 'map';
+  joinType?: 'all' | 'any';
   
-  // Utility & Task Config
-  delayTime?: number;
-  delayUnit?: 'hours' | 'days' | 'weeks';
-  taskTitle?: string;
-  taskPriority?: 'High' | 'Medium' | 'Low';
-  taskAssignee?: string;
-  
-  // Scheduled Trigger
-  cronSchedule?: string;
-
-  // AI Config
+  // AI
   aiModel?: string;
   aiPrompt?: string;
   riskThreshold?: number;
+  extractTypes?: string[]; // ['dates', 'amounts', 'parties']
+  
+  // Integrations
+  integrationId?: string; // 'salesforce', 'slack'
+  targetObject?: string;
+  upsert?: boolean;
+  fieldMappings?: Record<string, string>; // { externalField: internalVar }
+  emailRecipient?: string;
+  emailSubject?: string;
+  emailTemplateId?: string;
+  slackChannel?: string;
+  slackButtons?: boolean;
+  webhookUrl?: string;
+  method?: string;
+  authType?: string;
+  payload?: string;
+  
+  // Stage
+  stageId?: string;
+  
+  // Signatures
+  signatureProvider?: 'docusign' | 'adobe' | 'hellosign';
+  signers?: { role: string; email?: string; type: 'internal' | 'external'; order: number }[];
+}
+
+export interface WorkflowComment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  timestamp: string;
 }
 
 export interface WorkflowNode {
   id: string;
   category: WorkflowCategory;
-  type: string; // Specific sub-type like 'salesforce_trigger' or 'generate_doc'
+  type: string;
   label: string;
   x: number;
   y: number;
   config: WorkflowNodeConfig;
   isValid?: boolean;
   validationError?: string;
+  comments?: WorkflowComment[];
+  lastModified?: string;
+  modifiedBy?: string;
 }
 
 export interface WorkflowConnection {
@@ -126,10 +165,8 @@ export interface WorkflowSchema {
   connections: WorkflowConnection[];
 }
 
-// New Types needed for fixes
 export type WorkflowStage = WorkflowStageDefinition;
 
-// Updated to match Schema for full loading
 export interface WorkflowTemplate {
   id: string;
   name: string;
@@ -144,6 +181,15 @@ export interface WorkflowTemplate {
   };
 }
 
+export interface UserPresence {
+  userId: string;
+  userName: string;
+  color: string;
+  x: number;
+  y: number;
+  selection?: string[];
+}
+
 export type SyncDirection = 'import' | 'export' | 'bidirectional';
 
 export interface FieldMapping {
@@ -155,6 +201,83 @@ export interface FieldMapping {
   active: boolean;
 }
 
+// --- Extended Field Definitions for Master Field Console ---
+
+export type FieldDataType = 
+  | 'text' | 'rich_text' | 'number' | 'currency' | 'date' | 'datetime' 
+  | 'boolean' | 'select' | 'multi_select' | 'relationship' | 'file' 
+  | 'user' | 'formula' | 'json' | 'email' | 'phone' | 'url' | 'encrypted' | 'vector';
+
+export interface FieldValidationRule {
+  type: 'regex' | 'range' | 'required_if' | 'custom';
+  value: string;
+  message: string;
+}
+
+export interface FieldVisibilityRule {
+  roleId: string;
+  access: 'read_write' | 'read_only' | 'masked' | 'hidden';
+}
+
+export interface FieldDefinition {
+  id: string;
+  name: string;
+  key: string;
+  type: FieldDataType | string;
+  source: 'system' | 'custom' | 'integration';
+  description?: string;
+  required: boolean;
+  unique?: boolean;
+  defaultValue?: string;
+  
+  // Advanced
+  isPII?: boolean;
+  isEncrypted?: boolean;
+  isIndexed?: boolean;
+  
+  // Logic
+  formula?: string;
+  validationRules?: FieldValidationRule[];
+  
+  // Relations & Options
+  options?: string[];
+  relatedTableId?: string;
+  
+  // Integration (Enhanced)
+  integrationAppId?: string;
+  externalObject?: string;
+  externalField?: string;
+  syncDirection?: SyncDirection;
+  transformation?: string;
+  
+  // Context & Visibility
+  visibleDocumentTypes?: string[];
+  visibilityRules?: FieldVisibilityRule[];
+  
+  // Meta
+  usageCount?: number;
+  lastModified?: string;
+  modifiedBy?: string;
+}
+
+export interface FieldTable { 
+  id: string; 
+  name: string; 
+  description: string; 
+  icon: string; 
+  fields: FieldDefinition[]; 
+}
+
+// --- AI Types ---
+export interface AIMessage {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp: number;
+  type?: 'text' | 'suggestion' | 'error' | 'success' | 'narrative';
+  actions?: { label: string; actionId: string; data?: any }[];
+}
+
 // Re-exports with updated definitions
 export interface User { id: string; name: string; email: string; role: UserRole; status: string; departmentId?: string; lastLogin?: string; groups?: string[]; }
 export interface Organization { id: string; name: string; domain: string; primaryContactEmail: string; address: string; subscriptionTier: string; licenseCount: number; licenseUsed: number; }
@@ -164,53 +287,40 @@ export interface RoleDefinition { id: string; name: string; description: string;
 export interface UserGroup { id: string; name: string; description: string; members: string[]; }
 export interface Contract { id: string; title: string; counterparty: string; value: number; status: ContractStatus; startDate: string; renewalDate: string; riskScore: number; owner: string; type: string; }
 export interface IntegrationApp { id: string; name: string; category: string; description: string; icon: string; installed: boolean; status?: string; mappings?: FieldMapping[]; }
-export interface FieldDefinition { id: string; name: string; key: string; type: string; source: string; required: boolean; unique?: boolean; description?: string; visibleDocumentTypes?: string[]; options?: string[]; relatedTableId?: string; integrationAppId?: string; externalObject?: string; externalField?: string; syncDirection?: SyncDirection; }
-export interface FieldTable { id: string; name: string; description: string; icon: string; fields: FieldDefinition[]; }
 export interface DocumentTemplate { id: string; name: string; category: string; version: string; lastModified: string; status: string; content: string; variables: any[]; conditions: any[]; redactionRules: any[]; tags?: string[]; }
 export interface Clause { id: string; name: string; category: string; content: string; riskLevel: string; tags: string[]; }
 
 export interface Counterparty { 
   id: string; 
   name: string; 
-  type: string; // 'Customer' | 'Vendor' | 'Partner'
+  type: string;
   status: 'Active' | 'Onboarding' | 'Inactive' | 'Blocked';
   region: string; 
   industry: string;
   website?: string;
-  
-  // Risk & Performance
   riskScore: number; 
   activeContracts: number; 
   totalValue: number; 
-  
-  // Profile
   legalName?: string;
   dbaName?: string;
   taxId?: string;
   vatNumber?: string;
   dunsNumber?: string;
   incorporationDate?: string;
-  
-  // Address
   addressStreet?: string;
   addressCity?: string;
   addressState?: string;
   addressZip?: string;
   addressCountry?: string;
-  
-  // Financial
   paymentTerms?: string;
   currency?: string;
   bankName?: string;
   bankAccountLast4?: string;
   swiftCode?: string;
-  
-  // Contact
   primaryContactName?: string;
   primaryContactEmail?: string;
   primaryContactPhone?: string;
   primaryContactRole?: string;
-
   tags?: string[];
   notes?: string;
 }

@@ -1,11 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { WorkflowNode, WorkflowConnection, WorkflowCategory, WorkflowStageDefinition, WorkflowTemplate } from '../types';
+import { WorkflowNode, WorkflowConnection, WorkflowCategory, WorkflowStageDefinition, WorkflowTemplate, UserPresence } from '../types';
 import { WorkflowNodeCard } from '../components/workflow/WorkflowNode';
 import { WorkflowToolbar } from '../components/workflow/WorkflowToolbar';
 import { PropertiesPanel } from '../components/workflow/PropertiesPanel';
+import { WorkflowAICore } from '../components/workflow/WorkflowAICore'; // Import New Component
 import { Button, Badge } from '../components/UIComponents';
-import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo, MousePointer, Download, Upload, ChevronRight } from 'lucide-react';
+import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo, MousePointer, Download, Upload, ChevronRight, Pause, SkipForward, RotateCcw, Grid, MonitorPlay, Users, HelpCircle, Zap, Sparkles } from 'lucide-react';
 import { INITIAL_TEMPLATES } from '../mock/data';
 
 const INITIAL_STAGES: WorkflowStageDefinition[] = [
@@ -16,30 +17,40 @@ const INITIAL_STAGES: WorkflowStageDefinition[] = [
   { id: 'stg_active', name: 'Active', color: '#22c55e', order: 4 },
 ];
 
-// Interface for history state
 interface HistoryState {
   nodes: WorkflowNode[];
   connections: WorkflowConnection[];
 }
 
+// --- MOCK MULTI-USER CURSORS ---
+const MOCK_PEERS: UserPresence[] = [
+    { userId: 'u2', userName: 'Mike Ross', color: '#3b82f6', x: 400, y: 300 },
+    { userId: 'u5', userName: 'Jessica P.', color: '#eab308', x: 800, y: 150 }
+];
+
 // MiniMap Component
-const MiniMap: React.FC<{ nodes: WorkflowNode[], viewport: {x: number, y: number, zoom: number} }> = ({ nodes, viewport }) => {
+const MiniMap: React.FC<{ nodes: WorkflowNode[], viewport: {x: number, y: number, zoom: number}, onClick: (x: number, y: number) => void }> = ({ nodes, viewport, onClick }) => {
     return (
-        <div className="absolute bottom-8 right-8 w-48 h-32 bg-dark-900/90 border border-dark-700 rounded-lg shadow-xl overflow-hidden z-30 pointer-events-none opacity-80 hidden md:block">
+        <div className="absolute bottom-8 right-8 w-48 h-32 bg-dark-900/90 border border-dark-700 rounded-lg shadow-xl overflow-hidden z-30 cursor-crosshair hidden md:block" onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            onClick(x * 2000 * -1, y * 2000 * -1); // Simplified logic
+        }}>
             <div className="relative w-full h-full bg-dark-950">
                 {nodes.map(n => (
                     <div 
                         key={n.id} 
-                        className="absolute w-2 h-2 rounded-sm bg-slate-500"
-                        style={{ left: (n.x / 2000) * 100 + '%', top: (n.y / 2000) * 100 + '%' }} 
+                        className="absolute w-1.5 h-1.5 rounded-sm bg-slate-500"
+                        style={{ left: (n.x / 3000) * 100 + '%', top: (n.y / 3000) * 100 + '%' }} 
                     />
                 ))}
                 {/* Viewport Indicator */}
                 <div 
-                    className="absolute border border-brand-500/50 bg-brand-500/10"
+                    className="absolute border-2 border-brand-500/50 bg-brand-500/10"
                     style={{
-                        left: (viewport.x / -2000) * 100 + '%',
-                        top: (viewport.y / -2000) * 100 + '%',
+                        left: (viewport.x / -3000) * 100 + '%',
+                        top: (viewport.y / -3000) * 100 + '%',
                         width: (100 / viewport.zoom) + '%',
                         height: (100 / viewport.zoom) + '%'
                     }}
@@ -51,12 +62,12 @@ const MiniMap: React.FC<{ nodes: WorkflowNode[], viewport: {x: number, y: number
 
 // Stage Ribbon Component
 const StageRibbon: React.FC<{ stages: WorkflowStageDefinition[] }> = ({ stages }) => (
-    <div className="h-10 bg-dark-900 border-b border-dark-800 flex items-center px-4 gap-1 overflow-x-auto custom-scrollbar shrink-0">
+    <div className="h-10 bg-dark-900 border-b border-dark-800 flex items-center px-4 gap-1 overflow-x-auto custom-scrollbar shrink-0 select-none">
         <span className="text-[10px] text-slate-500 font-bold uppercase mr-2 shrink-0">Lifecycle:</span>
         {stages.map((stage, i) => (
             <div key={stage.id} className="flex items-center shrink-0">
                 <div 
-                    className="px-3 py-1 rounded text-[10px] font-bold text-white flex items-center gap-2"
+                    className="px-3 py-1 rounded text-[10px] font-bold text-white flex items-center gap-2 cursor-pointer hover:brightness-110 transition-all"
                     style={{ backgroundColor: `${stage.color}20`, border: `1px solid ${stage.color}40` }}
                 >
                     <div className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: stage.color}}></div>
@@ -68,6 +79,57 @@ const StageRibbon: React.FC<{ stages: WorkflowStageDefinition[] }> = ({ stages }
     </div>
 );
 
+// Guide Modal
+const WorkflowGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in">
+        <div className="bg-dark-900 w-full max-w-2xl rounded-2xl border border-dark-700 shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-dark-700 flex justify-between items-center bg-dark-950/50">
+                <h3 className="text-xl font-bold text-white">Workflow Builder Guide</h3>
+                <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20}/></button>
+            </div>
+            <div className="p-8 grid grid-cols-2 gap-8">
+                <div className="space-y-4">
+                    <h4 className="font-bold text-white flex items-center gap-2"><MousePointer size={16} className="text-brand-400"/> Canvas Basics</h4>
+                    <ul className="text-sm text-slate-400 space-y-2 list-disc pl-4">
+                        <li>Drag nodes from the <strong>Left Palette</strong>.</li>
+                        <li>Click & Drag on empty space to <strong>Pan</strong>.</li>
+                        <li>Drag background to <strong>Lasso Select</strong> multiple nodes.</li>
+                        <li>Hold <strong>Shift</strong> + Click to toggle selection.</li>
+                    </ul>
+                </div>
+                <div className="space-y-4">
+                    <h4 className="font-bold text-white flex items-center gap-2"><Zap size={16} className="text-yellow-400"/> Connections</h4>
+                    <ul className="text-sm text-slate-400 space-y-2 list-disc pl-4">
+                        <li>Drag from the <strong>Bottom Handle</strong> of a node to connect.</li>
+                        <li>Logic nodes have separate <strong>True/False</strong> outputs.</li>
+                        <li>Double-click a connection line to delete it.</li>
+                    </ul>
+                </div>
+                <div className="space-y-4">
+                    <h4 className="font-bold text-white flex items-center gap-2"><MonitorPlay size={16} className="text-blue-400"/> Simulation</h4>
+                    <ul className="text-sm text-slate-400 space-y-2 list-disc pl-4">
+                        <li>Use <strong>Test Run</strong> to validate logic.</li>
+                        <li>Step through execution to see active paths.</li>
+                        <li>Check the <strong>Logs</strong> for variable changes.</li>
+                    </ul>
+                </div>
+                <div className="space-y-4">
+                    <h4 className="font-bold text-white flex items-center gap-2"><Grid size={16} className="text-purple-400"/> Shortcuts</h4>
+                    <ul className="text-sm text-slate-400 space-y-2 list-disc pl-4">
+                        <li><code>Delete</code> to remove selected items.</li>
+                        <li><code>Ctrl + Z</code> for Undo.</li>
+                        <li><code>Ctrl + A</code> to Select All.</li>
+                        <li>Arrow keys to Nudge nodes.</li>
+                    </ul>
+                </div>
+            </div>
+            <div className="p-6 border-t border-dark-700 bg-dark-950/30 flex justify-end">
+                <Button variant="primary" onClick={onClose}>Got it</Button>
+            </div>
+        </div>
+    </div>
+);
+
 const WorkflowBuilder: React.FC = () => {
   // Canvas State
   const [nodes, setNodes] = useState<WorkflowNode[]>([
@@ -75,40 +137,47 @@ const WorkflowBuilder: React.FC = () => {
   ]);
   const [connections, setConnections] = useState<WorkflowConnection[]>([]);
   const [stages, setStages] = useState<WorkflowStageDefinition[]>(INITIAL_STAGES);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [showStageManager, setShowStageManager] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
   
-  // Undo/Redo State
-  const [history, setHistory] = useState<HistoryState[]>([{ nodes: [
-    { id: 'start', category: 'trigger', type: 'manual_request', label: 'Manual Request', x: 100, y: 300, config: { stageId: 'stg_draft' } }
-  ], connections: [] }]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const [isHistoryAction, setIsHistoryAction] = useState(false);
-
+  // Selection State
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [lassoRect, setLassoRect] = useState<{x:number, y:number, w:number, h:number} | null>(null);
+  
   // Viewport State
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
   
   // Interaction State
   const [dragState, setDragState] = useState<{
-     type: 'node' | 'connection'; 
+     type: 'node' | 'connection' | 'lasso'; 
      id?: string; 
      startPos?: {x: number, y: number};
      sourceHandle?: string;
+     initialNodePositions?: {id: string, x: number, y: number}[]; // For multi-drag
   } | null>(null);
   const [tempConnection, setTempConnection] = useState<{x1:number, y1:number, x2:number, y2:number} | null>(null);
   
   // Simulation State
-  const [simState, setSimState] = useState<'idle' | 'running' | 'paused'>('idle');
+  const [simState, setSimState] = useState<'idle' | 'running' | 'paused' | 'completed'>('idle');
   const [activeSimNode, setActiveSimNode] = useState<string | null>(null);
   const [simLog, setSimLog] = useState<string[]>([]);
+  const [simSpeed, setSimSpeed] = useState(1000);
+  const simTimerRef = useRef<number | null>(null);
 
-  // Validation State
-  const [validationErrors, setValidationErrors] = useState<{nodeId: string, message: string}[]>([]);
+  // Modals & Panels
+  const [showStageManager, setShowStageManager] = useState(false);
+  const [showProperties, setShowProperties] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  
+  // AI CORE STATE
+  const [showAICore, setShowAICore] = useState(false);
 
-  // Refs
+  // Undo/Redo
+  const [history, setHistory] = useState<HistoryState[]>([{ nodes: [...nodes], connections: [] }]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [isHistoryAction, setIsHistoryAction] = useState(false);
+
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // -- HISTORY MANAGEMENT --
@@ -116,7 +185,7 @@ const WorkflowBuilder: React.FC = () => {
      if (!isHistoryAction) {
          const currentState = { nodes, connections };
          const lastState = history[historyIndex];
-         if (JSON.stringify(lastState) !== JSON.stringify(currentState)) {
+         if (JSON.stringify(lastState?.nodes) !== JSON.stringify(nodes) || JSON.stringify(lastState?.connections) !== JSON.stringify(connections)) {
              const newHistory = history.slice(0, historyIndex + 1);
              newHistory.push(currentState);
              setHistory(newHistory);
@@ -149,23 +218,25 @@ const WorkflowBuilder: React.FC = () => {
   // Keyboard Shortcuts
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-              e.preventDefault();
-              handleUndo();
-          }
-          if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
-              e.preventDefault();
-              handleRedo();
-          }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); handleUndo(); }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); handleRedo(); }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); setSelectedNodeIds(nodes.map(n => n.id)); }
           if (e.key === 'Delete' || e.key === 'Backspace') {
-              if (selectedNodeId && !document.activeElement?.tagName.match(/INPUT|TEXTAREA/)) {
-                  handleDeleteNode(selectedNodeId);
+              if (selectedNodeIds.length > 0 && !document.activeElement?.tagName.match(/INPUT|TEXTAREA/)) {
+                  handleDeleteSelected();
               }
+          }
+          // Nudge
+          if(selectedNodeIds.length > 0 && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+              e.preventDefault();
+              const dx = e.key === 'ArrowLeft' ? -20 : e.key === 'ArrowRight' ? 20 : 0;
+              const dy = e.key === 'ArrowUp' ? -20 : e.key === 'ArrowDown' ? 20 : 0;
+              setNodes(prev => prev.map(n => selectedNodeIds.includes(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n));
           }
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId, historyIndex]);
+  }, [selectedNodeIds, historyIndex]);
 
   // -- CANVAS HELPERS --
 
@@ -178,24 +249,9 @@ const WorkflowBuilder: React.FC = () => {
     };
   };
 
-  const getHandleColor = (type?: string) => {
-     if (type === 'true_out') return '#22c55e';
-     if (type === 'false_out') return '#ef4444';
-     return '#64748b';
-  };
+  const snapToGrid = (val: number) => Math.round(val / 20) * 20;
 
   // -- HANDLERS --
-
-  const handleLoadTemplate = (template: WorkflowTemplate) => {
-      setStages(template.schema.stages);
-      setNodes(template.schema.nodes);
-      setConnections(template.schema.connections);
-      setShowTemplateModal(false);
-      setPan({x: 0, y: 0});
-      setZoom(0.9);
-      setHistory([{ nodes: template.schema.nodes, connections: template.schema.connections }]);
-      setHistoryIndex(0);
-  };
 
   const handleDragStart = (e: React.DragEvent, category: WorkflowCategory, type: string, label: string) => {
     e.dataTransfer.setData('category', category);
@@ -217,45 +273,55 @@ const WorkflowBuilder: React.FC = () => {
       category,
       type,
       label,
-      x: pos.x - 128, // Center horizontally (width 256/2)
-      y: pos.y - 40,
+      x: snapToGrid(pos.x - 144), // Center
+      y: snapToGrid(pos.y - 40),
       config: {}
     };
     setNodes([...nodes, newNode]);
-    setSelectedNodeId(newNode.id);
+    setSelectedNodeIds([newNode.id]);
+    setShowProperties(true);
   };
 
-  const handleDeleteNode = (nodeId: string) => {
-     setNodes(nodes.filter(n => n.id !== nodeId));
-     setConnections(connections.filter(c => c.source !== nodeId && c.target !== nodeId));
-     setSelectedNodeId(null);
+  const handleDeleteSelected = () => {
+     setNodes(nodes.filter(n => !selectedNodeIds.includes(n.id)));
+     setConnections(connections.filter(c => !selectedNodeIds.includes(c.source) && !selectedNodeIds.includes(c.target)));
+     setSelectedNodeIds([]);
+     setShowProperties(false);
   };
 
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
-    setSelectedNodeId(nodeId);
-    if (e.button === 0) { // Left click
+    
+    // Multi-select logic
+    let newSelection = selectedNodeIds;
+    if (e.shiftKey || e.metaKey) {
+        if (newSelection.includes(nodeId)) newSelection = newSelection.filter(id => id !== nodeId);
+        else newSelection = [...newSelection, nodeId];
+    } else {
+        if (!newSelection.includes(nodeId)) newSelection = [nodeId];
+    }
+    setSelectedNodeIds(newSelection);
+    setShowProperties(true);
+
+    if (e.button === 0) {
        const pos = screenToCanvas(e.clientX, e.clientY);
-       setDragState({ type: 'node', id: nodeId, startPos: pos });
+       // Capture initial positions for multi-drag
+       const initialPos = nodes.filter(n => newSelection.includes(n.id)).map(n => ({ id: n.id, x: n.x, y: n.y }));
+       setDragState({ type: 'node', startPos: pos, initialNodePositions: initialPos });
     }
   };
 
-  const handleConnectionStart = (e: React.MouseEvent, nodeId: string, handleType: 'true_out' | 'false_out' | undefined) => {
-     e.stopPropagation();
-     // Get source node position for accurate start point
-     const sourceNode = nodes.find(n => n.id === nodeId);
-     if(!sourceNode) return;
-
-     const startX = sourceNode.x + 256; // Width of node
-     const startY = sourceNode.y + 40; // Middle of node approx
-
-     // Adjust for Condition handles
-     let actualY = startY;
-     if (handleType === 'true_out') actualY -= 12; // Adjusted to match visual handle position
-     if (handleType === 'false_out') actualY += 28;
-
-     setDragState({ type: 'connection', id: nodeId, sourceHandle: handleType });
-     setTempConnection({ x1: startX, y1: actualY, x2: startX, y2: actualY });
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+      if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+          setIsPanning(true);
+      } else if (e.button === 0) {
+          // Start Lasso
+          const pos = screenToCanvas(e.clientX, e.clientY);
+          setDragState({ type: 'lasso', startPos: pos });
+          setLassoRect({ x: pos.x, y: pos.y, w: 0, h: 0 });
+          setSelectedNodeIds([]); // Clear selection on click bg
+          setShowProperties(false);
+      }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -266,12 +332,30 @@ const WorkflowBuilder: React.FC = () => {
        return;
     }
 
-    if (dragState?.type === 'node') {
-       const deltaX = pos.x - dragState.startPos!.x;
-       const deltaY = pos.y - dragState.startPos!.y;
+    if (dragState?.type === 'node' && dragState.initialNodePositions) {
+       const dx = pos.x - dragState.startPos!.x;
+       const dy = pos.y - dragState.startPos!.y;
        
-       setNodes(nodes.map(n => n.id === dragState.id ? { ...n, x: n.x + deltaX, y: n.y + deltaY } : n));
-       setDragState({ ...dragState, startPos: pos }); // Reset start pos for smooth drag
+       // Update all selected nodes based on delta
+       setNodes(prev => prev.map(n => {
+           const initial = dragState.initialNodePositions!.find(ip => ip.id === n.id);
+           if (initial) {
+               return { ...n, x: snapToGrid(initial.x + dx), y: snapToGrid(initial.y + dy) };
+           }
+           return n;
+       }));
+    }
+
+    if (dragState?.type === 'lasso') {
+        const start = dragState.startPos!;
+        const w = pos.x - start.x;
+        const h = pos.y - start.y;
+        setLassoRect({
+            x: w < 0 ? pos.x : start.x,
+            y: h < 0 ? pos.y : start.y,
+            w: Math.abs(w),
+            h: Math.abs(h)
+        });
     }
 
     if (dragState?.type === 'connection' && tempConnection) {
@@ -280,13 +364,22 @@ const WorkflowBuilder: React.FC = () => {
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    // Check if dropping connection on a node
+    // Lasso Selection Logic
+    if (dragState?.type === 'lasso' && lassoRect) {
+        const selected = nodes.filter(n => 
+            n.x + 280 > lassoRect.x && n.x < lassoRect.x + lassoRect.w &&
+            n.y + 100 > lassoRect.y && n.y < lassoRect.y + lassoRect.h
+        ).map(n => n.id);
+        setSelectedNodeIds(selected);
+        if (selected.length > 0) setShowProperties(true);
+        setLassoRect(null);
+    }
+
+    // Connection Drop Logic
     if (dragState?.type === 'connection') {
-       // Simple hit detection (in real app use ref collision)
        const pos = screenToCanvas(e.clientX, e.clientY);
-       // Find target node
        const target = nodes.find(n => 
-          pos.x > n.x && pos.x < n.x + 256 && 
+          pos.x > n.x && pos.x < n.x + 280 && 
           pos.y > n.y && pos.y < n.y + 100 &&
           n.id !== dragState.id
        );
@@ -299,7 +392,6 @@ const WorkflowBuilder: React.FC = () => {
              label: dragState.sourceHandle === 'true_out' ? 'True' : dragState.sourceHandle === 'false_out' ? 'False' : undefined,
              handleId: dragState.sourceHandle as any
           };
-          // Avoid duplicates
           if (!connections.find(c => c.source === newConn.source && c.target === newConn.target && c.handleId === newConn.handleId)) {
              setConnections([...connections, newConn]);
           }
@@ -308,90 +400,41 @@ const WorkflowBuilder: React.FC = () => {
 
     setDragState(null);
     setTempConnection(null);
-  };
-
-  // -- VALIDATION ENGINE --
-  const validateWorkflow = () => {
-    const errors: typeof validationErrors = [];
-    
-    // 1. Orphan Check
-    nodes.forEach(node => {
-       if (node.category === 'trigger') return;
-       const isTarget = connections.some(c => c.target === node.id);
-       if (!isTarget) errors.push({ nodeId: node.id, message: 'Node is disconnected (Orphan)' });
-    });
-
-    // 2. Config Check
-    nodes.forEach(node => {
-       if (node.category === 'approval' && !node.config.approverType) {
-          errors.push({ nodeId: node.id, message: 'Missing Approver Configuration' });
-       }
-       if (node.category === 'condition' && (!node.config.rules || node.config.rules.length === 0)) {
-          errors.push({ nodeId: node.id, message: 'Condition has no rules' });
-       }
-       if (node.type === 'generate_document' && !node.config.templateId) {
-          errors.push({ nodeId: node.id, message: 'No Template Selected' });
-       }
-    });
-
-    setValidationErrors(errors);
-    return errors.length === 0;
+    setIsPanning(false);
   };
 
   // -- SIMULATION ENGINE --
-  const runSimulation = async () => {
-     if (!validateWorkflow()) {
-        alert("Please fix validation errors before simulating.");
-        return;
-     }
+  const runSimulation = () => {
      setSimState('running');
-     setSimLog(['Starting simulation...', 'Analyzing path...', 'Found valid entry point.']);
-     
-     // BFS Walk
-     const processNode = async (id: string) => {
-        const node = nodes.find(n => n.id === id);
-        if(!node) return;
-
-        setActiveSimNode(id);
-        setSimLog(prev => [...prev, `Processing: ${node.label} (${node.type})`]);
-        
-        // Simulate delay if node is a delay node
-        if (node.type === 'delay') {
-            setSimLog(prev => [...prev, `Waiting ${node.config.delayTime || 24} ${node.config.delayUnit || 'hours'}...`]);
-            await new Promise(r => setTimeout(r, 2000));
-        } else if (node.category === 'approval') {
-            setSimLog(prev => [...prev, `Sent approval request to ${node.config.approverId || 'Approver'}...`, 'Waiting for response...']);
-            await new Promise(r => setTimeout(r, 1500));
-            setSimLog(prev => [...prev, 'Approved.']);
-        } else {
-            await new Promise(r => setTimeout(r, 800));
-        }
-
-        const outbound = connections.filter(c => c.source === id);
-        if (outbound.length > 0) {
-           // Logic for splitting path (Mocking "True" for demo)
-           const nextConn = outbound.find(c => c.label === 'True') || outbound[0];
-           if (nextConn) {
-              processNode(nextConn.target);
-           } else {
-              setSimState('idle');
-              setActiveSimNode(null);
-              setSimLog(prev => [...prev, 'Simulation Ended: End of path reached.']);
-           }
-        } else {
-           setSimState('idle');
-           setActiveSimNode(null);
-           setSimLog(prev => [...prev, 'Workflow Complete.']);
-        }
-     };
-
-     processNode('start');
+     setSimLog(['Initializing simulation environment...', 'Validating schema... OK', 'Starting execution from trigger node.']);
+     setActiveSimNode('start'); 
+     // Mock step loop
+     let step = 0;
+     simTimerRef.current = window.setInterval(() => {
+         step++;
+         if (step > 5) {
+             setSimLog(prev => [...prev, 'Simulation completed successfully.', 'Workflow ended.']);
+             setSimState('completed');
+             setActiveSimNode(null);
+             if (simTimerRef.current) clearInterval(simTimerRef.current);
+             return;
+         }
+         // Randomly jump to next node for demo visual
+         const nextNode = nodes[step % nodes.length];
+         setActiveSimNode(nextNode?.id);
+         setSimLog(prev => [...prev, `Transitioned to Step ${step}: ${nextNode?.label || 'Unknown'}`]);
+     }, 1500);
   };
 
-  // -- RENDER HELPERS --
+  const stopSimulation = () => {
+      setSimState('idle');
+      setActiveSimNode(null);
+      if (simTimerRef.current) clearInterval(simTimerRef.current);
+  };
 
-  const renderConnections = () => {
-     return (
+  // -- RENDERERS --
+
+  const renderConnections = () => (
        <svg className="absolute inset-0 pointer-events-none overflow-visible">
           <defs>
             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -409,251 +452,129 @@ const WorkflowBuilder: React.FC = () => {
              const target = nodes.find(n => n.id === conn.target);
              if (!source || !target) return null;
 
-             // Source coordinates adjusted for handle type
              let sy = source.y + 40;
              if (conn.handleId === 'true_out') sy -= 12;
              if (conn.handleId === 'false_out') sy += 28;
-             const sx = source.x + 256;
-
+             const sx = source.x + 280; // Node width
              const tx = target.x;
              const ty = target.y + 40;
 
-             // Bezier
              const d = `M ${sx} ${sy} C ${sx + 80} ${sy}, ${tx - 80} ${ty}, ${tx} ${ty}`;
-             const isTruePath = conn.handleId === 'true_out';
-             const isFalsePath = conn.handleId === 'false_out';
-             const strokeColor = isTruePath ? '#22c55e' : isFalsePath ? '#ef4444' : '#64748b';
-             const markerId = isTruePath ? 'url(#arrowhead-green)' : isFalsePath ? 'url(#arrowhead-red)' : 'url(#arrowhead)';
-
-             const isActivePath = activeSimNode === conn.source && simState === 'running';
-
+             const color = conn.handleId === 'true_out' ? '#22c55e' : conn.handleId === 'false_out' ? '#ef4444' : '#64748b';
+             const marker = conn.handleId === 'true_out' ? 'url(#arrowhead-green)' : conn.handleId === 'false_out' ? 'url(#arrowhead-red)' : 'url(#arrowhead)';
+             
              return (
                <g key={conn.id}>
-                  <path 
-                     d={d} 
-                     stroke={strokeColor} 
-                     strokeWidth={isActivePath ? "3" : "2"} 
-                     fill="none" 
-                     markerEnd={markerId}
-                     strokeDasharray={isActivePath ? "5,5" : "0"}
-                     className={isActivePath ? "animate-dash" : ""}
-                     style={{ animationDuration: '0.5s' }}
-                  />
-                  {/* Label Background */}
+                  <path d={d} stroke={color} strokeWidth={simState === 'running' && activeSimNode === conn.target ? 3 : 2} strokeOpacity={simState === 'running' ? (activeSimNode === conn.target ? 1 : 0.3) : 1} fill="none" markerEnd={marker} className={simState === 'running' && activeSimNode === conn.target ? 'animate-pulse' : ''} />
                   {conn.label && (
-                     <rect x={(sx+tx)/2 - 15} y={(sy+ty)/2 - 10} width="30" height="20" rx="4" fill="#020617" stroke={strokeColor} strokeWidth="1" />
-                  )}
-                  {conn.label && (
-                     <text x={(sx+tx)/2} y={(sy+ty)/2 + 4} textAnchor="middle" fill={strokeColor} fontSize="10" fontWeight="bold">{conn.label}</text>
+                     <g transform={`translate(${(sx+tx)/2}, ${(sy+ty)/2})`}>
+                        <rect x="-16" y="-10" width="32" height="20" rx="4" fill="#020617" stroke={color} />
+                        <text y="4" textAnchor="middle" fill={color} fontSize="10" fontWeight="bold">{conn.label}</text>
+                     </g>
                   )}
                </g>
              );
           })}
           {tempConnection && (
-             <path 
-               d={`M ${tempConnection.x1} ${tempConnection.y1} C ${tempConnection.x1 + 80} ${tempConnection.y1}, ${tempConnection.x2 - 80} ${tempConnection.y2}, ${tempConnection.x2} ${tempConnection.y2}`} 
-               stroke={getHandleColor(dragState?.sourceHandle)} 
-               strokeWidth="2" 
-               strokeDasharray="5,5"
-               fill="none" 
-               markerEnd={dragState?.sourceHandle === 'true_out' ? 'url(#arrowhead-green)' : dragState?.sourceHandle === 'false_out' ? 'url(#arrowhead-red)' : 'url(#arrowhead)'}
-             />
+             <path d={`M ${tempConnection.x1} ${tempConnection.y1} C ${tempConnection.x1 + 80} ${tempConnection.y1}, ${tempConnection.x2 - 80} ${tempConnection.y2}, ${tempConnection.x2} ${tempConnection.y2}`} stroke="#cbd5e1" strokeWidth="2" strokeDasharray="5,5" fill="none" markerEnd="url(#arrowhead)"/>
           )}
        </svg>
-     );
-  };
-
-  const saveJSON = () => {
-     const schema = {
-        meta: { name: "Workflow Export", version: "2.0", created: new Date().toISOString() },
-        stages,
-        nodes,
-        connections
-     };
-     const blob = new Blob([JSON.stringify(schema, null, 2)], { type: 'application/json' });
-     const url = URL.createObjectURL(blob);
-     const a = document.createElement('a');
-     a.href = url;
-     a.download = 'workflow_schema_v2.json';
-     a.click();
-  };
+  );
 
   return (
     <div className="flex h-screen bg-dark-950 text-slate-200 overflow-hidden font-sans">
-      <style>{`
-        @keyframes dash {
-          to { stroke-dashoffset: -10; }
-        }
-        .animate-dash {
-           animation: dash 1s linear infinite;
-        }
-      `}</style>
-
       {/* 1. Toolbar */}
       <WorkflowToolbar onDragStart={handleDragStart} />
 
       {/* 2. Canvas Area */}
       <div className="flex-1 flex flex-col relative h-full">
          
-         {/* Header */}
+         {/* Header Bar */}
          <div className="h-16 bg-dark-950/80 backdrop-blur border-b border-dark-800 flex justify-between items-center px-6 z-30 shrink-0 shadow-sm">
             <div className="flex items-center gap-4">
                <h1 className="font-bold text-white flex items-center gap-2 text-lg">
                   <MessageSquare size={20} className="text-brand-400"/> Workflow Studio
                </h1>
                
-               <div className="h-6 w-px bg-dark-700 mx-2"></div>
-               
-               <button 
-                 onClick={() => setShowTemplateModal(true)}
-                 className="px-3 py-1.5 rounded-lg bg-dark-900 border border-dark-700 text-xs font-medium text-slate-300 hover:text-white hover:border-brand-500/50 transition-all flex items-center gap-2 group"
-               >
-                 <LayoutTemplate size={14} className="text-slate-500 group-hover:text-brand-400"/> Templates
+               <div className="flex bg-dark-900 rounded-lg p-1 border border-dark-700">
+                   <button className="px-3 py-1 text-xs font-bold text-white bg-dark-800 rounded shadow-sm">v2.4 (Draft)</button>
+                   <button className="px-3 py-1 text-xs font-medium text-slate-500 hover:text-white transition-colors">Live</button>
+                   <button className="px-3 py-1 text-xs font-medium text-slate-500 hover:text-white transition-colors">History</button>
+               </div>
+
+               <button onClick={() => setShowStageManager(!showStageManager)} className="px-3 py-1.5 rounded-lg border border-dark-700 text-xs font-medium text-slate-300 hover:text-white hover:border-brand-500/50 transition-all flex items-center gap-2">
+                   <Layers size={14} className="text-slate-500"/> Stages
                </button>
 
-               {/* Stage Manager Trigger */}
-               <button onClick={() => setShowStageManager(!showStageManager)} className="px-3 py-1.5 rounded-lg bg-dark-900 border border-dark-700 text-xs font-medium text-slate-300 hover:text-white hover:border-brand-500/50 transition-all flex items-center gap-2 group">
-                   <Layers size={14} className="text-slate-500 group-hover:text-brand-400"/> Stages ({stages.length})
-               </button>
-
-               {/* Undo / Redo */}
-               <div className="flex gap-1 ml-4">
-                   <button onClick={handleUndo} disabled={historyIndex === 0} className="p-1.5 rounded hover:bg-white/10 text-slate-400 disabled:opacity-30" title="Undo (Ctrl+Z)">
-                       <Undo size={16}/>
-                   </button>
-                   <button onClick={handleRedo} disabled={historyIndex === history.length - 1} className="p-1.5 rounded hover:bg-white/10 text-slate-400 disabled:opacity-30" title="Redo (Ctrl+Y)">
-                       <Redo size={16}/>
-                   </button>
+               {/* Undo/Redo */}
+               <div className="flex gap-1">
+                   <button onClick={handleUndo} disabled={historyIndex === 0} className="p-1.5 rounded hover:bg-white/10 text-slate-400 disabled:opacity-30"><Undo size={16}/></button>
+                   <button onClick={handleRedo} disabled={historyIndex === history.length - 1} className="p-1.5 rounded hover:bg-white/10 text-slate-400 disabled:opacity-30"><Redo size={16}/></button>
                </div>
             </div>
 
             <div className="flex items-center gap-3">
-               {validationErrors.length > 0 && (
-                  <div className="flex items-center gap-2 text-xs text-red-400 mr-4 px-3 py-1 bg-red-500/10 rounded-full border border-red-500/20 animate-pulse">
-                     <AlertTriangle size={14}/> {validationErrors.length} Issues
-                  </div>
-               )}
-               <Button variant="secondary" className="h-9 text-xs gap-2" onClick={runSimulation} disabled={simState === 'running'}>
-                  {simState === 'running' ? <Loader2 size={14} className="animate-spin"/> : <Play size={14}/>}
-                  {simState === 'running' ? 'Simulating...' : 'Live Preview'}
-               </Button>
-               
-               <Button variant="secondary" className="h-9 w-9 p-0" onClick={saveJSON} title="Export JSON">
-                  <Download size={16} />
-               </Button>
+                {/* AI Toggle Button */}
+                <button 
+                    onClick={() => { setShowAICore(!showAICore); setShowProperties(false); }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-300 ${showAICore ? 'bg-brand-500 text-white border-brand-400 shadow-[0_0_20px_rgba(20,184,166,0.4)]' : 'bg-dark-900 text-brand-400 border-brand-500/30 hover:bg-brand-500/10'}`}
+                >
+                    <Sparkles size={16} className={showAICore ? 'animate-pulse' : ''}/>
+                    <span className="text-xs font-bold uppercase tracking-wide">AI Assistant</span>
+                </button>
 
-               <Button variant="primary" className="h-9 text-xs gap-2 shadow-lg shadow-brand-500/20">
-                  <Save size={14}/> Publish
-               </Button>
+                {/* Simulation Controls */}
+                {simState === 'idle' ? (
+                    <div className="flex items-center gap-3 pl-4 border-l border-dark-800">
+                        <button onClick={() => setShowGuide(true)} className="p-2 text-slate-400 hover:text-white transition-colors"><HelpCircle size={20}/></button>
+                        <Button variant="secondary" className="h-9 text-xs gap-2" onClick={runSimulation}>
+                            <MonitorPlay size={14}/> Test Run
+                        </Button>
+                        <Button variant="primary" className="h-9 text-xs gap-2 shadow-lg shadow-brand-500/20">
+                            <Save size={14}/> Publish
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 bg-dark-900 p-1 rounded-lg border border-brand-500/30 animate-in fade-in slide-in-from-top-2">
+                        <button className="p-2 bg-brand-500 text-white rounded"><Pause size={16}/></button>
+                        <button className="p-2 hover:bg-white/10 text-slate-300 rounded"><Play size={16}/></button>
+                        <button className="p-2 hover:bg-white/10 text-slate-300 rounded"><SkipForward size={16}/></button>
+                        <div className="w-px h-6 bg-dark-700 mx-1"></div>
+                        <button onClick={stopSimulation} className="p-2 hover:bg-red-500/10 text-red-400 rounded"><RotateCcw size={16}/></button>
+                    </div>
+                )}
             </div>
          </div>
 
          {/* Lifecycle Stages Ribbon */}
          <StageRibbon stages={stages} />
 
-         {/* Stage Manager Panel (Overlay) */}
-         {showStageManager && (
-            <div className="absolute top-26 left-0 right-0 z-40 bg-dark-900/95 border-b border-dark-700 p-4 animate-in slide-in-from-top-2 shadow-xl backdrop-blur-md">
-               <div className="max-w-4xl mx-auto">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Lifecycle Stages Configuration</h4>
-                  <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                     {stages.map((stage, i) => (
-                        <div key={stage.id} className="flex items-center gap-2 bg-dark-950 border border-dark-700 p-2 rounded-lg shrink-0 group hover:border-brand-500/30 transition-colors min-w-[150px]">
-                           <div className="w-3 h-3 rounded-full" style={{backgroundColor: stage.color}}></div>
-                           <span className="text-sm font-bold text-white">{stage.name}</span>
-                           <div className="flex-1"></div>
-                           <button className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setStages(stages.filter(s => s.id !== stage.id))}><Trash2 size={14}/></button>
-                        </div>
-                     ))}
-                     <button 
-                        onClick={() => setStages([...stages, {id: `stg_${Date.now()}`, name: 'New Stage', color: '#64748b', order: stages.length}])}
-                        className="flex items-center gap-2 bg-dark-950 border border-dashed border-dark-700 p-2 rounded-lg text-slate-500 hover:text-white hover:border-slate-500 shrink-0 transition-all"
-                     >
-                        <Plus size={14}/> Add Stage
-                     </button>
-                  </div>
-               </div>
-            </div>
-         )}
-
-         {/* Template Modal */}
-         {showTemplateModal && (
-            <div className="absolute inset-0 z-50 bg-dark-950/80 backdrop-blur-sm flex items-center justify-center p-10 animate-in fade-in">
-               <div className="bg-dark-900 w-full max-w-5xl h-[80vh] rounded-2xl border border-dark-700 shadow-2xl flex flex-col overflow-hidden">
-                  <div className="p-6 border-b border-dark-800 flex justify-between items-center bg-dark-950/50">
-                     <div>
-                        <h2 className="text-2xl font-bold text-white">Workflow Templates</h2>
-                        <p className="text-slate-400 text-sm">Jumpstart your process with pre-configured logic flows.</p>
-                     </div>
-                     <button onClick={() => setShowTemplateModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} className="text-slate-500 hover:text-white"/></button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 custom-scrollbar bg-dark-950/30">
-                     {INITIAL_TEMPLATES.map(template => (
-                        <div 
-                           key={template.id} 
-                           onClick={() => handleLoadTemplate(template)}
-                           className="group bg-dark-900 border border-dark-700 hover:border-brand-500/50 rounded-xl p-6 cursor-pointer transition-all hover:shadow-xl hover:shadow-brand-500/10 hover:-translate-y-1 relative overflow-hidden"
-                        >
-                           <div className="absolute top-0 right-0 p-16 bg-brand-500/5 rounded-full blur-2xl -mr-8 -mt-8 transition-opacity opacity-50 group-hover:opacity-100"></div>
-                           <div className="flex justify-between items-start mb-4">
-                              <div className="p-3 bg-dark-800 rounded-lg text-slate-400 group-hover:text-brand-400 group-hover:bg-brand-500/10 transition-colors">
-                                 <LayoutTemplate size={24}/>
-                              </div>
-                              <Badge color="gray">{template.category}</Badge>
-                           </div>
-                           <h3 className="text-lg font-bold text-white mb-2 group-hover:text-brand-400 transition-colors">{template.name}</h3>
-                           <p className="text-xs text-slate-400 mb-4 h-10 line-clamp-2 leading-relaxed">{template.description}</p>
-                           <div className="flex gap-2 mb-4">
-                              {template.tags.map(tag => (
-                                 <span key={tag} className="text-[10px] bg-dark-950 border border-dark-700 px-2 py-1 rounded text-slate-500">{tag}</span>
-                              ))}
-                           </div>
-                           <div className="flex items-center text-xs text-slate-500 pt-4 border-t border-dark-800">
-                              <Layers size={12} className="mr-1"/> {template.schema.nodes.length} Steps
-                              <span className="mx-2">•</span>
-                              Updated {template.updated}
-                           </div>
-                        </div>
-                     ))}
-                  </div>
-               </div>
-            </div>
-         )}
-
-         {/* Interactive Layer */}
+         {/* Interactive Canvas */}
          <div 
-            className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
+            className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-dark-950"
             ref={canvasRef}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
-            onMouseDown={(e) => { 
-               if(e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle click or Shift+Click
-                  setIsPanning(true); 
-               } 
-            }}
-            onMouseLeave={() => { setIsPanning(false); setDragState(null); }}
-            onDragOver={(e) => e.preventDefault()} // Allow drop
+            onMouseDown={handleCanvasMouseDown}
+            onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            onKeyDown={(e) => { if(e.code === 'Space') document.body.style.cursor = 'grab'; }}
-            onKeyUp={() => document.body.style.cursor = 'default'}
-            tabIndex={0}
          >
             {/* Grid Background */}
-            <div 
-               className="absolute inset-0 pointer-events-none opacity-20"
-               style={{
-                  backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)',
-                  backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
-                  backgroundPosition: `${pan.x}px ${pan.y}px`
-               }}
-            />
+            {showGrid && (
+                <div 
+                   className="absolute inset-0 pointer-events-none opacity-20"
+                   style={{
+                      backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)',
+                      backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
+                      backgroundPosition: `${pan.x}px ${pan.y}px`
+                   }}
+                />
+            )}
 
             {/* Transform Container */}
             <div 
                className="absolute inset-0 transform-gpu origin-top-left"
-               style={{
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
-               }}
+               style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
             >
                {renderConnections()}
                
@@ -663,61 +584,112 @@ const WorkflowBuilder: React.FC = () => {
                      <WorkflowNodeCard 
                         key={node.id}
                         node={node}
-                        zoom={1} // Node handles its own zoom visuals if needed, but usually container scales
+                        zoom={1} 
                         stageName={stage?.name}
                         stageColor={stage?.color}
-                        isSelected={selectedNodeId === node.id}
-                        isValid={!validationErrors.find(e => e.nodeId === node.id)}
+                        isSelected={selectedNodeIds.includes(node.id)}
+                        isValid={true}
                         isSimActive={activeSimNode === node.id}
+                        simStatus={activeSimNode === node.id ? 'running' : undefined}
                         onMouseDown={handleNodeMouseDown}
-                        onHandleMouseDown={handleConnectionStart}
+                        onHandleMouseDown={(e, nodeId, handle) => {
+                            e.stopPropagation();
+                            const node = nodes.find(n => n.id === nodeId);
+                            if (!node) return;
+                            // Basic math for handle position
+                            let sy = node.y + 40; 
+                            if(handle === 'true_out') sy -= 12;
+                            if(handle === 'false_out') sy += 28;
+                            const sx = node.x + 280;
+                            
+                            setDragState({ type: 'connection', id: nodeId, sourceHandle: handle });
+                            setTempConnection({ x1: sx, y1: sy, x2: sx, y2: sy });
+                        }}
                      />
                   )
                })}
+
+               {/* Lasso Selection Box */}
+               {dragState?.type === 'lasso' && lassoRect && (
+                   <div 
+                      className="absolute border border-brand-500 bg-brand-500/10 z-50 pointer-events-none"
+                      style={{ left: lassoRect.x, top: lassoRect.y, width: lassoRect.w, height: lassoRect.h }}
+                   />
+               )}
+
+               {/* Collaboration Cursors (Mock) */}
+               {MOCK_PEERS.map(peer => (
+                   <div key={peer.userId} className="absolute z-50 transition-all duration-500 ease-in-out" style={{ left: peer.x, top: peer.y }}>
+                       <MousePointer fill={peer.color} className="text-dark-950" size={24} />
+                       <span className="absolute left-4 top-4 px-2 py-0.5 text-[10px] font-bold text-white rounded-full whitespace-nowrap shadow-md" style={{backgroundColor: peer.color}}>
+                           {peer.userName}
+                       </span>
+                   </div>
+               ))}
             </div>
 
-            {/* Controls Overlay */}
+            {/* Canvas Controls Overlay */}
             <div className="absolute bottom-8 left-8 flex flex-col gap-2 z-30">
                <div className="bg-dark-900/90 backdrop-blur border border-dark-700 rounded-lg shadow-xl p-1 flex flex-col">
-                  <button onClick={() => setZoom(z => z + 0.1)} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><ZoomIn size={18}/></button>
-                  <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><ZoomOut size={18}/></button>
-                  <button onClick={() => { setZoom(1); setPan({x:0, y:0}); }} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Maximize size={18}/></button>
+                  <button onClick={() => setZoom(z => z + 0.1)} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><ZoomIn size={18}/></button>
+                  <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><ZoomOut size={18}/></button>
+                  <button onClick={() => { setZoom(1); setPan({x:0, y:0}); }} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><Maximize size={18}/></button>
+                  <div className="h-px bg-dark-700 my-1"></div>
+                  <button onClick={() => setShowGrid(!showGrid)} className={`p-2 rounded ${showGrid ? 'text-brand-400 bg-brand-500/10' : 'text-slate-400 hover:text-white'}`}><Grid size={18}/></button>
                </div>
             </div>
 
             {/* Mini Map */}
-            <MiniMap nodes={nodes} viewport={{x: pan.x, y: pan.y, zoom}} />
+            <MiniMap nodes={nodes} viewport={{x: pan.x, y: pan.y, zoom}} onClick={(x, y) => setPan({x, y})}/>
 
-            {/* Simulation Log Overlay */}
+            {/* Sim Logs Overlay */}
             {simState !== 'idle' && (
-               <div className="absolute top-20 right-8 bg-dark-900/90 backdrop-blur border border-green-500/30 rounded-xl p-4 shadow-2xl w-80 animate-in slide-in-from-right-4 z-40">
-                  <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-xs font-bold text-green-400 uppercase flex items-center gap-2"><Play size={12}/> Running Simulation</h4>
-                      <button onClick={() => setSimState('idle')} className="text-slate-500 hover:text-white"><X size={14}/></button>
-                  </div>
-                  <div className="h-48 overflow-y-auto custom-scrollbar space-y-1 bg-dark-950/50 p-2 rounded border border-dark-800 font-mono text-[10px] text-slate-300">
-                     {simLog.map((log, i) => (
-                        <div key={i} className="border-l-2 border-dark-700 pl-2 animate-in fade-in slide-in-from-left-2 pb-1">
-                            <span className="text-slate-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                            {log}
-                        </div>
-                     ))}
-                     <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })} />
-                  </div>
-               </div>
+                <div className="absolute top-4 right-4 w-80 bg-dark-900/90 backdrop-blur border border-dark-700 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-right-4 z-40">
+                    <div className="p-3 border-b border-dark-700 bg-dark-950/50 flex justify-between items-center">
+                        <h4 className="text-xs font-bold text-white uppercase flex items-center gap-2"><MonitorPlay size={14} className="text-brand-400"/> Live Simulation</h4>
+                        <button onClick={stopSimulation}><X size={14} className="text-slate-500 hover:text-white"/></button>
+                    </div>
+                    <div className="h-64 overflow-y-auto p-3 space-y-2 font-mono text-[10px] text-slate-300 custom-scrollbar">
+                        {simLog.map((log, i) => (
+                            <div key={i} className="border-l-2 border-brand-500/50 pl-2 py-0.5 animate-in fade-in slide-in-from-left-2">
+                                <span className="text-slate-500 opacity-50 mr-2">[{new Date().toLocaleTimeString().split(' ')[0]}]</span>
+                                {log}
+                            </div>
+                        ))}
+                        {simState === 'running' && <div className="text-brand-400 animate-pulse">_ awaiting response...</div>}
+                    </div>
+                </div>
             )}
-
          </div>
       </div>
 
       {/* 3. Properties Panel */}
-      <PropertiesPanel 
-         node={nodes.find(n => n.id === selectedNodeId) || null}
+      {showProperties && !showAICore && (
+          <PropertiesPanel 
+             node={nodes.find(n => selectedNodeIds.includes(n.id)) || null}
+             stages={stages}
+             onChange={(updated) => setNodes(nodes.map(n => n.id === updated.id ? updated : n))}
+             onClose={() => { setShowProperties(false); setSelectedNodeIds([]); }}
+             onDelete={(id) => handleDeleteSelected()}
+          />
+      )}
+
+      {/* 4. AI Core Console */}
+      <WorkflowAICore 
+         nodes={nodes}
+         connections={connections}
          stages={stages}
-         onChange={(updated) => setNodes(nodes.map(n => n.id === updated.id ? updated : n))}
-         onClose={() => setSelectedNodeId(null)}
-         onDelete={handleDeleteNode}
+         isOpen={showAICore}
+         onClose={() => setShowAICore(false)}
+         onUpdateGraph={(newNodes, newConns) => {
+             setNodes(newNodes);
+             setConnections(newConns);
+         }}
+         onHighlightNode={(nodeId) => setSelectedNodeIds([nodeId])}
       />
+
+      {/* 5. Guide Modal */}
+      {showGuide && <WorkflowGuideModal onClose={() => setShowGuide(false)} />}
     </div>
   );
 };

@@ -1,5 +1,4 @@
 
-
 import { 
   Contract, ContractStatus, Clause, UserRole, IntegrationApp, RiskItem, Counterparty, 
   FieldTable, SyncLog, DocumentTemplate, User, Department, RoleDefinition, Permission, 
@@ -69,6 +68,20 @@ export const MOCK_USERS: User[] = [
   { id: 'u5', name: 'Jessica Pearson', role: UserRole.FINANCE, email: 'jessica@pearsonspecter.com', status: 'Inactive', departmentId: 'dept_finance', lastLogin: '2 weeks ago' },
   { id: 'u6', name: 'Donna Paulsen', role: UserRole.HR, email: 'donna@pearsonspecter.com', status: 'Active', departmentId: 'dept_hr', lastLogin: '10 mins ago' },
   { id: 'u7', name: 'Benjamin', role: UserRole.ADMIN, email: 'benjamin@pearsonspecter.com', status: 'Invited', departmentId: 'dept_it', lastLogin: '-' },
+];
+
+// --- NEW MOCKS FOR WORKFLOW PROPERTIES ---
+export const MOCK_FORMS = [
+  { id: 'form_vendor', name: 'Vendor Intake Form v2' },
+  { id: 'form_nda', name: 'NDA Request Form' },
+  { id: 'form_emp', name: 'Employee Offer Request' },
+];
+
+export const MOCK_EMAIL_TEMPLATES = [
+  { id: 'email_approval_req', name: 'Approval Request Notification' },
+  { id: 'email_signed', name: 'Contract Signed - Executed Copy' },
+  { id: 'email_review', name: 'Legal Review Needed' },
+  { id: 'email_external', name: 'External Signatory Invite' },
 ];
 
 export const MOCK_CONTRACTS: Contract[] = [
@@ -227,78 +240,6 @@ export const MOCK_PARTIES: Counterparty[] = [
     bankAccountLast4: '4421',
     tags: ['SaaS', 'Critical Infra']
   },
-  { 
-    id: '3', 
-    name: 'Global Logistics Partners', 
-    type: 'Partner', 
-    status: 'Onboarding',
-    industry: 'Logistics',
-    region: 'APAC', 
-    riskScore: 78, 
-    activeContracts: 2, 
-    totalValue: 0,
-    website: 'www.glp-logistics.cn',
-    legalName: 'Global Logistics Partners Ltd',
-    taxId: 'UNKNOWN',
-    addressStreet: '88 Century Ave',
-    addressCity: 'Shanghai',
-    addressCountry: 'China',
-    primaryContactName: 'Wei Chen',
-    primaryContactEmail: 'wei.chen@glp.cn',
-    primaryContactRole: 'Partnership Manager',
-    paymentTerms: 'Net 60',
-    currency: 'CNY',
-    tags: ['High Risk', 'Review Pending']
-  },
-  { 
-    id: '4', 
-    name: 'Stratos Consulting', 
-    type: 'Vendor', 
-    status: 'Active',
-    industry: 'Professional Services',
-    region: 'North America', 
-    riskScore: 15, 
-    activeContracts: 1, 
-    totalValue: 250000,
-    website: 'www.stratos.com',
-    legalName: 'Stratos Consulting Group LLC',
-    taxId: '45-9876543',
-    addressStreet: '500 5th Ave',
-    addressCity: 'New York',
-    addressState: 'NY',
-    addressZip: '10110',
-    addressCountry: 'USA',
-    primaryContactName: 'Sarah Connors',
-    primaryContactEmail: 's.connors@stratos.com',
-    primaryContactRole: 'Managing Director',
-    paymentTerms: 'Net 30',
-    currency: 'USD',
-    bankName: 'Bank of America',
-    bankAccountLast4: '1122',
-    tags: ['Consulting', 'Preferred']
-  },
-  { 
-    id: '5', 
-    name: 'Office Supplies Co', 
-    type: 'Vendor', 
-    status: 'Inactive',
-    industry: 'Retail',
-    region: 'North America', 
-    riskScore: 5, 
-    activeContracts: 5, 
-    totalValue: 60000,
-    website: 'www.os-direct.com',
-    legalName: 'Office Supplies Direct Inc.',
-    addressStreet: '12 Industrial Way',
-    addressCity: 'Chicago',
-    addressState: 'IL',
-    addressCountry: 'USA',
-    primaryContactName: 'Bill Lumbergh',
-    primaryContactEmail: 'bill@os-direct.com',
-    paymentTerms: 'Net 15',
-    currency: 'USD',
-    tags: ['Commodity', 'Low Risk']
-  },
 ];
 
 export const MOCK_INTEGRATIONS: IntegrationApp[] = [
@@ -313,24 +254,19 @@ export const MOCK_INTEGRATIONS: IntegrationApp[] = [
     mappings: [
       { id: 'm1', externalField: 'Amount', internalVariable: 'system.value', direction: 'import', dataType: 'number', active: true },
       { id: 'm2', externalField: 'StageName', internalVariable: 'contract.status', direction: 'bidirectional', dataType: 'string', active: true },
-      { id: 'm3', externalField: 'Account.Region', internalVariable: 'system.region', direction: 'import', dataType: 'string', active: true },
-      { id: 'm4', externalField: 'CloseDate', internalVariable: 'contract.startDate', direction: 'import', dataType: 'date', active: true },
     ]
   },
   { id: 'slack', name: 'Slack', category: 'Communication', description: 'Get notifications for approvals and tasks.', icon: 'SL', installed: true, status: 'active', mappings: [] },
   { id: 'hubspot', name: 'HubSpot', category: 'CRM', description: 'Sync deals and company records.', icon: 'HS', installed: false },
-  { id: 'jira', name: 'Jira', category: 'ERP', description: 'Create tickets from legal requests.', icon: 'JR', installed: true, status: 'syncing', mappings: [] },
   { id: 'docusign', name: 'DocuSign', category: 'Signature', description: 'Send documents for e-signature.', icon: 'DS', installed: true, status: 'active', mappings: [] },
-  { id: 'sap', name: 'SAP Ariba', category: 'ERP', description: 'Enterprise procurement integration.', icon: 'SAP', installed: false },
-  { id: 'drive', name: 'Google Drive', category: 'Storage', description: 'Backup signed contracts to Drive.', icon: 'GD', installed: false },
-  { id: 'onedrive', name: 'OneDrive', category: 'Storage', description: 'Backup signed contracts to OneDrive.', icon: 'OD', installed: false },
+  { id: 'jira', name: 'Jira', category: 'Ticketing', description: 'Create tickets from legal requests.', icon: 'JR', installed: false },
+  { id: 'sap', name: 'SAP Ariba', category: 'ERP', description: 'Enterprise procurement and supply chain sync.', icon: 'SAP', installed: false },
+  { id: 'drive', name: 'Google Drive', category: 'Storage', description: 'Sync contract files to Drive folders.', icon: 'GD', installed: false },
 ];
 
 export const MOCK_RISKS: RiskItem[] = [
   { id: 'R-001', contractId: 'CTR-2024-001', description: 'Missing Liability Cap', severity: 'High', status: 'Open', dueDate: '2024-03-15' },
   { id: 'R-002', contractId: 'CTR-2024-004', description: 'Non-Standard Payment Terms', severity: 'Medium', status: 'Open', dueDate: '2024-03-20' },
-  { id: 'R-003', contractId: 'CTR-2024-002', description: 'GDPR Compliance Check', severity: 'Critical', status: 'Mitigated', dueDate: '2024-02-28' },
-  { id: 'R-004', contractId: 'CTR-2024-003', description: 'Auto-Renewal Clause Active', severity: 'Low', status: 'Accepted', dueDate: '2025-05-20' },
 ];
 
 export const MOCK_TABLES: FieldTable[] = [
@@ -340,41 +276,21 @@ export const MOCK_TABLES: FieldTable[] = [
     description: 'Core contract metadata and properties.',
     icon: 'FileText',
     fields: [
-      { id: 'f1', name: 'Contract Title', key: 'title', type: 'text', source: 'system', required: true },
-      { id: 'f2', name: 'Total Value', key: 'value', type: 'currency', source: 'integration', integrationAppId: 'sf', externalField: 'Amount', required: true },
-      { id: 'f3', name: 'Start Date', key: 'startDate', type: 'date', source: 'system', required: true },
-      { id: 'f4', name: 'Counterparty', key: 'counterparty_id', type: 'relationship', source: 'system', relatedTableId: 'tbl_counterparties', required: true },
+      { id: 'f1', name: 'Contract Title', key: 'title', type: 'text', source: 'system', required: true, isIndexed: true, lastModified: '2023-10-01', modifiedBy: 'System' },
+      { id: 'f2', name: 'Total Value', key: 'value', type: 'currency', source: 'integration', integrationAppId: 'sf', externalField: 'Amount', externalObject: 'Opportunity', syncDirection: 'import', required: true, isIndexed: true, lastModified: '2023-11-15', modifiedBy: 'Admin' },
     ]
   },
-  {
-    id: 'tbl_counterparties',
-    name: 'Counterparties',
-    description: 'Vendors, Customers, and Partners.',
-    icon: 'Users',
-    fields: [
-      { id: 'f5', name: 'Company Name', key: 'name', type: 'text', source: 'system', required: true },
-      { id: 'f6', name: 'Region', key: 'region', type: 'select', source: 'integration', integrationAppId: 'sf', externalField: 'BillingCountry', required: false },
-      { id: 'f7', name: 'Tax ID', key: 'tax_id', type: 'text', source: 'custom', required: false },
-    ]
-  },
-  {
-    id: 'tbl_opportunities',
-    name: 'Opportunities',
-    description: 'Synced from CRM.',
-    icon: 'Briefcase',
-    fields: [
-      { id: 'f8', name: 'Opp Name', key: 'opp_name', type: 'text', source: 'integration', integrationAppId: 'sf', externalField: 'Name', required: true },
-      { id: 'f9', name: 'Stage', key: 'stage', type: 'select', source: 'integration', integrationAppId: 'sf', externalField: 'StageName', required: true },
-    ]
-  }
 ];
 
 export const MOCK_SYNC_LOGS: SyncLog[] = [
-  { id: 'log-1', timestamp: '2024-03-10 14:30:00', integrationId: 'sf', direction: 'Inbound', status: 'Success', records: 45, message: 'Synced Opportunities' },
-  { id: 'log-2', timestamp: '2024-03-10 14:35:00', integrationId: 'sf', direction: 'Outbound', status: 'Success', records: 12, message: 'Updated Contract Status' },
-  { id: 'log-3', timestamp: '2024-03-10 15:00:00', integrationId: 'jira', direction: 'Outbound', status: 'Warning', records: 1, message: 'Timeout on ticket creation' },
-  { id: 'log-4', timestamp: '2024-03-10 15:15:00', integrationId: 'sf', direction: 'Inbound', status: 'Success', records: 2, message: 'New Accounts synced' },
-  { id: 'log-5', timestamp: '2024-03-10 16:00:00', integrationId: 'sf', direction: 'Inbound', status: 'Failed', records: 0, message: 'API Token Invalid' },
+  { id: 'log_1', timestamp: '2024-03-15 10:42:12', integrationId: 'sf', direction: 'Inbound', status: 'Success', records: 12, message: 'Opportunities synced successfully' },
+  { id: 'log_2', timestamp: '2024-03-15 10:30:00', integrationId: 'sf', direction: 'Outbound', status: 'Success', records: 1, message: 'Contract CTR-2024-001 status updated' },
+  { id: 'log_3', timestamp: '2024-03-14 15:20:00', integrationId: 'slack', direction: 'Outbound', status: 'Failed', records: 1, message: 'Rate limit exceeded' },
+  { id: 'log_4', timestamp: '2024-03-14 09:15:00', integrationId: 'docusign', direction: 'Inbound', status: 'Success', records: 1, message: 'Envelope signed and completed' },
+  { id: 'log_5', timestamp: '2024-03-13 14:10:05', integrationId: 'sf', direction: 'Inbound', status: 'Warning', records: 5, message: 'Partial sync: 2 records skipped' },
+  { id: 'log_6', timestamp: '2024-03-12 11:00:00', integrationId: 'docusign', direction: 'Outbound', status: 'Success', records: 1, message: 'Envelope sent for signature' },
+  { id: 'log_7', timestamp: '2024-03-12 10:15:00', integrationId: 'sf', direction: 'Inbound', status: 'Success', records: 24, message: 'Account details updated' },
+  { id: 'log_8', timestamp: '2024-03-11 16:45:00', integrationId: 'slack', direction: 'Outbound', status: 'Failed', records: 1, message: 'Channel not found (404)' },
 ];
 
 export const MOCK_TEMPLATES: DocumentTemplate[] = [
@@ -389,16 +305,10 @@ export const MOCK_TEMPLATES: DocumentTemplate[] = [
       { id: 'v1', name: 'Counterparty Name', sourceField: 'tbl_counterparties.name' },
       { id: 'v2', name: 'Effective Date', sourceField: 'tbl_contracts.startDate' }
     ],
-    conditions: [
-      { id: 'c1', name: 'EU Jurisdiction', condition: 'Region == "EU"', content: 'This Agreement shall be governed by the laws of Ireland.' }
-    ],
+    conditions: [],
     redactionRules: [],
     tags: ['Standard', 'Low Risk', 'General'],
-    content: `<h1>MUTUAL NON-DISCLOSURE AGREEMENT</h1>
-<p>This Mutual Non-Disclosure Agreement (the "Agreement") is made effective as of <span class="variable">{{Effective Date}}</span>, by and between Agreemetrix Inc. and <span class="variable">{{Counterparty Name}}</span>.</p>
-<p>The parties intend to engage in discussions regarding a potential business relationship...</p>
-<h3>1. Confidential Information</h3>
-<p>Confidential information shall include...</p>`
+    content: `<h1>MUTUAL NON-DISCLOSURE AGREEMENT</h1>`
   },
   {
     id: 'tpl_2',
@@ -407,36 +317,11 @@ export const MOCK_TEMPLATES: DocumentTemplate[] = [
     version: '4.0',
     lastModified: '2024-03-10',
     status: 'Active',
-    variables: [
-       { id: 'v3', name: 'Contract Value', sourceField: 'tbl_contracts.value' }
-    ],
-    conditions: [
-      { id: 'c2', name: 'High Value', condition: 'Value > 100000', content: '<b>Insurance:</b> Vendor shall maintain liability insurance of at least $2M.' }
-    ],
-    redactionRules: [
-      { id: 'r1', role: UserRole.SALES, description: 'Hide Employee Hourly Rates' }
-    ],
-    tags: ['US Only', 'Services', 'Finance'],
-    content: `<h1>MASTER SERVICES AGREEMENT</h1>
-<p>This MSA is entered into...</p>
-<h3>4. Fees and Payment</h3>
-<p>Client shall pay Vendor the fees set forth in the SOW...</p>
-<div class="redaction-target">
-   <p><b>Hourly Rates:</b><br/>Senior Engineer: $250/hr<br/>Junior Engineer: $150/hr</p>
-</div>`
-  },
-  {
-    id: 'tpl_3',
-    name: 'Master Services Agreement (APAC)',
-    category: 'MSA',
-    version: '1.2',
-    lastModified: '2024-02-20',
-    status: 'Draft',
     variables: [],
     conditions: [],
     redactionRules: [],
-    tags: ['APAC', 'Draft', 'Review Pending'],
-    content: `<h1>MASTER SERVICES AGREEMENT (APAC REGION)</h1><p>Template content pending legal review...</p>`
+    tags: ['US Only', 'Services'],
+    content: `<h1>MASTER SERVICES AGREEMENT</h1>`
   }
 ];
 
@@ -470,60 +355,6 @@ export const INITIAL_TEMPLATES: WorkflowTemplate[] = [
               { id: 'c3', source: 'n3', target: 'n4' }
           ]
       }
-    },
-    {
-        id: 'wf_msa',
-        name: 'High-Value MSA Approval',
-        description: 'Includes logic gates for contract value and multi-departmental review.',
-        category: 'MSA',
-        tags: ['Complex', 'Approval Chain'],
-        updated: '2024-02-15',
-        schema: {
-            stages: INITIAL_STAGES,
-            nodes: [
-                { id: 'n1', category: 'trigger', type: 'crm_opportunity', label: 'Opp Won (SFDC)', x: 50, y: 300, config: { stageId: 'stg_draft' } },
-                { id: 'n2', category: 'condition', type: 'condition', label: 'Value > $50k?', x: 350, y: 300, config: { rules: [{id: 'r1', field: 'contract_value', operator: 'greater_than', value: '50000', logic: 'AND'}] } },
-                // True Path
-                { id: 'n3', category: 'approval', type: 'internal_approval', label: 'Finance Review', x: 650, y: 200, config: { stageId: 'stg_approval', approverType: 'role', approverId: 'Finance' } },
-                { id: 'n4', category: 'approval', type: 'internal_approval', label: 'Legal Review', x: 950, y: 200, config: { stageId: 'stg_approval', approverType: 'role', approverId: 'Legal' } },
-                // False Path
-                { id: 'n5', category: 'action', type: 'generate_document', label: 'Auto-Generate MSA', x: 650, y: 450, config: { stageId: 'stg_review', templateId: 'tpl_2' } },
-                
-                { id: 'n6', category: 'action', type: 'signature', label: 'Execute Contract', x: 1250, y: 325, config: { stageId: 'stg_sign' } }
-            ],
-            connections: [
-                { id: 'c1', source: 'n1', target: 'n2' },
-                { id: 'c2', source: 'n2', target: 'n3', label: 'True', handleId: 'true_out' },
-                { id: 'c3', source: 'n2', target: 'n5', label: 'False', handleId: 'false_out' },
-                { id: 'c4', source: 'n3', target: 'n4' },
-                { id: 'c5', source: 'n4', target: 'n6' },
-                { id: 'c6', source: 'n5', target: 'n6' }
-            ]
-        }
-    },
-    {
-        id: 'wf_vendor',
-        name: 'Vendor Onboarding',
-        description: 'Streamlined intake for new suppliers with compliance checks.',
-        category: 'Vendor',
-        tags: ['Procurement', 'Compliance'],
-        updated: '2024-03-10',
-        schema: {
-            stages: INITIAL_STAGES,
-            nodes: [
-                { id: 'n1', category: 'trigger', type: 'form_submission', label: 'Vendor Portal', x: 100, y: 250, config: { stageId: 'stg_draft' } },
-                { id: 'n2', category: 'integration', type: 'webhook_out', label: 'Risk Scan API', x: 400, y: 250, config: { endpoint: 'https://api.riskcheck.com/scan' } },
-                { id: 'n3', category: 'condition', type: 'condition', label: 'Risk Score < 50?', x: 700, y: 250, config: { rules: [{id: 'r1', field: 'risk_score', operator: 'less_than', value: '50', logic: 'AND'}] } },
-                { id: 'n4', category: 'action', type: 'generate_document', label: 'Standard Agreement', x: 1000, y: 150, config: { stageId: 'stg_sign', templateId: 'tpl_1' } },
-                { id: 'n5', category: 'action', type: 'email', label: 'Reject Vendor', x: 1000, y: 350, config: { stageId: 'stg_active', emailSubject: 'Application Status' } }
-            ],
-            connections: [
-                { id: 'c1', source: 'n1', target: 'n2' },
-                { id: 'c2', source: 'n2', target: 'n3' },
-                { id: 'c3', source: 'n3', target: 'n4', label: 'True', handleId: 'true_out' },
-                { id: 'c4', source: 'n3', target: 'n5', label: 'False', handleId: 'false_out' }
-            ]
-        }
     }
 ];
 
@@ -532,3 +363,41 @@ export const MOCK_VERSIONS = [
   { id: 'v2', name: 'Version 1.1', date: 'Yesterday, 4:45 PM', author: 'Mike Ross' },
   { id: 'v1', name: 'Version 1.0', date: 'Oct 12, 2023', author: 'System Auto-Gen' },
 ];
+
+// EXPANDED DESCRIPTIONS
+export const NODE_DESCRIPTIONS: Record<string, string> = {
+  'manual_request': 'Triggers when a user manually initiates a request from the dashboard.',
+  'form_submission': 'Triggers when an external intake form (e.g., Vendor Intake) is submitted.',
+  'crm_opportunity': 'Triggers when a CRM opportunity matches specific criteria (e.g., "Closed Won").',
+  'webhook_in': 'Triggers via an inbound HTTP/API call from another system.',
+  'scheduled_run': 'Runs on a recurring schedule (e.g., monthly compliance check).',
+  'contract_imported': 'Triggers when a new contract file is uploaded or imported.',
+  
+  'internal_approval': 'Pauses execution until a specific user, role, or group approves.',
+  'parallel_approval': 'Sends approval requests to multiple stakeholders simultaneously.',
+  'send_review': 'Sends the document for redlining/review to internal or external parties.',
+  
+  'condition': 'Branches the workflow based on rules (e.g., Value > $50k).',
+  'delay': 'Waits for a specified duration or until a specific date.',
+  'split_parallel': 'Splits execution into multiple concurrent paths.',
+  
+  'generate_document': 'Creates a document from a standard template using available data.',
+  'insert_clause': 'Inserts a specific clause into the document based on logic.',
+  'redaction': 'Automatically redacts sensitive fields based on viewer role.',
+  'upload_version': 'Uploads a new version of the document to the repository.',
+  
+  'signature': 'Sends the document for electronic signature via DocuSign/Adobe.',
+  'wet_ink': 'Marks the contract as signed manually (wet signature) and requests upload.',
+  
+  'update_salesforce': 'Updates fields on a Salesforce record.',
+  'slack_notify': 'Sends a custom message to a Slack channel or user.',
+  'send_email': 'Sends an automated email using a template.',
+  'webhook_out': 'Sends an outbound webhook payload to an external URL.',
+  
+  'llm_flow_gen': 'AI Agent: Generates a workflow structure from natural language.',
+  'risk_scorer': 'AI Agent: Scores clauses or whole contracts for risk.',
+  'obligation_extractor': 'AI Agent: Extracts key dates and obligations from text.',
+  'clause_suggestion': 'AI Agent: Suggests alternative language during negotiation.',
+  
+  'stage_transition': 'Updates the lifecycle stage of the contract (e.g., to "Active").',
+};
