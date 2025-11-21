@@ -127,7 +127,11 @@ const PartyDetailDrawer: React.FC<{ party: Counterparty; onClose: () => void }> 
              <div className="mb-2">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                    {party.name} 
-                   {party.status === 'Active' && <CheckCircle2 size={18} className="text-green-400" title="Verified Active"/>}
+                   {party.status === 'Active' && (
+                       <div title="Verified Active">
+                           <CheckCircle2 size={18} className="text-green-400" />
+                       </div>
+                   )}
                 </h2>
                 <div className="flex gap-2 mt-1">
                    <Badge color={party.type === 'Customer' ? 'green' : 'blue'}>{party.type}</Badge>

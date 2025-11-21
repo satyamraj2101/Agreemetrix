@@ -5,7 +5,8 @@ import {
   Play, ShieldCheck, GitBranch, Zap, Network, 
   AlertCircle, FileText, PenTool, MessageSquare, Mail, 
   UploadCloud, Database, MoreHorizontal, UserCheck, 
-  Check, X, Clock, CheckSquare
+  Check, X, Clock, CheckSquare, Calendar, BrainCircuit, 
+  Split, Search
 } from 'lucide-react';
 
 interface NodeProps {
@@ -20,215 +21,229 @@ interface NodeProps {
   onHandleMouseDown: (e: React.MouseEvent, nodeId: string, handleType?: 'true_out' | 'false_out') => void;
 }
 
+// Enhanced Visual Styles
 const CATEGORY_STYLES: Record<WorkflowCategory, { 
-  bg: string; border: string; iconBg: string; iconColor: string; shadow: string; glow: string;
+  headerGradient: string;
+  borderColor: string;
+  iconColor: string;
+  glowColor: string;
+  badgeBg: string;
 }> = {
   trigger: { 
-    bg: 'bg-slate-900/90 backdrop-blur-md', border: 'border-slate-600', 
-    iconBg: 'bg-slate-800', iconColor: 'text-white', shadow: 'shadow-xl', glow: 'shadow-white/5'
+    headerGradient: 'from-slate-800 via-slate-900 to-dark-950', 
+    borderColor: 'border-slate-600', 
+    iconColor: 'text-slate-300',
+    glowColor: 'rgba(148, 163, 184, 0.5)',
+    badgeBg: 'bg-slate-500'
   },
   approval: { 
-    bg: 'bg-dark-900/90 backdrop-blur-md', border: 'border-blue-500', 
-    iconBg: 'bg-blue-500/20', iconColor: 'text-blue-400', shadow: 'shadow-xl shadow-blue-900/20', glow: 'shadow-blue-500/20'
+    headerGradient: 'from-blue-900 via-blue-950 to-dark-950', 
+    borderColor: 'border-blue-500', 
+    iconColor: 'text-blue-400',
+    glowColor: 'rgba(59, 130, 246, 0.6)',
+    badgeBg: 'bg-blue-500'
   },
   condition: { 
-    bg: 'bg-dark-900/90 backdrop-blur-md', border: 'border-yellow-500', 
-    iconBg: 'bg-yellow-500/20', iconColor: 'text-yellow-400', shadow: 'shadow-xl shadow-yellow-900/20', glow: 'shadow-yellow-500/20'
+    headerGradient: 'from-amber-900 via-amber-950 to-dark-950', 
+    borderColor: 'border-amber-500', 
+    iconColor: 'text-amber-400',
+    glowColor: 'rgba(245, 158, 11, 0.6)',
+    badgeBg: 'bg-amber-500'
   },
   action: { 
-    bg: 'bg-dark-900/90 backdrop-blur-md', border: 'border-green-500', 
-    iconBg: 'bg-green-500/20', iconColor: 'text-green-400', shadow: 'shadow-xl shadow-green-900/20', glow: 'shadow-green-500/20'
+    headerGradient: 'from-emerald-900 via-emerald-950 to-dark-950', 
+    borderColor: 'border-emerald-500', 
+    iconColor: 'text-emerald-400',
+    glowColor: 'rgba(16, 185, 129, 0.6)',
+    badgeBg: 'bg-emerald-500'
   },
   integration: { 
-    bg: 'bg-dark-900/90 backdrop-blur-md', border: 'border-purple-500', 
-    iconBg: 'bg-purple-500/20', iconColor: 'text-purple-400', shadow: 'shadow-xl shadow-purple-900/20', glow: 'shadow-purple-500/20'
+    headerGradient: 'from-purple-900 via-purple-950 to-dark-950', 
+    borderColor: 'border-purple-500', 
+    iconColor: 'text-purple-400',
+    glowColor: 'rgba(168, 85, 247, 0.6)',
+    badgeBg: 'bg-purple-500'
   },
   stage: {
-    bg: 'bg-dark-900/90 backdrop-blur-md', border: 'border-orange-500',
-    iconBg: 'bg-orange-500/20', iconColor: 'text-orange-400', shadow: 'shadow-xl shadow-orange-900/20', glow: 'shadow-orange-500/20'
+    headerGradient: 'from-orange-900 via-orange-950 to-dark-950', 
+    borderColor: 'border-orange-500', 
+    iconColor: 'text-orange-400',
+    glowColor: 'rgba(249, 115, 22, 0.6)',
+    badgeBg: 'bg-orange-500'
   },
   utility: {
-    bg: 'bg-dark-900/90 backdrop-blur-md', border: 'border-cyan-500',
-    iconBg: 'bg-cyan-500/20', iconColor: 'text-cyan-400', shadow: 'shadow-xl shadow-cyan-900/20', glow: 'shadow-cyan-500/20'
+    headerGradient: 'from-cyan-900 via-cyan-950 to-dark-950', 
+    borderColor: 'border-cyan-500', 
+    iconColor: 'text-cyan-400',
+    glowColor: 'rgba(6, 182, 212, 0.6)',
+    badgeBg: 'bg-cyan-500'
+  },
+  ai_agent: {
+    headerGradient: 'from-pink-900 via-pink-950 to-dark-950',
+    borderColor: 'border-pink-500',
+    iconColor: 'text-pink-400',
+    glowColor: 'rgba(236, 72, 153, 0.6)',
+    badgeBg: 'bg-pink-500'
+  },
+  document: {
+    headerGradient: 'from-teal-900 via-teal-950 to-dark-950',
+    borderColor: 'border-teal-500',
+    iconColor: 'text-teal-400',
+    glowColor: 'rgba(20, 184, 166, 0.6)',
+    badgeBg: 'bg-teal-500'
   }
 };
 
 const NodeIcon = ({ type, category }: { type: string, category: WorkflowCategory }) => {
-  // Specific Type Icons
-  if (type.includes('document')) return <FileText size={14} />;
-  if (type.includes('signature')) return <PenTool size={14} />;
-  if (type.includes('email')) return <Mail size={14} />;
-  if (type.includes('review') || type.includes('redline')) return <MessageSquare size={14} />;
-  if (type.includes('upload')) return <UploadCloud size={14} />;
-  if (type.includes('salesforce') || type.includes('crm')) return <Database size={14} />;
-  if (type.includes('delay')) return <Clock size={14} />;
-  if (type.includes('task')) return <CheckSquare size={14} />;
+  // AI Nodes
+  if (category === 'ai_agent') return <BrainCircuit size={16} />;
   
-  // Category Defaults
+  // Specific Type overrides
+  if (type.includes('document')) return <FileText size={16} />;
+  if (type.includes('signature')) return <PenTool size={16} />;
+  if (type.includes('email')) return <Mail size={16} />;
+  if (type.includes('review') || type.includes('redline')) return <MessageSquare size={16} />;
+  if (type.includes('upload')) return <UploadCloud size={16} />;
+  if (type.includes('salesforce') || type.includes('crm')) return <Database size={16} />;
+  if (type.includes('delay')) return <Clock size={16} />;
+  if (type.includes('task')) return <CheckSquare size={16} />;
+  if (type.includes('scheduled')) return <Calendar size={16} />;
+  if (type.includes('risk')) return <ShieldCheck size={16} />;
+  if (type.includes('split')) return <Split size={16} />;
+  if (type.includes('lookup')) return <Search size={16} />;
+  
   switch (category) {
-    case 'trigger': return <Play size={14} />;
-    case 'approval': return <ShieldCheck size={14} />;
-    case 'condition': return <GitBranch size={14} />;
-    case 'action': return <Zap size={14} />;
-    case 'integration': return <Network size={14} />;
-    case 'utility': return <Zap size={14} />;
-    default: return <Play size={14} />;
+    case 'trigger': return <Play size={16} />;
+    case 'approval': return <ShieldCheck size={16} />;
+    case 'condition': return <GitBranch size={16} />;
+    case 'action': return <Zap size={16} />;
+    case 'integration': return <Network size={16} />;
+    default: return <Zap size={16} />;
   }
 };
 
 export const WorkflowNodeCard: React.FC<NodeProps> = ({ 
   node, isSelected, isValid, isSimActive, zoom, stageName, stageColor, onMouseDown, onHandleMouseDown 
 }) => {
-  const style = CATEGORY_STYLES[node.category];
+  const style = CATEGORY_STYLES[node.category] || CATEGORY_STYLES.action;
 
   return (
     <div
       onMouseDown={(e) => onMouseDown(e, node.id)}
-      className={`absolute w-64 rounded-xl border-2 transition-all duration-300 cursor-grab active:cursor-grabbing group
-        ${isSelected ? `ring-4 ring-opacity-50 ${style.border} z-20 scale-[1.02]` : 'border-transparent z-10'}
-        ${style.bg} ${style.border} ${style.shadow} hover:${style.glow}
-        ${isSimActive ? 'ring-4 ring-green-400 shadow-[0_0_30px_rgba(74,222,128,0.4)] scale-105' : ''}
+      className={`absolute w-72 rounded-2xl transition-all duration-200 cursor-grab active:cursor-grabbing group select-none
+        ${isSelected ? 'z-30 scale-[1.02]' : 'z-20 scale-100'}
       `}
       style={{
         left: node.x,
         top: node.y,
         transform: `scale(${zoom})`,
-        transformOrigin: '0 0'
+        transformOrigin: '0 0',
+        boxShadow: isSelected 
+          ? `0 0 0 2px #fff, 0 0 30px ${style.glowColor}`
+          : isSimActive 
+            ? `0 0 0 2px #22c55e, 0 0 40px rgba(34, 197, 94, 0.6)`
+            : '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3)'
       }}
     >
-      {/* Stage Indicator Badge */}
-      {stageName && (
-        <div 
-           className="absolute -top-6 left-0 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-t-lg border-t border-x shadow-sm transform transition-all group-hover:-translate-y-1"
-           style={{ 
-             backgroundColor: stageColor ? `${stageColor}20` : '#1e293b', 
-             color: stageColor || '#94a3b8',
-             borderColor: stageColor ? `${stageColor}40` : '#475569'
-           }}
-        >
-          Stage: {stageName}
+        {/* Main Card Body with Glassmorphism */}
+        <div className={`relative overflow-hidden rounded-2xl border bg-dark-900/90 backdrop-blur-xl ${isSelected ? 'border-white' : style.borderColor}`}>
+            
+            {/* Validation Error Indicator */}
+            {isValid === false && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full z-50 animate-pulse shadow-[0_0_10px_#ef4444]"></div>
+            )}
+
+            {/* Header Section */}
+            <div className={`bg-gradient-to-r ${style.headerGradient} p-4 relative`}>
+                <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg bg-white/5 border border-white/10 shadow-inner ${style.iconColor}`}>
+                            <NodeIcon type={node.type} category={node.category} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-white leading-tight drop-shadow-md">{node.label}</h3>
+                            <p className="text-[10px] text-slate-400 font-mono uppercase tracking-wide">{node.type.replace(/_/g, ' ')}</p>
+                        </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreHorizontal size={16} className="text-slate-400 hover:text-white cursor-pointer" />
+                    </div>
+                </div>
+                
+                {/* Decoratve Header Line */}
+                <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+
+            {/* Body Section */}
+            <div className="p-4 space-y-3">
+                {/* Config Snippet */}
+                {Object.keys(node.config).length > 0 && (
+                    <div className="text-[10px] text-slate-400 space-y-1 bg-dark-950/50 p-2 rounded border border-dark-800">
+                        {node.config.description && <p className="italic text-slate-500 mb-1">"{node.config.description}"</p>}
+                        {node.config.stageId && <div className="flex items-center gap-1"><CheckSquare size={10}/> Set Stage</div>}
+                        {node.config.approverType && <div className="flex items-center gap-1"><UserCheck size={10}/> Approval: {node.config.approverType}</div>}
+                        {node.category === 'ai_agent' && node.config.aiModel && <div className="flex items-center gap-1"><BrainCircuit size={10}/> {node.config.aiModel}</div>}
+                    </div>
+                )}
+
+                {/* Stage Indicator */}
+                {stageName && (
+                    <div className="flex items-center gap-2 text-[10px]">
+                        <span className="text-slate-500 font-bold uppercase">Stage:</span>
+                        <div 
+                            className="px-2 py-0.5 rounded-full text-white font-bold flex items-center gap-1"
+                            style={{ backgroundColor: stageColor || '#64748b' }}
+                        >
+                            <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                            {stageName}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Footer / Handles Container - Height ensures handle spacing */}
+            <div className="h-4 bg-dark-950/30 border-t border-white/5"></div>
         </div>
-      )}
 
-      {/* Invalid Indicator */}
-      {isValid === false && (
-        <div className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1.5 shadow-lg z-30 animate-bounce border-2 border-dark-950">
-          <AlertCircle size={16} />
-        </div>
-      )}
+        {/* --- CONNECTION HANDLES --- */}
 
-      {/* Simulation Active Indicator */}
-      {isSimActive && (
-        <div className="absolute -top-3 -left-3 bg-green-500 text-white rounded-full p-1.5 shadow-lg z-30 animate-pulse border-2 border-dark-950">
-          <Play size={16} fill="currentColor" />
-        </div>
-      )}
+        {/* Input Handle (Top) - Not for triggers */}
+        {node.category !== 'trigger' && (
+            <div 
+                className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center cursor-crosshair group/handle z-40"
+            >
+                <div className={`w-3 h-3 rounded-full border-2 border-dark-950 bg-slate-400 group-hover/handle:bg-white group-hover/handle:scale-125 transition-all shadow-lg`}></div>
+            </div>
+        )}
 
-      {/* Header */}
-      <div className={`p-3 border-b border-white/5 flex items-center justify-between ${node.category === 'trigger' ? 'rounded-t-xl' : ''}`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${style.iconBg} ${style.iconColor} shadow-inner`}>
-            <NodeIcon type={node.type} category={node.category} />
-          </div>
-          <div>
-             <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 opacity-80">{node.type.replace(/_/g, ' ')}</span>
-             <span className="block text-sm font-bold text-white truncate w-32" title={node.label}>{node.label}</span>
-          </div>
-        </div>
-        <MoreHorizontal size={16} className="text-slate-500 hover:text-white cursor-pointer transition-colors" />
-      </div>
-
-      {/* Body Preview (Context Sensitive) */}
-      <div className="p-3 text-xs text-slate-400 bg-black/20 rounded-b-xl min-h-[48px] flex flex-col justify-center relative overflow-hidden">
-        {/* Background Shine */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none"></div>
-
-        {node.category === 'approval' && (
-          <div className="flex items-center gap-2 relative z-10">
-            <UserCheck size={12} className="text-blue-400"/>
-            <span className="text-blue-300 font-medium">{node.config.approverType === 'role' ? node.config.approverId : 'Dynamic User'}</span>
-          </div>
+        {/* Output Handles (Bottom) */}
+        {node.category === 'condition' ? (
+            <>
+                {/* True Path */}
+                <div 
+                    className="absolute -bottom-3 left-1/4 -translate-x-1/2 w-6 h-6 flex flex-col items-center justify-center cursor-crosshair group/handle z-40"
+                    onMouseDown={(e) => onHandleMouseDown(e, node.id, 'true_out')}
+                >
+                    <div className="w-3 h-3 rounded-full border-2 border-dark-950 bg-green-500 group-hover/handle:bg-green-400 group-hover/handle:scale-125 transition-all shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                    <span className="absolute top-4 text-[9px] font-bold text-green-500 bg-dark-950 px-1 rounded border border-dark-800 opacity-0 group-hover/handle:opacity-100 transition-opacity">TRUE</span>
+                </div>
+                {/* False Path */}
+                <div 
+                    className="absolute -bottom-3 right-1/4 translate-x-1/2 w-6 h-6 flex flex-col items-center justify-center cursor-crosshair group/handle z-40"
+                    onMouseDown={(e) => onHandleMouseDown(e, node.id, 'false_out')}
+                >
+                    <div className="w-3 h-3 rounded-full border-2 border-dark-950 bg-red-500 group-hover/handle:bg-red-400 group-hover/handle:scale-125 transition-all shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                    <span className="absolute top-4 text-[9px] font-bold text-red-500 bg-dark-950 px-1 rounded border border-dark-800 opacity-0 group-hover/handle:opacity-100 transition-opacity">FALSE</span>
+                </div>
+            </>
+        ) : (
+            <div 
+                className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center cursor-crosshair group/handle z-40"
+                onMouseDown={(e) => onHandleMouseDown(e, node.id)}
+            >
+                <div className={`w-3 h-3 rounded-full border-2 border-dark-950 bg-slate-400 group-hover/handle:bg-brand-400 group-hover/handle:scale-125 transition-all shadow-lg`}></div>
+            </div>
         )}
-        {node.category === 'condition' && (
-          <div className="space-y-1 relative z-10">
-            {node.config.rules?.slice(0, 2).map((rule, i) => (
-               <div key={i} className="font-mono bg-white/5 px-2 py-1 rounded border border-white/5 truncate flex items-center gap-2 text-[10px]">
-                  <span className="text-yellow-500/70">{rule.field}</span> 
-                  <span className="text-slate-500">{rule.operator === 'greater_than' ? '>' : '='}</span> 
-                  <span className="text-white">{rule.value}</span>
-               </div>
-            ))}
-            {(!node.config.rules || node.config.rules.length === 0) && <span className="text-red-400 italic flex items-center gap-1"><AlertCircle size={10}/> No rules defined</span>}
-          </div>
-        )}
-        {node.category === 'integration' && (
-           <div className="truncate font-mono text-purple-300 relative z-10 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
-              <span className="font-bold mr-2">{node.config.method || 'POST'}</span> {node.config.endpoint || '/api/...'}
-           </div>
-        )}
-        {node.category === 'action' && node.type === 'generate_document' && (
-           <div className="flex items-center gap-2 text-green-300 relative z-10">
-              <FileText size={12} />
-              <span>{node.config.templateId ? 'Template Selected' : 'Select Template'}</span>
-           </div>
-        )}
-        {node.category === 'action' && node.type === 'signature' && (
-           <div className="flex items-center gap-2 text-green-300 relative z-10">
-              <PenTool size={12} />
-              <span>{node.config.signatureProvider || 'Provider'}</span>
-           </div>
-        )}
-        {node.category === 'utility' && node.type === 'delay' && (
-           <div className="flex items-center gap-2 text-cyan-300 relative z-10 font-mono">
-              <Clock size={12} />
-              <span>Wait {node.config.delayTime || 1} {node.config.delayUnit || 'days'}</span>
-           </div>
-        )}
-        {/* Default Description Fallback */}
-        {node.config.description && (
-           <p className="mt-1 text-[10px] text-slate-500 line-clamp-2 relative z-10">{node.config.description}</p>
-        )}
-      </div>
-
-      {/* Handles */}
-      <div className="absolute top-0 bottom-0 -left-3 w-6 flex items-center justify-start pointer-events-none">
-         {node.category !== 'trigger' && (
-            <div className="w-3 h-3 rounded-full bg-slate-400 border-2 border-dark-950 shadow-sm pointer-events-auto hover:scale-125 transition-transform" />
-         )}
-      </div>
-
-      {/* Output Handles */}
-      {node.category === 'condition' ? (
-        <div className="absolute top-0 bottom-0 -right-4 w-8 flex flex-col justify-center gap-6 py-4 pointer-events-none">
-           <div className="relative group/handle pointer-events-auto flex justify-end items-center">
-              <span className="absolute right-5 bg-green-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover/handle:opacity-100 transition-all translate-x-2 group-hover/handle:translate-x-0">TRUE</span>
-              <div 
-                className="w-4 h-4 rounded-full bg-green-500 border-2 border-dark-950 shadow-lg cursor-crosshair hover:scale-125 transition-transform flex items-center justify-center"
-                onMouseDown={(e) => onHandleMouseDown(e, node.id, 'true_out')}
-                title="True Path"
-              >
-                 <Check size={8} className="text-white stroke-[4px]" />
-              </div>
-           </div>
-           <div className="relative group/handle pointer-events-auto flex justify-end items-center">
-              <span className="absolute right-5 bg-red-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover/handle:opacity-100 transition-all translate-x-2 group-hover/handle:translate-x-0">FALSE</span>
-              <div 
-                className="w-4 h-4 rounded-full bg-red-500 border-2 border-dark-950 shadow-lg cursor-crosshair hover:scale-125 transition-transform flex items-center justify-center"
-                onMouseDown={(e) => onHandleMouseDown(e, node.id, 'false_out')}
-                title="False Path"
-              >
-                 <X size={8} className="text-white stroke-[4px]" />
-              </div>
-           </div>
-        </div>
-      ) : (
-        <div className="absolute top-0 bottom-0 -right-3 w-6 flex items-center justify-end pointer-events-none">
-           <div 
-              className="w-3 h-3 rounded-full bg-slate-400 border-2 border-dark-950 shadow-sm cursor-crosshair pointer-events-auto hover:bg-brand-500 hover:scale-125 transition-all"
-              onMouseDown={(e) => onHandleMouseDown(e, node.id)}
-           />
-        </div>
-      )}
     </div>
   );
 };

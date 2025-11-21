@@ -1,491 +1,646 @@
 
+
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, Button, Badge } from '../components/UIComponents';
-import { MOCK_CONTRACTS } from '../mock/data';
+import { Button, Badge, Avatar, Input, Select, Card } from '../components/UIComponents';
+import { MOCK_CONTRACTS, MOCK_CLAUSES, MOCK_USERS, MOCK_VERSIONS as INITIAL_VERSIONS } from '../mock/data';
 import { 
-  Eye, EyeOff, ShieldAlert, CheckCircle, ChevronLeft, MessageSquare, Sparkles,
-  FileText, Clock, CheckCircle2, User, ArrowRight, Calendar, Download, Share2,
-  History, LayoutDashboard, FileCheck, PenTool, Briefcase, Building, DollarSign,
-  AlertCircle
+  ChevronLeft, Save, Printer, Share2, FileText, MoreVertical,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
+  List, Type, Search, ZoomIn, ZoomOut, Undo, Redo,
+  MessageSquare, GitBranch, Sparkles, History, Database, 
+  BookOpen, Check, X, Eye, EyeOff, Plus, Minus,
+  Settings, Download, PenTool, ChevronDown, GripVertical,
+  CheckCircle2, AlertTriangle, Copy, Calendar, DollarSign,
+  User, Shield, Link as LinkIcon, Globe, Layers, Upload,
+  Activity, Clock, Briefcase, TrendingUp, CheckSquare,
+  AlertCircle, FolderTree, Bot, Play, Flag
 } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar, Cell } from 'recharts';
 
-// --- MOCK EXTENDED DATA ---
-// Since we don't have a backend, we generate deterministic "Extended" data for the view
-const getMockLifecycleData = (contractId: string) => {
-  return {
-    intake: {
-      requestor: 'Sarah Jenkins (Sales)',
-      submittedDate: '2023-10-12',
-      businessJustification: 'Required for Q4 Enterprise Deal closure. Client requires custom SLA terms.',
-      budgetCode: 'SALES-Q4-23',
-      dataPrivacy: 'Yes - GDPR applicable',
-      territory: 'EMEA',
-      priority: 'High'
-    },
-    workflowStages: [
-      { id: 1, name: 'Intake', status: 'completed', date: 'Oct 12, 2023' },
-      { id: 2, name: 'Internal Review', status: 'completed', date: 'Oct 14, 2023' },
-      { id: 3, name: 'Negotiation', status: 'current', date: 'In Progress' },
-      { id: 4, name: 'Approvals', status: 'pending', date: 'Est. Oct 20' },
-      { id: 5, name: 'Signatures', status: 'pending', date: 'Est. Oct 22' },
-      { id: 6, name: 'Active', status: 'pending', date: '-' }
-    ],
-    approvers: [
-      { id: 1, name: 'Legal Team', role: 'Compliance Check', status: 'approved', date: 'Oct 14, 2023', avatar: 'LT' },
-      { id: 2, name: 'Mike Ross', role: 'Legal Counsel', status: 'approved', date: 'Oct 14, 2023', avatar: 'MR' },
-      { id: 3, name: 'Jessica Pearson', role: 'Managing Partner', status: 'pending', date: '-', avatar: 'JP' },
-      { id: 4, name: 'CFO Office', role: 'Financial Review', status: 'pending', date: '-', avatar: 'CF' },
-    ],
-    signatories: [
-      { name: 'Harvey Specter', company: 'Agreemetrix Inc', status: 'pending', email: 'harvey@agreemetrix.ai' },
-      { name: 'John Doe', company: 'Counterparty Inc', status: 'pending', email: 'j.doe@client.com' }
-    ]
-  };
-};
+// --- TYPES ---
+
+interface EditorComment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  date: string;
+  resolved: boolean;
+  selectionId?: string;
+}
+
+interface EditorChange {
+  id: string;
+  type: 'insert' | 'delete';
+  userId: string;
+  userName: string;
+  text: string;
+  date: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+type ViewTab = 'document' | 'overview' | 'workflow' | 'obligations' | 'financials' | 'risk' | 'family';
+
+// --- MOCK EDITOR DATA ---
+
+const INITIAL_COMMENTS: EditorComment[] = [
+  { id: 'c1', userId: 'u2', userName: 'Mike Ross', text: 'We need to cap this liability at 2x fees. Standard policy.', date: '2h ago', resolved: false, selectionId: 'sel1' },
+  { id: 'c2', userId: 'u5', userName: 'Jessica Pearson', text: 'Is this payment term standard for this region?', date: '1d ago', resolved: true, selectionId: 'sel2' }
+];
+
+const INITIAL_CHANGES: EditorChange[] = [
+  { id: 'ch1', type: 'delete', userId: 'u2', userName: 'Mike Ross', text: 'perpetual', date: '2h ago', status: 'pending' },
+  { id: 'ch2', type: 'insert', userId: 'u2', userName: 'Mike Ross', text: 'three (3) year', date: '2h ago', status: 'pending' },
+  { id: 'ch3', type: 'insert', userId: 'u1', userName: 'Harvey Specter', text: 'Subject to the limitations set forth in Section 8...', date: '30m ago', status: 'accepted' }
+];
+
+// --- SUB-COMPONENTS ---
+
+const RibbonButton = ({ icon: Icon, label, active, onClick, subLabel }: any) => (
+    <button 
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center px-3 py-1.5 h-full min-w-[60px] rounded-lg transition-all group ${active ? 'bg-brand-500/10 text-brand-400' : 'hover:bg-white/5 text-slate-400 hover:text-white'}`}
+    >
+        <Icon size={20} className={`mb-1 ${active ? 'text-brand-400' : 'text-slate-400 group-hover:text-white'}`} />
+        <span className="text-[10px] font-medium leading-none">{label}</span>
+        {subLabel && <span className="text-[9px] text-slate-500 mt-0.5 leading-none scale-90">{subLabel}</span>}
+    </button>
+);
+
+const RibbonDivider = () => <div className="w-px h-8 bg-dark-700 mx-1 self-center"></div>;
+
+const SummaryMetric = ({ label, value, subtext, color = 'text-white', icon: Icon }: any) => (
+    <div className="flex items-center gap-3 px-4 border-r border-dark-700 last:border-r-0">
+        {Icon && <div className={`p-2 rounded-lg bg-dark-800 ${color}`}><Icon size={16}/></div>}
+        <div>
+            <p className="text-[10px] text-slate-500 font-bold uppercase">{label}</p>
+            <p className={`text-sm font-bold ${color}`}>{value}</p>
+            {subtext && <p className="text-[9px] text-slate-500">{subtext}</p>}
+        </div>
+    </div>
+);
+
+// --- MAIN COMPONENT ---
 
 const ContractViewer: React.FC = () => {
   const { id } = useParams();
   const contract = MOCK_CONTRACTS.find(c => c.id === id) || MOCK_CONTRACTS[0];
-  const extendedData = getMockLifecycleData(contract.id);
   
-  const [activeView, setActiveView] = useState<'overview' | 'document'>('overview');
+  // -- STATE --
+  const [activeView, setActiveView] = useState<ViewTab>('overview');
   
-  // Document View State
-  const [activeRole, setActiveRole] = useState<'Legal' | 'Sales' | 'HR'>('Legal');
-  const [showAI, setShowAI] = useState(true);
+  // Editor State
+  const [ribbonTab, setRibbonTab] = useState<'home' | 'insert' | 'review' | 'view'>('home');
+  const [sidebarTab, setSidebarTab] = useState<'clauses' | 'comments' | 'changes' | 'ai' | 'metadata' | 'versions'>('comments');
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
+  const [zoom, setZoom] = useState(100);
+  const [editMode, setEditMode] = useState<'editing' | 'suggesting' | 'viewing'>('suggesting');
+  const [showRedlines, setShowRedlines] = useState(true);
+  const [comments, setComments] = useState<EditorComment[]>(INITIAL_COMMENTS);
+  const [changes, setChanges] = useState<EditorChange[]>(INITIAL_CHANGES);
+  const [versions, setVersions] = useState(INITIAL_VERSIONS);
+  const [showAIChat, setShowAIChat] = useState(false);
 
-  // --- SUB-COMPONENTS ---
-
-  const LifecycleStepper = () => (
-    <div className="w-full py-6">
-      <div className="flex items-center justify-between relative">
-        {/* Connecting Line */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-dark-800 -z-0"></div>
+  // Mock Content Generation for Editor
+  const renderDocumentContent = () => {
+    return (
+      <div className="font-serif leading-relaxed text-[11pt] text-gray-900 space-y-6">
+        <h1 className="text-2xl font-bold text-center mb-8 uppercase">{contract.type} Agreement</h1>
         
-        {extendedData.workflowStages.map((stage, index) => {
-          const isCompleted = stage.status === 'completed';
-          const isCurrent = stage.status === 'current';
-          const isPending = stage.status === 'pending';
+        <p className="text-justify">
+          This {contract.type} ("Agreement") is made effective as of <span className="bg-blue-100 text-blue-800 px-1 rounded border border-blue-200 cursor-pointer" title="Variable: Effective Date">{contract.startDate}</span>, 
+          by and between <strong>Agreemetrix Inc.</strong> ("Provider") and <strong>{contract.counterparty}</strong> ("Client").
+        </p>
 
-          return (
-            <div key={stage.id} className="relative z-10 flex flex-col items-center group">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
-                isCompleted ? 'bg-green-500 border-dark-950 text-white' :
-                isCurrent ? 'bg-dark-950 border-brand-500 text-brand-400 shadow-[0_0_15px_rgba(var(--color-brand-500),0.5)] scale-110' :
-                'bg-dark-900 border-dark-700 text-slate-600'
-              }`}>
-                {isCompleted ? <CheckCircle2 size={18} /> : 
-                 isCurrent ? <Clock size={18} className="animate-pulse" /> :
-                 <span className="text-xs font-bold">{index + 1}</span>}
-              </div>
-              <div className="mt-3 text-center">
-                <p className={`text-xs font-bold uppercase tracking-wider ${
-                  isCurrent ? 'text-brand-400' : isCompleted ? 'text-green-400' : 'text-slate-600'
-                }`}>{stage.name}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{stage.date}</p>
-              </div>
+        <h2 className="text-lg font-bold mt-6">1. Services</h2>
+        <p className="text-justify">
+          Provider agrees to perform the services described in one or more Statements of Work ("SOW") attached hereto as Exhibit A.
+          Detailed specifications for the Services shall be set forth in the applicable SOW.
+        </p>
+
+        <h2 className="text-lg font-bold mt-6">2. Term and Termination</h2>
+        <p className="text-justify">
+          This Agreement shall commence on the Effective Date and continue for a period of 
+          {showRedlines ? (
+             <>
+               <span className="mx-1 bg-red-100 text-red-800 text-strike line-through decoration-red-500 decoration-2 cursor-pointer border border-red-200 px-0.5 rounded" title="Deleted by Mike Ross">perpetual</span>
+               <span className="mx-1 bg-green-100 text-green-800 underline decoration-green-500 decoration-2 cursor-pointer border border-green-200 px-0.5 rounded" title="Inserted by Mike Ross">three (3) years</span>
+             </>
+          ) : (
+             <span> three (3) years</span>
+          )}
+          (the "Initial Term"). Thereafter, it shall automatically renew for successive one-year periods unless either party provides written notice of non-renewal at least thirty (30) days prior to the end of the then-current term.
+        </p>
+
+        <h2 className="text-lg font-bold mt-6">3. Fees and Payment</h2>
+        <p className="text-justify">
+          Client shall pay Provider the fees set forth in the applicable SOW. 
+          <span className="bg-yellow-100 border-b-2 border-yellow-400 px-0.5 cursor-pointer" onClick={() => { setSidebarTab('comments'); setShowRightSidebar(true); }}>
+             All invoices are due and payable within thirty (30) days of the invoice date.
+          </span>
+        </p>
+
+        <h2 className="text-lg font-bold mt-6">4. Confidentiality</h2>
+        <p className="text-justify">
+          Each party agrees to protect the Confidential Information of the other party with the same degree of care that it uses to protect its own confidential information of like kind, but in no event less than reasonable care.
+        </p>
+
+        <div className="py-8 flex justify-between px-12 mt-12">
+            <div className="w-64 border-t border-black pt-2">
+                <p className="font-bold">Agreemetrix Inc.</p>
+                <p className="text-sm text-gray-500">By: {contract.owner}</p>
+                <p className="text-sm text-gray-500">Date: _______________</p>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  // --- RENDERERS ---
-
-  const renderOverview = () => (
-    <div className="grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4">
-      
-      {/* Left Column: Metadata & Intake */}
-      <div className="col-span-12 lg:col-span-8 space-y-6">
-        
-        {/* Header Card */}
-        <Card noPadding className="bg-gradient-to-br from-dark-900 to-dark-950 border-dark-700">
-           <div className="p-6 border-b border-white/5 flex justify-between items-start">
-              <div className="flex gap-4">
-                 <div className="w-16 h-16 bg-brand-500/10 rounded-xl border border-brand-500/20 flex items-center justify-center text-brand-400">
-                    <FileText size={32} />
-                 </div>
-                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-1">{contract.title}</h1>
-                    <div className="flex items-center gap-3 text-sm text-slate-400">
-                       <span className="flex items-center gap-1"><Building size={14}/> {contract.counterparty}</span>
-                       <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                       <span className="font-mono opacity-70">{contract.id}</span>
-                       <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                       <span className="text-brand-400 font-medium">{contract.type}</span>
-                    </div>
-                 </div>
-              </div>
-              <div className="text-right">
-                 <Badge color="blue" className="text-sm px-3 py-1 mb-2">{contract.status}</Badge>
-                 <p className="text-xs text-slate-500">Created: {extendedData.intake.submittedDate}</p>
-              </div>
-           </div>
-           
-           <div className="grid grid-cols-4 divide-x divide-white/5 bg-white/[0.02]">
-              <div className="p-4 text-center">
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Total Value</p>
-                 <p className="text-lg font-mono text-white font-bold">${contract.value.toLocaleString()}</p>
-              </div>
-              <div className="p-4 text-center">
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Start Date</p>
-                 <p className="text-sm text-white font-medium">{contract.startDate}</p>
-              </div>
-              <div className="p-4 text-center">
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Renewal</p>
-                 <p className="text-sm text-white font-medium">{contract.renewalDate}</p>
-              </div>
-              <div className="p-4 text-center">
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Owner</p>
-                 <div className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] text-white">SJ</div>
-                    <p className="text-sm text-white font-medium truncate">{contract.owner}</p>
-                 </div>
-              </div>
-           </div>
-        </Card>
-
-        {/* Intake Data */}
-        <Card title="Intake Request Details">
-           <div className="grid grid-cols-2 gap-6">
-              <div className="col-span-2 bg-dark-950 p-4 rounded-lg border border-dark-800">
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Business Justification</p>
-                 <p className="text-sm text-slate-300 italic">"{extendedData.intake.businessJustification}"</p>
-              </div>
-              <div>
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Requestor</p>
-                 <p className="text-sm text-white flex items-center gap-2"><User size={14} className="text-brand-400"/> {extendedData.intake.requestor}</p>
-              </div>
-              <div>
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Budget Code</p>
-                 <p className="text-sm text-white font-mono bg-dark-800 px-2 py-1 rounded inline-block">{extendedData.intake.budgetCode}</p>
-              </div>
-              <div>
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Data Privacy (GDPR)</p>
-                 <p className="text-sm text-white flex items-center gap-2">
-                    {extendedData.intake.dataPrivacy.includes('Yes') ? <ShieldAlert size={14} className="text-yellow-500"/> : <CheckCircle size={14}/>}
-                    {extendedData.intake.dataPrivacy}
-                 </p>
-              </div>
-              <div>
-                 <p className="text-xs font-bold text-slate-500 uppercase mb-1">Priority</p>
-                 <Badge color={extendedData.intake.priority === 'High' ? 'red' : 'gray'}>{extendedData.intake.priority}</Badge>
-              </div>
-           </div>
-        </Card>
-        
-        {/* AI Clause Analysis Preview */}
-        <div className="p-5 bg-brand-500/5 border border-brand-500/20 rounded-xl">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-brand-100 flex items-center gap-2">
-                   <Sparkles size={16} className="text-brand-400" /> AI Contract Insights
-                </h3>
-                <Button variant="neon" className="text-xs h-7 px-3" onClick={() => setActiveView('document')}>View Full Analysis</Button>
-            </div>
-            <p className="text-sm text-slate-300 leading-relaxed mb-3">
-               This contract contains <strong className="text-white">3 non-standard clauses</strong>. 
-               Risk score is <strong className={contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}>{contract.riskScore}/100</strong>.
-               Primary deviations found in Indemnification and Payment Terms.
-            </p>
-            <div className="flex gap-2">
-                <span className="text-[10px] px-2 py-1 bg-red-500/10 text-red-400 rounded border border-red-500/20">High Risk: Indemnity</span>
-                <span className="text-[10px] px-2 py-1 bg-yellow-500/10 text-yellow-400 rounded border border-yellow-500/20">Med Risk: Net 60</span>
+            <div className="w-64 border-t border-black pt-2">
+                <p className="font-bold">{contract.counterparty}</p>
+                <p className="text-sm text-gray-500">By: _________________</p>
+                <p className="text-sm text-gray-500">Date: _______________</p>
             </div>
         </div>
       </div>
-
-      {/* Right Column: Workflow & Signatories */}
-      <div className="col-span-12 lg:col-span-4 space-y-6">
-         
-         {/* Approval Chain */}
-         <Card title="Approval Chain">
-            <div className="relative pl-4 space-y-6 before:absolute before:left-[27px] before:top-2 before:bottom-2 before:w-px before:bg-dark-700">
-               {extendedData.approvers.map((approver) => (
-                  <div key={approver.id} className="relative flex items-start gap-4 group">
-                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${
-                        approver.status === 'approved' ? 'bg-green-500 border-green-500 text-white' :
-                        approver.status === 'rejected' ? 'bg-red-500 border-red-500 text-white' :
-                        'bg-dark-900 border-slate-600 text-slate-500'
-                     }`}>
-                        {approver.status === 'approved' && <CheckCircle2 size={14} />}
-                        {approver.status === 'pending' && <div className="w-2 h-2 bg-slate-500 rounded-full"></div>}
-                     </div>
-                     <div className="flex-1 -mt-1">
-                        <div className="flex justify-between items-start">
-                           <p className="text-sm font-bold text-white">{approver.name}</p>
-                           {approver.status === 'approved' && <span className="text-[10px] text-slate-500">{approver.date}</span>}
-                        </div>
-                        <p className="text-xs text-slate-500 mb-1">{approver.role}</p>
-                        <Badge color={approver.status === 'approved' ? 'green' : 'gray'}>{approver.status}</Badge>
-                     </div>
-                  </div>
-               ))}
-            </div>
-         </Card>
-
-         {/* Signatories */}
-         <Card title="Signatories">
-            <div className="space-y-4">
-               {extendedData.signatories.map((signer, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-dark-950 rounded-lg border border-dark-800">
-                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
-                        {signer.name.split(' ').map(n=>n[0]).join('')}
-                     </div>
-                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{signer.name}</p>
-                        <p className="text-xs text-slate-500 truncate">{signer.company}</p>
-                     </div>
-                     <div className={`w-3 h-3 rounded-full border-2 ${signer.status === 'signed' ? 'bg-green-500 border-green-500' : 'bg-transparent border-slate-500'}`}></div>
-                  </div>
-               ))}
-               <Button variant="secondary" className="w-full text-xs">
-                   <PenTool size={14} className="mr-2"/> Manage Signers via DocuSign
-               </Button>
-            </div>
-         </Card>
-
-         {/* Actions */}
-         <Card title="Quick Actions" noPadding>
-            <div className="p-2 grid grid-cols-2 gap-2">
-               <button className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-white/5 transition-colors gap-2 text-slate-400 hover:text-white">
-                  <Download size={20}/>
-                  <span className="text-xs font-bold">Download PDF</span>
-               </button>
-               <button className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-white/5 transition-colors gap-2 text-slate-400 hover:text-white">
-                  <Share2 size={20}/>
-                  <span className="text-xs font-bold">Share Link</span>
-               </button>
-               <button className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-white/5 transition-colors gap-2 text-slate-400 hover:text-white">
-                  <History size={20}/>
-                  <span className="text-xs font-bold">Audit Log</span>
-               </button>
-               <button className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-white/5 transition-colors gap-2 text-slate-400 hover:text-white">
-                  <AlertCircle size={20}/>
-                  <span className="text-xs font-bold">Report Issue</span>
-               </button>
-            </div>
-         </Card>
-
-      </div>
-    </div>
-  );
-
-  const renderDocumentView = () => {
-     // Mock text with structure to simulate redaction
-    const documentSections = [
-        {
-          title: "1. Services and Compensation",
-          content: "Client agrees to pay Vendor a total fee of $150,000 USD for the services rendered.",
-          sensitiveTo: ['Sales', 'HR'], // Legal sees all
-          redactionType: 'blur'
-        },
-        {
-          title: "2. Employee Benefits",
-          content: "Vendor employees assigned to this project shall receive a per diem of $200 for travel expenses.",
-          sensitiveTo: ['Sales'], // HR and Legal see this
-          redactionType: 'blackout'
-        },
-        {
-          title: "3. Indemnification",
-          content: "Vendor shall indemnify Client against any claims arising from gross negligence or willful misconduct.",
-          sensitiveTo: [],
-          isRisk: true
-        }
-      ];
-    
-      const isRedacted = (sensitiveTo: string[]) => {
-        if (activeRole === 'Legal') return false;
-        if (activeRole === 'Sales' && sensitiveTo.includes('Sales')) return true;
-        if (activeRole === 'HR' && sensitiveTo.includes('HR')) return true;
-        return false;
-      };
-
-      const SendIcon = ({size}:{size:number}) => (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-      );
-
-      return (
-        <div className="flex flex-1 gap-6 overflow-hidden h-[calc(100vh-12rem)] animate-in fade-in">
-            {/* Document View */}
-            <div className="flex-1 bg-dark-900 rounded-lg border border-dark-700 shadow-sm overflow-y-auto p-12 font-serif text-slate-200 leading-relaxed">
-            <div className="max-w-3xl mx-auto space-y-8">
-                <div className="text-center mb-12">
-                <h1 className="text-2xl font-bold uppercase tracking-widest mb-2">Master Services Agreement</h1>
-                <p className="text-sm text-slate-500">Reference: {contract.id}</p>
-                </div>
-
-                <p>This Agreement is entered into as of {contract.startDate}, by and between {contract.counterparty} ("Vendor") and Agreemetrix Inc ("Client").</p>
-
-                {documentSections.map((section, idx) => (
-                <div key={idx} className="relative group">
-                    <h3 className="font-bold text-lg mb-2">{section.title}</h3>
-                    <div className={`relative p-2 rounded transition-all duration-300 ${isRedacted(section.sensitiveTo) ? 'bg-slate-100/10 select-none' : ''} ${section.isRisk && activeRole === 'Legal' ? 'bg-red-500/10 border-l-4 border-red-400 pl-4' : ''}`}>
-                        
-                        {/* Content Layer */}
-                        <p className={isRedacted(section.sensitiveTo) ? 'blur-sm opacity-40' : ''}>
-                        {section.content}
-                        </p>
-
-                        {/* Redaction Overlay */}
-                        {isRedacted(section.sensitiveTo) && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-dark-800 text-white rounded-md shadow-lg text-xs font-bold uppercase tracking-wide border border-dark-700">
-                            <EyeOff size={14} />
-                            Redacted for {activeRole}
-                            </div>
-                        </div>
-                        )}
-
-                        {/* Risk Indicator (Legal Only) */}
-                        {!isRedacted(section.sensitiveTo) && section.isRisk && activeRole === 'Legal' && (
-                        <div className="absolute -right-4 top-0 translate-x-full w-48">
-                            <div className="bg-dark-900 p-3 rounded border border-red-500/30 shadow-sm text-xs">
-                            <div className="flex items-center gap-1 text-red-400 font-bold mb-1">
-                                <ShieldAlert size={14} /> High Risk Clause
-                            </div>
-                            <p className="text-slate-400">Deviation from standard playbook. Uncapped liability detected.</p>
-                            </div>
-                        </div>
-                        )}
-                    </div>
-                </div>
-                ))}
-                
-                <div className="mt-12 pt-12 border-t border-dark-700 grid grid-cols-2 gap-12">
-                <div>
-                    <div className="h-px bg-slate-500 mb-4"></div>
-                    <p className="font-bold">Signed by Vendor</p>
-                    <p className="font-serif italic text-2xl mt-2 font-bold text-blue-400">John Doe</p>
-                </div>
-                <div>
-                    <div className="h-px bg-slate-500 mb-4"></div>
-                    <p className="font-bold">Signed by Client</p>
-                    <div className="h-10 bg-yellow-500/10 border border-yellow-500/30 border-dashed rounded flex items-center justify-center text-yellow-500 text-xs font-medium mt-2">
-                        Pending Signature
-                    </div>
-                </div>
-                </div>
-            </div>
-            </div>
-
-            {/* AI Sidebar */}
-            {showAI && (
-            <div className="w-80 flex flex-col gap-4">
-                <Card title="Agreemetrix AI" className="flex-1 flex flex-col" action={<Sparkles size={18} className="text-brand-500"/>}>
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                    <div className="p-3 bg-brand-500/10 rounded-lg border border-brand-500/20">
-                        <h4 className="text-sm font-bold text-brand-400 mb-1 flex items-center gap-2">
-                            <CheckCircle size={14} /> Contract Summary
-                        </h4>
-                        <p className="text-xs text-brand-200/80">
-                            This is a standard MSA. Value is $150k. Payment terms are Net 30. 
-                            <br/><strong>Key Flag:</strong> Indemnity clause is non-standard.
-                        </p>
-                    </div>
-
-                    <div className="p-3 bg-dark-950 rounded-lg border border-dark-800">
-                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Role Simulator</h4>
-                         <div className="flex flex-wrap gap-2">
-                            {(['Legal', 'Sales', 'HR'] as const).map((role) => (
-                                <button
-                                key={role}
-                                onClick={() => setActiveRole(role)}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase rounded border transition-colors ${
-                                    activeRole === role 
-                                    ? 'bg-slate-100 text-slate-900 border-slate-100' 
-                                    : 'text-slate-500 border-slate-700 hover:border-slate-500'
-                                }`}
-                                >
-                                {role} View
-                                </button>
-                            ))}
-                         </div>
-                    </div>
-
-                    <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Detected Risks</h4>
-                        <div className="space-y-2">
-                        <div className="p-3 bg-red-500/10 rounded border border-red-500/20">
-                            <div className="flex justify-between mb-1">
-                            <span className="text-xs font-bold text-red-400">Liability Cap</span>
-                            <Badge color="red">High</Badge>
-                            </div>
-                            <p className="text-xs text-slate-400">Clause 3 misses standard cap of 2x fees.</p>
-                            <button className="mt-2 text-xs text-red-400 font-medium hover:underline">Auto-Redline</button>
-                        </div>
-                        <div className="p-3 bg-yellow-500/10 rounded border border-yellow-500/20">
-                            <div className="flex justify-between mb-1">
-                            <span className="text-xs font-bold text-yellow-400">Payment Terms</span>
-                            <Badge color="yellow">Med</Badge>
-                            </div>
-                            <p className="text-xs text-slate-400">Net 15 requested; Standard is Net 45.</p>
-                        </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ask Agent</h4>
-                        <div className="relative">
-                            <input type="text" placeholder="E.g., What is the termination notice?" className="w-full text-xs p-2 pr-8 rounded border border-dark-700 bg-dark-950 text-slate-200 focus:border-brand-500 focus:outline-none" />
-                            <button className="absolute right-2 top-1.5 text-brand-500"><SendIcon size={14}/></button>
-                        </div>
-                    </div>
-                    </div>
-                </Card>
-                
-                <Card className="bg-dark-900 border-dark-700">
-                <div className="flex items-start gap-3">
-                    <MessageSquare size={20} className="mt-1 text-slate-400" />
-                    <div>
-                    <p className="text-sm font-medium text-slate-200">2 Comments</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                        <strong>Mike:</strong> Can we push back on section 3?
-                    </p>
-                    </div>
-                </div>
-                </Card>
-            </div>
-            )}
-        </div>
-      );
+    );
   };
 
+  // --- VIEW RENDERERS ---
+
+  const renderOverview = () => (
+      <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2">
+          {/* Top Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card title="Executive Summary" className="col-span-2">
+                  <div className="flex gap-4 items-start">
+                      <div className="p-3 bg-brand-500/10 rounded-xl border border-brand-500/20 text-brand-400 shrink-0">
+                          <Bot size={24} />
+                      </div>
+                      <div className="space-y-3">
+                          <p className="text-slate-300 text-sm leading-relaxed">
+                              This is a standard <strong>{contract.type}</strong> with <strong>{contract.counterparty}</strong>. 
+                              It includes a <span className="text-white font-bold">3-year term</span> with auto-renewal. 
+                              Key obligations focus on data privacy (GDPR) and quarterly performance reviews. 
+                              <span className="text-yellow-400"> Note:</span> Liability cap is higher than standard playbook (3x vs 2x).
+                          </p>
+                          <div className="flex gap-2">
+                              <Badge color="green">Standard Terms</Badge>
+                              <Badge color="yellow">High Liability</Badge>
+                              <Badge color="blue">GDPR</Badge>
+                          </div>
+                      </div>
+                  </div>
+              </Card>
+              <Card title="Key Dates">
+                  <div className="space-y-4">
+                      <div className="flex justify-between items-center p-2 bg-dark-950 rounded border border-dark-700">
+                          <div className="flex items-center gap-3">
+                              <Calendar size={16} className="text-green-400"/>
+                              <div>
+                                  <p className="text-xs text-slate-500 uppercase font-bold">Effective Date</p>
+                                  <p className="text-sm font-bold text-white">{contract.startDate}</p>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-dark-950 rounded border border-dark-700">
+                          <div className="flex items-center gap-3">
+                              <Calendar size={16} className="text-red-400"/>
+                              <div>
+                                  <p className="text-xs text-slate-500 uppercase font-bold">Renewal / Expiry</p>
+                                  <p className="text-sm font-bold text-white">{contract.renewalDate}</p>
+                              </div>
+                          </div>
+                          <Badge color="blue">Auto-Renew</Badge>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-dark-950 rounded border border-dark-700">
+                          <div className="flex items-center gap-3">
+                              <Clock size={16} className="text-yellow-400"/>
+                              <div>
+                                  <p className="text-xs text-slate-500 uppercase font-bold">Notice Period</p>
+                                  <p className="text-sm font-bold text-white">60 Days</p>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </Card>
+          </div>
+
+          {/* Metadata Grid */}
+          <Card title="Contract Data" noPadding>
+              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y divide-dark-700 border-b border-dark-700">
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Contract Type</p>
+                      <p className="text-sm text-white font-medium">{contract.type}</p>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Jurisdiction</p>
+                      <p className="text-sm text-white font-medium">New York, USA</p>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Business Unit</p>
+                      <p className="text-sm text-white font-medium">Enterprise Sales</p>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Payment Terms</p>
+                      <p className="text-sm text-white font-medium">Net 45</p>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Owner</p>
+                      <div className="flex items-center gap-2">
+                          <Avatar name={contract.owner} size="sm"/>
+                          <p className="text-sm text-white font-medium">{contract.owner}</p>
+                      </div>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Counterparty Contact</p>
+                      <p className="text-sm text-white font-medium">legal@counterparty.com</p>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Folder Location</p>
+                      <p className="text-sm text-brand-400 font-medium flex items-center gap-1 cursor-pointer hover:underline"><FolderTree size={12}/> /Legal/Commercial/MSA</p>
+                  </div>
+                  <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-1">Linked Opportunity</p>
+                      <p className="text-sm text-blue-400 font-medium flex items-center gap-1 cursor-pointer hover:underline"><LinkIcon size={12}/> OPP-2024-8392</p>
+                  </div>
+              </div>
+          </Card>
+      </div>
+  );
+
+  const renderWorkflow = () => (
+      <div className="p-8 max-w-5xl mx-auto">
+          <Card title="Approval & Lifecycle Timeline" className="relative">
+              <div className="absolute left-8 top-16 bottom-8 w-px bg-dark-700"></div>
+              <div className="space-y-8 relative z-10">
+                  {[
+                      { title: 'Contract Created', date: 'Oct 10, 10:00 AM', user: 'Harvey Specter', status: 'done' },
+                      { title: 'Internal Review (Legal)', date: 'Oct 11, 2:30 PM', user: 'Mike Ross', status: 'done', comment: 'Redlines applied to Section 4.' },
+                      { title: 'Counterparty Review', date: 'Oct 12, 9:00 AM', user: 'External', status: 'done' },
+                      { title: 'Finance Approval', date: 'Today, 9:15 AM', user: 'Jessica Pearson', status: 'active' },
+                      { title: 'Signature', date: 'Pending', user: 'Signatories', status: 'pending' }
+                  ].map((step, i) => (
+                      <div key={i} className="flex gap-6 items-start group">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 ${step.status === 'done' ? 'bg-green-500 border-green-500 text-white' : step.status === 'active' ? 'bg-brand-500 border-brand-500 text-white animate-pulse' : 'bg-dark-900 border-dark-700 text-slate-500'}`}>
+                              {step.status === 'done' ? <Check size={16}/> : step.status === 'active' ? <Clock size={16}/> : <div className="w-2 h-2 bg-slate-500 rounded-full"></div>}
+                          </div>
+                          <div className="flex-1 bg-dark-950 border border-dark-700 rounded-xl p-4 hover:border-brand-500/30 transition-colors">
+                              <div className="flex justify-between items-start mb-1">
+                                  <h4 className={`text-sm font-bold ${step.status === 'pending' ? 'text-slate-500' : 'text-white'}`}>{step.title}</h4>
+                                  <span className="text-xs text-slate-500">{step.date}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mb-2">
+                                  <User size={12} className="text-slate-500"/>
+                                  <span className="text-xs text-slate-300">{step.user}</span>
+                              </div>
+                              {step.comment && (
+                                  <div className="mt-2 p-2 bg-dark-900 rounded border border-dark-800 text-xs text-slate-400 italic">
+                                      "{step.comment}"
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </Card>
+      </div>
+  );
+
+  const renderRisk = () => (
+      <div className="p-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <Card noPadding className="bg-gradient-to-br from-red-900/20 to-dark-900 border-red-500/20">
+                  <div className="p-6 flex flex-col items-center justify-center text-center">
+                      <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 mb-3"><AlertTriangle size={24}/></div>
+                      <h3 className="text-3xl font-bold text-white">{contract.riskScore}/100</h3>
+                      <p className="text-xs text-red-400 font-bold uppercase">High Risk Detected</p>
+                  </div>
+              </Card>
+              <div className="md:col-span-2 bg-dark-900 border border-dark-700 rounded-xl p-6">
+                  <h4 className="text-sm font-bold text-white mb-4">Clause Deviation Analysis</h4>
+                  <div className="space-y-4">
+                      <div className="space-y-1">
+                          <div className="flex justify-between text-xs mb-1">
+                              <span className="text-slate-300">Limitation of Liability</span>
+                              <span className="text-red-400 font-bold">High Deviation</span>
+                          </div>
+                          <div className="w-full bg-dark-800 h-2 rounded-full overflow-hidden">
+                              <div className="bg-red-500 w-[85%] h-full"></div>
+                          </div>
+                      </div>
+                      <div className="space-y-1">
+                          <div className="flex justify-between text-xs mb-1">
+                              <span className="text-slate-300">Indemnification</span>
+                              <span className="text-yellow-400 font-bold">Medium Deviation</span>
+                          </div>
+                          <div className="w-full bg-dark-800 h-2 rounded-full overflow-hidden">
+                              <div className="bg-yellow-500 w-[45%] h-full"></div>
+                          </div>
+                      </div>
+                      <div className="space-y-1">
+                          <div className="flex justify-between text-xs mb-1">
+                              <span className="text-slate-300">Payment Terms</span>
+                              <span className="text-green-400 font-bold">Standard</span>
+                          </div>
+                          <div className="w-full bg-dark-800 h-2 rounded-full overflow-hidden">
+                              <div className="bg-green-500 w-[5%] h-full"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <Card title="Identified Risks & Flags" noPadding>
+              <table className="w-full text-left text-sm text-slate-400">
+                  <thead className="bg-dark-950 text-slate-500 text-xs uppercase font-bold">
+                      <tr>
+                          <th className="px-6 py-3">Risk Category</th>
+                          <th className="px-6 py-3">Clause</th>
+                          <th className="px-6 py-3">Description</th>
+                          <th className="px-6 py-3">Severity</th>
+                          <th className="px-6 py-3 text-right">Action</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                      <tr className="hover:bg-white/5">
+                          <td className="px-6 py-4"><Badge color="red">Financial</Badge></td>
+                          <td className="px-6 py-4 text-white">5. Liability</td>
+                          <td className="px-6 py-4 text-xs">Cap exceeds 2x contract value (set at 3x).</td>
+                          <td className="px-6 py-4 text-red-400 font-bold">Critical</td>
+                          <td className="px-6 py-4 text-right"><Button variant="secondary" className="text-xs">Mitigate</Button></td>
+                      </tr>
+                      <tr className="hover:bg-white/5">
+                          <td className="px-6 py-4"><Badge color="yellow">Operational</Badge></td>
+                          <td className="px-6 py-4 text-white">2. Termination</td>
+                          <td className="px-6 py-4 text-xs">Missing "Termination for Convenience" clause.</td>
+                          <td className="px-6 py-4 text-yellow-400 font-bold">Medium</td>
+                          <td className="px-6 py-4 text-right"><Button variant="secondary" className="text-xs">Review</Button></td>
+                      </tr>
+                  </tbody>
+              </table>
+          </Card>
+      </div>
+  );
+
+  // --- EDITOR VIEW (DOCUMENT TAB) ---
+  const renderDocumentEditor = () => (
+      <div className="flex flex-col h-full">
+          {/* RIBBON TOOLBAR */}
+          <div className="bg-dark-900 border-b border-dark-700 shrink-0 flex flex-col">
+              <div className="flex px-2 border-b border-dark-800">
+                  {['Home', 'Insert', 'Review', 'View'].map(tab => (
+                      <button
+                          key={tab}
+                          onClick={() => setRibbonTab(tab.toLowerCase() as any)}
+                          className={`px-5 py-2 text-xs font-bold transition-all border-b-2 ${ribbonTab === tab.toLowerCase() ? 'border-brand-500 text-white bg-white/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                      >
+                          {tab}
+                      </button>
+                  ))}
+              </div>
+              
+              <div className="h-16 flex items-center px-4 gap-2 overflow-x-auto custom-scrollbar">
+                  {ribbonTab === 'home' && (
+                      <>
+                          <div className="flex items-center gap-1 mr-2">
+                              <RibbonButton icon={Undo} label="Undo" />
+                              <RibbonButton icon={Redo} label="Redo" />
+                          </div>
+                          <RibbonDivider />
+                          <div className="flex items-center gap-2 mx-2">
+                              <Select options={[{label: 'Normal', value: 'p'}, {label: 'Heading 1', value: 'h1'}]} className="w-32 h-8 text-xs bg-dark-950" />
+                              <Select options={[{label: 'Inter', value: 'inter'}, {label: 'Times', value: 'times'}]} className="w-24 h-8 text-xs bg-dark-950" />
+                          </div>
+                          <RibbonDivider />
+                          <div className="flex items-center gap-1 mx-2">
+                              <RibbonButton icon={Bold} label="Bold" />
+                              <RibbonButton icon={Italic} label="Italic" />
+                              <RibbonButton icon={Underline} label="Underline" />
+                          </div>
+                      </>
+                  )}
+                  {ribbonTab === 'review' && (
+                      <>
+                          <div className="flex items-center bg-dark-950 rounded-lg p-1 border border-dark-700 mr-2">
+                              <button onClick={() => setEditMode('editing')} className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${editMode === 'editing' ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white'}`}>Editing</button>
+                              <button onClick={() => setEditMode('suggesting')} className={`px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-1 ${editMode === 'suggesting' ? 'bg-green-500 text-white' : 'text-slate-400 hover:text-white'}`}><GitBranch size={12}/> Suggesting</button>
+                          </div>
+                          <RibbonDivider />
+                          <RibbonButton icon={MessageSquare} label="Comment" onClick={() => { setShowRightSidebar(true); setSidebarTab('comments'); }} />
+                          <RibbonButton icon={CheckCircle2} label="Accept All" />
+                      </>
+                  )}
+                  {ribbonTab === 'insert' && (
+                      <>
+                          <RibbonButton icon={BookOpen} label="Clause" />
+                          <RibbonButton icon={Database} label="Variable" />
+                          <RibbonButton icon={PenTool} label="Signature" />
+                      </>
+                  )}
+                  {ribbonTab === 'view' && (
+                      <div className="flex items-center gap-2 bg-dark-950 rounded-lg p-1 border border-dark-700">
+                          <button onClick={() => setZoom(z => Math.max(50, z - 10))} className="p-1 text-slate-400 hover:text-white"><ZoomOut size={16}/></button>
+                          <span className="text-xs font-mono w-10 text-center">{zoom}%</span>
+                          <button onClick={() => setZoom(z => Math.min(200, z + 10))} className="p-1 text-slate-400 hover:text-white"><ZoomIn size={16}/></button>
+                      </div>
+                  )}
+              </div>
+          </div>
+
+          {/* MAIN WORKSPACE */}
+          <div className="flex-1 flex overflow-hidden relative">
+              {/* LEFT SIDEBAR: OUTLINE */}
+              {showLeftSidebar && (
+                  <div className="w-64 bg-dark-950 border-r border-dark-700 flex flex-col z-10 shrink-0">
+                      <div className="p-4 border-b border-dark-800 flex justify-between items-center">
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Outline</h3>
+                          <button onClick={() => setShowLeftSidebar(false)} className="text-slate-500 hover:text-white"><X size={14}/></button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                          {['1. Services', '2. Term and Termination', '3. Fees and Payment', '4. Confidentiality', '5. Limitation of Liability'].map((item, i) => (
+                              <button key={i} className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-white/5 hover:text-white transition-colors truncate flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-dark-700"></div>
+                                  {item}
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
+              {/* CENTER: CANVAS */}
+              <div className="flex-1 overflow-y-auto bg-dark-900/50 relative flex justify-center p-8 custom-scrollbar">
+                  <div 
+                      className="bg-white shadow-2xl transition-transform duration-200 ease-out origin-top mb-20"
+                      style={{ width: '816px', minHeight: '1056px', padding: '96px', transform: `scale(${zoom / 100})` }}
+                  >
+                      {renderDocumentContent()}
+                  </div>
+              </div>
+
+              {/* RIGHT SIDEBAR: CONTEXT PANEL */}
+              {showRightSidebar && (
+                  <div className="w-80 bg-dark-950 border-l border-dark-700 flex flex-col z-10 shrink-0 shadow-xl">
+                      <div className="flex border-b border-dark-800 bg-dark-900">
+                          {[
+                              {id: 'comments', icon: MessageSquare, label: comments.filter(c=>!c.resolved).length},
+                              {id: 'changes', icon: GitBranch, label: changes.filter(c=>c.status==='pending').length},
+                              {id: 'clauses', icon: BookOpen, label: ''},
+                              {id: 'ai', icon: Sparkles, label: ''},
+                          ].map(tab => (
+                              <button 
+                                  key={tab.id}
+                                  onClick={() => setSidebarTab(tab.id as any)}
+                                  className={`flex-1 py-3 flex justify-center items-center relative transition-colors ${sidebarTab === tab.id ? 'text-brand-400 bg-brand-500/5' : 'text-slate-500 hover:text-slate-300'}`}
+                              >
+                                  <tab.icon size={16} />
+                                  {tab.label ? <span className="absolute top-1 right-1 w-4 h-4 bg-brand-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold border border-dark-900">{tab.label}</span> : null}
+                                  {sidebarTab === tab.id && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-500"></div>}
+                              </button>
+                          ))}
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                          {sidebarTab === 'comments' && (
+                              <div className="space-y-4">
+                                  <div className="flex justify-between items-center mb-2">
+                                      <h4 className="text-xs font-bold text-slate-500 uppercase">Open Threads</h4>
+                                      <button className="text-xs text-brand-400 hover:text-white flex items-center gap-1"><Plus size={12}/> New</button>
+                                  </div>
+                                  {comments.filter(c => !c.resolved).map(comment => (
+                                      <div key={comment.id} className="bg-dark-900 border border-dark-700 rounded-xl p-3 hover:border-brand-500/30 transition-all group">
+                                          <div className="flex justify-between items-start mb-2">
+                                              <div className="flex items-center gap-2">
+                                                  <Avatar name={comment.userName} size="sm" className="w-6 h-6 text-[9px]" />
+                                                  <span className="text-xs font-bold text-white">{comment.userName}</span>
+                                                  <span className="text-[10px] text-slate-500">{comment.date}</span>
+                                              </div>
+                                              <button className="text-slate-500 hover:text-green-400 opacity-0 group-hover:opacity-100 transition-opacity"><Check size={14}/></button>
+                                          </div>
+                                          <p className="text-sm text-slate-300 mb-2">{comment.text}</p>
+                                          <input placeholder="Reply..." className="w-full bg-dark-950 border border-dark-800 rounded px-2 py-1 text-xs text-white focus:border-brand-500 outline-none"/>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                          {sidebarTab === 'clauses' && (
+                              <div className="space-y-4">
+                                  <Input placeholder="Search clause library..." className="bg-dark-900 text-xs"/>
+                                  {MOCK_CLAUSES.map(c => (
+                                      <div key={c.id} draggable className="p-3 bg-dark-900 rounded border border-dark-700 cursor-grab hover:border-brand-500/50">
+                                          <div className="flex justify-between mb-1"><span className="font-bold text-xs text-white">{c.name}</span><Badge color="gray" className="text-[9px]">{c.category}</Badge></div>
+                                          <p className="text-xs text-slate-400 line-clamp-2 italic">"{c.content}"</p>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                          {sidebarTab === 'ai' && (
+                              <div className="space-y-6">
+                                  <div className="p-4 bg-brand-500/10 border border-brand-500/20 rounded-xl">
+                                      <div className="flex items-center gap-2 mb-3 text-brand-400 font-bold text-sm"><Sparkles size={16}/> AI Analysis</div>
+                                      <p className="text-xs text-slate-300 leading-relaxed mb-4">Scanning document...</p>
+                                      <Button variant="neon" className="w-full text-xs">Re-Analyze</Button>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              )}
+          </div>
+      </div>
+  );
+
   return (
-    <div className="space-y-6 pb-6 h-[calc(100vh-8rem)] flex flex-col">
-      {/* Top Navigation Bar */}
-      <div className="flex flex-col gap-4 shrink-0">
-         <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Link to="/repository" className="hover:text-white transition-colors">Repository</Link>
-            <ChevronLeft size={14} className="rotate-180"/>
-            <span className="text-slate-200">{contract.title}</span>
-         </div>
+    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-[#0F1115] text-slate-200 overflow-hidden">
+        
+        {/* 1. GLOBAL HEADER */}
+        <div className="h-16 bg-dark-950 border-b border-dark-700 flex items-center justify-between px-6 shrink-0 z-30 shadow-lg">
+            <div className="flex items-center gap-4">
+                <Link to="/repository" className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
+                    <ChevronLeft size={20} />
+                </Link>
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-lg font-bold text-white tracking-tight">{contract.title}</h1>
+                        <Badge color={contract.status === 'Signed' ? 'green' : 'blue'}>{contract.status}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                       <span className="font-mono opacity-70">{contract.id}</span>
+                       <span>•</span>
+                       <span className="flex items-center gap-1"><User size={10}/> {contract.counterparty}</span>
+                    </div>
+                </div>
+            </div>
 
-         {/* Lifecycle Stepper */}
-         <LifecycleStepper />
+            {/* Summary Metrics */}
+            <div className="hidden xl:flex bg-dark-900/50 rounded-lg border border-dark-700 p-1.5">
+                <SummaryMetric label="Value" value={`$${contract.value.toLocaleString()}`} icon={DollarSign} color="text-green-400"/>
+                <SummaryMetric label="Risk" value={`${contract.riskScore}/100`} icon={Shield} color={contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}/>
+                <SummaryMetric label="Renewal" value={contract.renewalDate} icon={Calendar}/>
+                <SummaryMetric label="Owner" value={contract.owner} icon={User}/>
+            </div>
 
-         {/* Tab Switcher */}
-         <div className="border-b border-white/10 flex gap-6">
-            <button 
-               onClick={() => setActiveView('overview')}
-               className={`pb-3 text-sm font-bold uppercase tracking-wider transition-all border-b-2 ${activeView === 'overview' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`}
-            >
-               <div className="flex items-center gap-2"><LayoutDashboard size={16}/> Overview</div>
-            </button>
-            <button 
-               onClick={() => setActiveView('document')}
-               className={`pb-3 text-sm font-bold uppercase tracking-wider transition-all border-b-2 ${activeView === 'document' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-white'}`}
-            >
-               <div className="flex items-center gap-2"><FileCheck size={16}/> Document & AI</div>
-            </button>
-         </div>
-      </div>
+            <div className="flex items-center gap-3">
+                <Button variant="secondary" className="h-9 text-xs shadow-sm" onClick={() => setShowAIChat(!showAIChat)}><Bot size={16} className="mr-2 text-brand-400"/> Ask AI</Button>
+                <div className="h-8 w-px bg-dark-700 mx-1"></div>
+                <Button variant="primary" className="h-9 text-xs shadow-lg shadow-brand-500/20"><Save size={16} className="mr-2"/> Save</Button>
+            </div>
+        </div>
 
-      {/* View Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-         {activeView === 'overview' ? renderOverview() : renderDocumentView()}
-      </div>
+        {/* 2. NAVIGATION TABS */}
+        <div className="bg-dark-900 border-b border-dark-700 px-6 flex gap-6">
+            {[
+                { id: 'overview', label: 'Overview', icon: Activity },
+                { id: 'document', label: 'Document Editor', icon: FileText },
+                { id: 'workflow', label: 'Workflow', icon: GitBranch },
+                { id: 'obligations', label: 'Obligations', icon: CheckSquare },
+                { id: 'financials', label: 'Financials', icon: DollarSign },
+                { id: 'risk', label: 'Risk & Compliance', icon: AlertTriangle },
+                { id: 'family', label: 'Related Contracts', icon: FolderTree },
+            ].map(tab => (
+                <button
+                    key={tab.id}
+                    onClick={() => setActiveView(tab.id as ViewTab)}
+                    className={`flex items-center gap-2 py-3 text-sm font-medium border-b-2 transition-all ${activeView === tab.id ? 'border-brand-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`}
+                >
+                    <tab.icon size={16} /> {tab.label}
+                </button>
+            ))}
+        </div>
+
+        {/* 3. MAIN CONTENT AREA */}
+        <div className="flex-1 overflow-y-auto bg-dark-950 relative custom-scrollbar">
+            {activeView === 'document' && renderDocumentEditor()}
+            {activeView === 'overview' && renderOverview()}
+            {activeView === 'workflow' && renderWorkflow()}
+            {activeView === 'risk' && renderRisk()}
+            
+            {/* Placeholders for other views */}
+            {['obligations', 'financials', 'family'].includes(activeView) && (
+                <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                    <Activity size={48} className="mb-4 opacity-20"/>
+                    <p>Module coming soon in this demo.</p>
+                </div>
+            )}
+
+            {/* AI Chat Float */}
+            {showAIChat && (
+                <div className="absolute bottom-6 right-6 w-96 bg-dark-900 border border-brand-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 z-50 h-[500px]">
+                    <div className="p-4 bg-brand-500/10 border-b border-brand-500/20 flex justify-between items-center">
+                        <h3 className="font-bold text-white flex items-center gap-2"><Bot size={18} className="text-brand-400"/> Contract Assistant</h3>
+                        <button onClick={() => setShowAIChat(false)}><X size={16} className="text-slate-400 hover:text-white"/></button>
+                    </div>
+                    <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                        <div className="flex gap-3">
+                            <div className="w-8 h-8 bg-brand-500/20 rounded-full flex items-center justify-center text-brand-400 shrink-0"><Bot size={16}/></div>
+                            <div className="bg-dark-800 p-3 rounded-2xl rounded-tl-none text-sm text-slate-300 border border-dark-700">
+                                I've analyzed this agreement. You can ask me about risks, obligations, or specific clauses.
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-4 border-t border-dark-700 bg-dark-950">
+                        <input placeholder="Ask about this contract..." className="w-full bg-dark-900 border border-dark-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-500 outline-none"/>
+                    </div>
+                </div>
+            )}
+        </div>
     </div>
   );
 };

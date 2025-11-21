@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Badge, Input, Button, Select } from '../components/UIComponents';
@@ -127,8 +128,8 @@ const ContractSnapshotModal: React.FC<{ contract: Contract; onClose: () => void 
               {/* Right Column: Actions & Details */}
               <div className="space-y-6">
                  <div className="p-4 bg-dark-950 rounded-xl border border-dark-700 space-y-3">
-                    <Button variant="primary" className="w-full justify-center" onClick={() => navigate(`/contract/${contract.id}`)}>
-                       Open Full Contract <ArrowUpRight size={16} className="ml-2"/>
+                    <Button variant="primary" className="w-full justify-center shadow-lg shadow-brand-500/20" onClick={() => navigate(`/contract/${contract.id}`)}>
+                       View Complete Contract Details <ArrowUpRight size={16} className="ml-2"/>
                     </Button>
                     <div className="grid grid-cols-2 gap-2">
                        <Button variant="secondary" className="w-full justify-center text-xs"><Download size={14} className="mr-2"/> PDF</Button>

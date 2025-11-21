@@ -5,7 +5,7 @@ import { WorkflowNodeCard } from '../components/workflow/WorkflowNode';
 import { WorkflowToolbar } from '../components/workflow/WorkflowToolbar';
 import { PropertiesPanel } from '../components/workflow/PropertiesPanel';
 import { Button, Badge } from '../components/UIComponents';
-import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo } from 'lucide-react';
+import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo, MousePointer, Download, Upload, ChevronRight } from 'lucide-react';
 import { INITIAL_TEMPLATES } from '../mock/data';
 
 const INITIAL_STAGES: WorkflowStageDefinition[] = [
@@ -21,6 +21,52 @@ interface HistoryState {
   nodes: WorkflowNode[];
   connections: WorkflowConnection[];
 }
+
+// MiniMap Component
+const MiniMap: React.FC<{ nodes: WorkflowNode[], viewport: {x: number, y: number, zoom: number} }> = ({ nodes, viewport }) => {
+    return (
+        <div className="absolute bottom-8 right-8 w-48 h-32 bg-dark-900/90 border border-dark-700 rounded-lg shadow-xl overflow-hidden z-30 pointer-events-none opacity-80 hidden md:block">
+            <div className="relative w-full h-full bg-dark-950">
+                {nodes.map(n => (
+                    <div 
+                        key={n.id} 
+                        className="absolute w-2 h-2 rounded-sm bg-slate-500"
+                        style={{ left: (n.x / 2000) * 100 + '%', top: (n.y / 2000) * 100 + '%' }} 
+                    />
+                ))}
+                {/* Viewport Indicator */}
+                <div 
+                    className="absolute border border-brand-500/50 bg-brand-500/10"
+                    style={{
+                        left: (viewport.x / -2000) * 100 + '%',
+                        top: (viewport.y / -2000) * 100 + '%',
+                        width: (100 / viewport.zoom) + '%',
+                        height: (100 / viewport.zoom) + '%'
+                    }}
+                />
+            </div>
+        </div>
+    )
+}
+
+// Stage Ribbon Component
+const StageRibbon: React.FC<{ stages: WorkflowStageDefinition[] }> = ({ stages }) => (
+    <div className="h-10 bg-dark-900 border-b border-dark-800 flex items-center px-4 gap-1 overflow-x-auto custom-scrollbar shrink-0">
+        <span className="text-[10px] text-slate-500 font-bold uppercase mr-2 shrink-0">Lifecycle:</span>
+        {stages.map((stage, i) => (
+            <div key={stage.id} className="flex items-center shrink-0">
+                <div 
+                    className="px-3 py-1 rounded text-[10px] font-bold text-white flex items-center gap-2"
+                    style={{ backgroundColor: `${stage.color}20`, border: `1px solid ${stage.color}40` }}
+                >
+                    <div className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: stage.color}}></div>
+                    {stage.name}
+                </div>
+                {i < stages.length - 1 && <div className="h-px w-4 bg-dark-700 mx-1"></div>}
+            </div>
+        ))}
+    </div>
+);
 
 const WorkflowBuilder: React.FC = () => {
   // Canvas State
@@ -67,10 +113,8 @@ const WorkflowBuilder: React.FC = () => {
 
   // -- HISTORY MANAGEMENT --
   useEffect(() => {
-     // If nodes or connections change, and it wasn't an undo/redo action, add to history
      if (!isHistoryAction) {
          const currentState = { nodes, connections };
-         // Check if significantly different from last state to avoid spam
          const lastState = history[historyIndex];
          if (JSON.stringify(lastState) !== JSON.stringify(currentState)) {
              const newHistory = history.slice(0, historyIndex + 1);
@@ -149,7 +193,6 @@ const WorkflowBuilder: React.FC = () => {
       setShowTemplateModal(false);
       setPan({x: 0, y: 0});
       setZoom(0.9);
-      // Reset history
       setHistory([{ nodes: template.schema.nodes, connections: template.schema.connections }]);
       setHistoryIndex(0);
   };
@@ -302,7 +345,7 @@ const WorkflowBuilder: React.FC = () => {
         return;
      }
      setSimState('running');
-     setSimLog(['Starting simulation...']);
+     setSimLog(['Starting simulation...', 'Analyzing path...', 'Found valid entry point.']);
      
      // BFS Walk
      const processNode = async (id: string) => {
@@ -310,14 +353,18 @@ const WorkflowBuilder: React.FC = () => {
         if(!node) return;
 
         setActiveSimNode(id);
-        setSimLog(prev => [...prev, `Processing: ${node.label}`]);
+        setSimLog(prev => [...prev, `Processing: ${node.label} (${node.type})`]);
         
         // Simulate delay if node is a delay node
         if (node.type === 'delay') {
-            setSimLog(prev => [...prev, `Waiting ${node.config.delayTime} ${node.config.delayUnit}...`]);
-            await new Promise(r => setTimeout(r, 2000)); // Longer wait for visual effect
+            setSimLog(prev => [...prev, `Waiting ${node.config.delayTime || 24} ${node.config.delayUnit || 'hours'}...`]);
+            await new Promise(r => setTimeout(r, 2000));
+        } else if (node.category === 'approval') {
+            setSimLog(prev => [...prev, `Sent approval request to ${node.config.approverId || 'Approver'}...`, 'Waiting for response...']);
+            await new Promise(r => setTimeout(r, 1500));
+            setSimLog(prev => [...prev, 'Approved.']);
         } else {
-            await new Promise(r => setTimeout(r, 800)); // Standard visual delay
+            await new Promise(r => setTimeout(r, 800));
         }
 
         const outbound = connections.filter(c => c.source === id);
@@ -329,7 +376,7 @@ const WorkflowBuilder: React.FC = () => {
            } else {
               setSimState('idle');
               setActiveSimNode(null);
-              setSimLog(prev => [...prev, 'End of path.']);
+              setSimLog(prev => [...prev, 'Simulation Ended: End of path reached.']);
            }
         } else {
            setSimState('idle');
@@ -490,15 +537,23 @@ const WorkflowBuilder: React.FC = () => {
                   {simState === 'running' ? <Loader2 size={14} className="animate-spin"/> : <Play size={14}/>}
                   {simState === 'running' ? 'Simulating...' : 'Live Preview'}
                </Button>
-               <Button variant="primary" className="h-9 text-xs gap-2 shadow-lg shadow-brand-500/20" onClick={saveJSON}>
-                  <Save size={14}/> Publish Workflow
+               
+               <Button variant="secondary" className="h-9 w-9 p-0" onClick={saveJSON} title="Export JSON">
+                  <Download size={16} />
+               </Button>
+
+               <Button variant="primary" className="h-9 text-xs gap-2 shadow-lg shadow-brand-500/20">
+                  <Save size={14}/> Publish
                </Button>
             </div>
          </div>
 
+         {/* Lifecycle Stages Ribbon */}
+         <StageRibbon stages={stages} />
+
          {/* Stage Manager Panel (Overlay) */}
          {showStageManager && (
-            <div className="absolute top-16 left-0 right-0 z-40 bg-dark-900/95 border-b border-dark-700 p-4 animate-in slide-in-from-top-2 shadow-xl backdrop-blur-md">
+            <div className="absolute top-26 left-0 right-0 z-40 bg-dark-900/95 border-b border-dark-700 p-4 animate-in slide-in-from-top-2 shadow-xl backdrop-blur-md">
                <div className="max-w-4xl mx-auto">
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Lifecycle Stages Configuration</h4>
                   <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
@@ -630,14 +685,24 @@ const WorkflowBuilder: React.FC = () => {
                </div>
             </div>
 
+            {/* Mini Map */}
+            <MiniMap nodes={nodes} viewport={{x: pan.x, y: pan.y, zoom}} />
+
             {/* Simulation Log Overlay */}
             {simState !== 'idle' && (
-               <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-dark-900/90 backdrop-blur border border-green-500/30 rounded-xl p-4 shadow-2xl w-96 animate-in slide-in-from-top-4 z-40">
-                  <h4 className="text-xs font-bold text-green-400 uppercase mb-2 flex items-center gap-2"><Play size={12}/> Running Simulation</h4>
-                  <div className="h-32 overflow-y-auto custom-scrollbar space-y-1">
+               <div className="absolute top-20 right-8 bg-dark-900/90 backdrop-blur border border-green-500/30 rounded-xl p-4 shadow-2xl w-80 animate-in slide-in-from-right-4 z-40">
+                  <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-xs font-bold text-green-400 uppercase flex items-center gap-2"><Play size={12}/> Running Simulation</h4>
+                      <button onClick={() => setSimState('idle')} className="text-slate-500 hover:text-white"><X size={14}/></button>
+                  </div>
+                  <div className="h-48 overflow-y-auto custom-scrollbar space-y-1 bg-dark-950/50 p-2 rounded border border-dark-800 font-mono text-[10px] text-slate-300">
                      {simLog.map((log, i) => (
-                        <div key={i} className="text-[10px] font-mono text-slate-300 border-l-2 border-dark-700 pl-2 animate-in fade-in slide-in-from-left-2">{log}</div>
+                        <div key={i} className="border-l-2 border-dark-700 pl-2 animate-in fade-in slide-in-from-left-2 pb-1">
+                            <span className="text-slate-500 mr-2">[{new Date().toLocaleTimeString()}]</span>
+                            {log}
+                        </div>
                      ))}
+                     <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })} />
                   </div>
                </div>
             )}

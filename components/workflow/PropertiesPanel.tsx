@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { WorkflowNode, ConditionRule, UserRole, WorkflowStageDefinition } from '../../types';
 import { Input, Select, Button, Badge, Switch } from '../UIComponents';
-import { Trash2, Plus, X, HelpCircle, AlertCircle, FileText, User, Link as LinkIcon, Database, Mail, Braces, Clock, CheckSquare } from 'lucide-react';
+import { Trash2, Plus, X, HelpCircle, AlertCircle, FileText, User, Link as LinkIcon, Database, Mail, Braces, Clock, CheckSquare, BrainCircuit } from 'lucide-react';
 import { MOCK_TEMPLATES, MOCK_USERS, MOCK_ROLES, MOCK_DEPARTMENTS, MOCK_INTEGRATIONS } from '../../mock/data';
 
 interface PropertiesPanelProps {
@@ -29,6 +29,7 @@ const SmartInput: React.FC<{
         { label: 'Owner Name', value: '{{contract.owner}}' },
         { label: 'Start Date', value: '{{contract.startDate}}' },
         { label: 'Risk Score', value: '{{contract.riskScore}}' },
+        { label: 'Current Stage', value: '{{contract.status}}' },
     ];
 
     const insertVar = (v: string) => {
@@ -424,11 +425,37 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
       </div>
   );
 
+  const renderAIConfig = () => (
+      <div className="space-y-4">
+          <Select 
+              label="AI Model"
+              options={[{label: 'GPT-4o', value: 'gpt-4o'}, {label: 'Claude 3.5 Sonnet', value: 'claude-3.5'}, {label: 'Gemini Pro', value: 'gemini-pro'}]}
+              value={node.config.aiModel || 'gpt-4o'}
+              onChange={(e) => updateConfig('aiModel', e.target.value)}
+          />
+          <SmartInput 
+              label="Prompt / Instruction"
+              placeholder="Analyze the indemnity clause for high risk..."
+              value={node.config.aiPrompt || ''}
+              onChange={(val) => updateConfig('aiPrompt', val)}
+              multiline
+          />
+          {node.type === 'risk_scorer' && (
+              <Input 
+                  label="Risk Alert Threshold (0-100)"
+                  type="number"
+                  value={node.config.riskThreshold || 75}
+                  onChange={(e) => updateConfig('riskThreshold', parseInt(e.target.value))}
+              />
+          )}
+      </div>
+  );
+
   return (
     <div className="w-80 bg-dark-900 border-l border-dark-800 flex flex-col h-full z-30 shadow-2xl shrink-0">
       <div className="p-5 border-b border-dark-800 flex justify-between items-start">
          <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{node.category} Node</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{node.category.replace('_', ' ')} Node</span>
             <h3 className="text-lg font-bold text-white">{node.label}</h3>
             <span className="text-[10px] text-brand-400 font-mono">{node.type}</span>
          </div>
@@ -466,6 +493,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
              {node.type === 'delay' && renderDelayConfig()}
              {node.type === 'create_task' && renderTaskConfig()}
              {node.type === 'scheduled_trigger' && renderScheduledTriggerConfig()}
+             {node.category === 'ai_agent' && renderAIConfig()}
              
              {/* Generic Stage Selector for all Nodes */}
              {node.category !== 'utility' && (

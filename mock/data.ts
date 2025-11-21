@@ -1,4 +1,5 @@
 
+
 import { 
   Contract, ContractStatus, Clause, UserRole, IntegrationApp, RiskItem, Counterparty, 
   FieldTable, SyncLog, DocumentTemplate, User, Department, RoleDefinition, Permission, 
@@ -524,4 +525,10 @@ export const INITIAL_TEMPLATES: WorkflowTemplate[] = [
             ]
         }
     }
+];
+
+export const MOCK_VERSIONS = [
+  { id: 'v3', name: 'Version 1.2', date: 'Today, 10:23 AM', author: 'Harvey Specter' },
+  { id: 'v2', name: 'Version 1.1', date: 'Yesterday, 4:45 PM', author: 'Mike Ross' },
+  { id: 'v1', name: 'Version 1.0', date: 'Oct 12, 2023', author: 'System Auto-Gen' },
 ];

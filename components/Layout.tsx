@@ -6,48 +6,118 @@ import {
   Database, Network, Bot, Bell, Search, TableProperties, Palette, 
   Copy, X, UploadCloud, DollarSign, Calendar, CheckCircle2, ArrowRight, Clock,
   PieChart, ChevronLeft, ChevronRight, Menu, AlertTriangle, Info, CheckSquare,
-  ArchiveRestore, LogOut, Key
+  ArchiveRestore, LogOut, Key, Plus, Zap, BrainCircuit, BookOpen, Layers,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
-import { Button, Input, Select, Badge, Logo } from './UIComponents';
+import { Button, Input, Select, Badge, Logo, Avatar } from './UIComponents';
 
-const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string; collapsed?: boolean }> = ({ to, icon: Icon, label, collapsed }) => {
+// --- Navigation Configuration ---
+
+type NavGroup = {
+  title: string;
+  roleReq?: string[]; // 'All' or specific roles
+  items: {
+    to: string;
+    icon: React.ElementType;
+    label: string;
+    badge?: string;
+    badgeColor?: 'red' | 'blue' | 'green' | 'brand';
+  }[];
+};
+
+const NAV_SECTIONS: NavGroup[] = [
+  {
+    title: 'Intelligence',
+    items: [
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Command Center' },
+      { to: '/bi', icon: PieChart, label: 'Business Intelligence' },
+      { to: '/risks', icon: ShieldAlert, label: 'Risk & Obligations', badge: '3 Alerts', badgeColor: 'red' }
+    ]
+  },
+  {
+    title: 'Contracts',
+    items: [
+      { to: '/repository', icon: FileText, label: 'Repository' },
+      { to: '/templates', icon: Copy, label: 'Drafting & Templates' }
+    ]
+  },
+  {
+    title: 'Workflows',
+    roleReq: ['Admin', 'Legal'],
+    items: [
+      { to: '/workflow-ai', icon: Bot, label: 'Workflow Builder' }
+    ]
+  },
+  {
+    title: 'Legal Ops',
+    roleReq: ['Admin', 'Legal'],
+    items: [
+      { to: '/clauses', icon: BookOpen, label: 'Clause Library' },
+      { to: '/parties', icon: Users, label: 'Counterparties' },
+      { to: '/legacy-migration', icon: ArchiveRestore, label: 'Legacy Migration' }
+    ]
+  },
+  {
+    title: 'Master Data',
+    roleReq: ['Admin', 'Legal'],
+    items: [
+      { to: '/masters', icon: GitBranch, label: 'Master Records' },
+      { to: '/fields', icon: TableProperties, label: 'Field Database' }
+    ]
+  },
+  {
+    title: 'Integrations',
+    roleReq: ['Admin', 'IT'],
+    items: [
+      { to: '/integrations', icon: Network, label: 'Connectors & API' }
+    ]
+  },
+  {
+    title: 'System',
+    roleReq: ['Admin'],
+    items: [
+      { to: '/users', icon: Key, label: 'Users & Security' },
+      { to: '/settings', icon: Settings, label: 'Settings' }
+    ]
+  }
+];
+
+// --- Components ---
+
+const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string; collapsed?: boolean; badge?: string; badgeColor?: string }> = ({ to, icon: Icon, label, collapsed, badge, badgeColor = 'brand' }) => {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 group relative overflow-hidden ${
+        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 group relative overflow-hidden mb-1 ${
           isActive
-            ? 'bg-brand-500 text-white shadow-[0_0_15px_rgba(var(--color-brand-500),0.4)]'
-            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
+            ? 'bg-brand-500/10 text-white shadow-[inset_4px_0_0_0_rgba(var(--color-brand-500),1)]'
+            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         } ${collapsed ? 'justify-center' : ''}`
       }
       title={collapsed ? label : ''}
     >
       {({ isActive }) => (
         <>
-          <Icon size={18} className={`transition-transform duration-300 flex-shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-          {!collapsed && <span className="relative z-10 whitespace-nowrap opacity-100 transition-opacity duration-300">{label}</span>}
-          {isActive && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" style={{backgroundSize: '200% 100%'}}></div>}
+          <Icon size={18} className={`transition-transform duration-300 flex-shrink-0 ${isActive ? 'text-brand-400' : 'group-hover:text-slate-200'}`} />
+          {!collapsed && (
+             <div className="flex-1 flex justify-between items-center overflow-hidden">
+                <span className="truncate relative z-10">{label}</span>
+                {badge && (
+                   <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase animate-pulse ${
+                      badgeColor === 'red' ? 'bg-red-500/20 text-red-400' : 'bg-brand-500/20 text-brand-400'
+                   }`}>
+                      {badge}
+                   </span>
+                )}
+             </div>
+          )}
+          {isActive && <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 to-transparent pointer-events-none"></div>}
         </>
       )}
     </NavLink>
   );
 };
-
-const themes = [
-  { id: 'default', label: 'Dark', color: '#0f172a' },
-  { id: 'theme-light', label: 'Light', color: '#f8fafc' },
-  { id: 'theme-blue', label: 'Blue', color: '#1e3a8a' },
-  { id: 'theme-pink', label: 'Pink', color: '#831843' },
-  { id: 'theme-white', label: 'White', color: '#ffffff' },
-];
-
-const INITIAL_NOTIFICATIONS = [
-  { id: 1, title: 'New Contract Request', message: 'Sales team submitted NDA for Acme Corp', time: '2m ago', unread: true, type: 'info', icon: FileText },
-  { id: 2, title: 'Approval Required', message: 'MSA for TechFlow needs your review', time: '1h ago', unread: true, type: 'warning', icon: CheckSquare },
-  { id: 3, title: 'Risk Detected', message: 'High liability cap in Vendor Agreement', time: '3h ago', unread: false, type: 'alert', icon: ShieldAlert },
-  { id: 4, title: 'System Update', message: 'Maintenance scheduled for Sunday', time: '1d ago', unread: false, type: 'system', icon: Settings },
-];
 
 const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,25 +176,6 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
-                
-                {/* Progress / Steps Indicator (Visual only for MVP) */}
-                <div className="flex items-center justify-between px-8">
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold ring-4 ring-dark-900">1</div>
-                        <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">Details</span>
-                    </div>
-                    <div className="flex-1 h-px bg-dark-700 mx-4"></div>
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-dark-800 text-slate-400 border border-dark-600 flex items-center justify-center text-xs font-bold">2</div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Commercials</span>
-                    </div>
-                    <div className="flex-1 h-px bg-dark-700 mx-4"></div>
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-dark-800 text-slate-400 border border-dark-600 flex items-center justify-center text-xs font-bold">3</div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Review</span>
-                    </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-8">
                     {/* Left Column */}
                     <div className="space-y-6">
@@ -202,48 +253,43 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 }
 
+// --- Main Layout ---
+
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const pageTitle = location.pathname.split('/')[1] || 'Dashboard';
+  
   const [currentTheme, setCurrentTheme] = useState('default');
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
+  // User Role Simulation
+  const [userRole, setUserRole] = useState<'Admin' | 'Sales'>('Admin');
+
   // Notification State
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'New Contract Request', message: 'Sales team submitted NDA for Acme Corp', time: '2m ago', unread: true, type: 'info', icon: FileText },
+    { id: 2, title: 'Approval Required', message: 'MSA for TechFlow needs your review', time: '1h ago', unread: true, type: 'warning', icon: CheckSquare },
+    { id: 3, title: 'Risk Detected', message: 'High liability cap in Vendor Agreement', time: '3h ago', unread: false, type: 'alert', icon: ShieldAlert },
+  ]);
   const unreadCount = notifications.filter(n => n.unread).length;
 
   useEffect(() => {
-    // Apply theme to body
     document.body.className = currentTheme === 'default' ? '' : currentTheme;
   }, [currentTheme]);
 
-  // Simulate an incoming notification for "activation" effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-        const newNotif = { 
-            id: 99, 
-            title: 'AI Analysis Complete', 
-            message: 'Risk report for Q3 is ready to view.', 
-            time: 'Just now', 
-            unread: true, 
-            type: 'info', 
-            icon: Bot 
-        };
-        setNotifications(prev => [newNotif, ...prev]);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
+  const handleLogout = () => navigate('/');
 
-  const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => ({...n, unread: false})));
-  };
-
-  const handleLogout = () => {
-      navigate('/');
+  const handleQuickAction = (action: string) => {
+    setShowQuickActions(false);
+    if (action === 'request') setShowRequestModal(true);
+    if (action === 'draft') navigate('/templates');
+    if (action === 'upload') navigate('/legacy-migration');
+    if (action === 'ai') navigate('/bi');
   };
 
   return (
@@ -252,12 +298,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-500 rounded-full blur-[120px] animate-blob opacity-20 mix-blend-screen"></div>
         <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-accent-purple rounded-full blur-[120px] animate-blob animation-delay-2000 opacity-20 mix-blend-screen"></div>
-        <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-accent-cyan rounded-full blur-[120px] animate-blob animation-delay-4000 opacity-20 mix-blend-screen"></div>
       </div>
 
       {/* Sidebar */}
       <aside 
-        className={`bg-dark-950/95 border-r border-dark-700 flex flex-col z-20 backdrop-blur-xl shadow-2xl transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}
+        className={`bg-dark-950/95 border-r border-dark-700 flex flex-col z-20 backdrop-blur-xl shadow-2xl transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-72'}`}
       >
         <div className={`p-6 flex items-center justify-center border-b border-dark-700 ${isSidebarCollapsed ? 'px-2' : ''}`}>
            <Link to="/dashboard" className="block hover:opacity-90 transition-opacity">
@@ -265,65 +310,79 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            </Link>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar overflow-x-hidden">
-          <div>
-            {!isSidebarCollapsed && (
-               <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2 animate-in fade-in duration-300">
-                  <span className="w-1 h-1 bg-brand-500 rounded-full"></span> Platform
-               </p>
-            )}
-            <div className="space-y-1">
-              <NavItem to="/dashboard" icon={LayoutDashboard} label="Analytics" collapsed={isSidebarCollapsed} />
-              <NavItem to="/bi" icon={PieChart} label="Business Intelligence" collapsed={isSidebarCollapsed} />
-              <NavItem to="/repository" icon={FileText} label="Repository" collapsed={isSidebarCollapsed} />
-              <NavItem to="/workflow-ai" icon={Bot} label="Workflow Builder" collapsed={isSidebarCollapsed} />
-              <NavItem to="/templates" icon={Copy} label="Templates" collapsed={isSidebarCollapsed} />
-              <NavItem to="/fields" icon={TableProperties} label="Field Database" collapsed={isSidebarCollapsed} />
-              <NavItem to="/integrations" icon={Network} label="Integrations" collapsed={isSidebarCollapsed} />
-            </div>
-          </div>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar overflow-x-hidden">
+          {NAV_SECTIONS.map((section, i) => {
+             // Role Filter
+             if (section.roleReq && !section.roleReq.includes(userRole) && userRole !== 'Admin') return null;
 
-          <div>
-            {!isSidebarCollapsed && (
-               <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2 animate-in fade-in duration-300">
-                  <span className="w-1 h-1 bg-accent-purple rounded-full"></span> Legal Ops
-               </p>
-            )}
-            <div className="space-y-1">
-              <NavItem to="/legacy-migration" icon={ArchiveRestore} label="Legacy Migration" collapsed={isSidebarCollapsed} />
-              <NavItem to="/clauses" icon={Database} label="Clause Library" collapsed={isSidebarCollapsed} />
-              <NavItem to="/parties" icon={Users} label="Counterparties" collapsed={isSidebarCollapsed} />
-              <NavItem to="/risks" icon={ShieldAlert} label="Risk & Obligations" collapsed={isSidebarCollapsed} />
-            </div>
-          </div>
-
-          <div>
-             {!isSidebarCollapsed && (
-               <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2 animate-in fade-in duration-300">
-                  <span className="w-1 h-1 bg-slate-500 rounded-full"></span> System
-               </p>
-             )}
-            <div className="space-y-1">
-               <NavItem to="/users" icon={Key} label="Users & Org" collapsed={isSidebarCollapsed} />
-               <NavItem to="/settings" icon={Settings} label="Settings" collapsed={isSidebarCollapsed} />
-               <NavItem to="/masters" icon={GitBranch} label="Masters" collapsed={isSidebarCollapsed} />
-            </div>
-          </div>
+             return (
+               <div key={i} className="animate-in fade-in duration-500" style={{ animationDelay: `${i * 50}ms` }}>
+                  {!isSidebarCollapsed && (
+                     <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        {section.title}
+                     </p>
+                  )}
+                  <div className="space-y-0.5">
+                     {section.items.map((item, j) => (
+                        <NavItem 
+                           key={j} 
+                           to={item.to} 
+                           icon={item.icon} 
+                           label={item.label} 
+                           collapsed={isSidebarCollapsed}
+                           badge={item.badge}
+                           badgeColor={item.badgeColor}
+                        />
+                     ))}
+                  </div>
+                  {!isSidebarCollapsed && i < NAV_SECTIONS.length - 1 && (
+                     <div className="mx-3 my-4 h-px bg-white/5"></div>
+                  )}
+               </div>
+             )
+          })}
         </nav>
 
+        {/* Sidebar Footer / User Profile */}
         <div className="p-4 border-t border-dark-700 bg-dark-900/30 backdrop-blur-sm">
           <div className={`flex items-center justify-between ${isSidebarCollapsed ? 'flex-col gap-3' : ''}`}>
-             <div className={`flex items-center gap-3 hover:bg-white/5 p-2 rounded-lg transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-               <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-slate-700 to-slate-600 border border-slate-500 flex items-center justify-center text-white font-medium shadow-md group-hover:ring-2 ring-brand-500 transition-all flex-shrink-0">
-                 HS
-               </div>
-               {!isSidebarCollapsed && (
-                 <div className="flex-1 min-w-0 animate-in fade-in duration-300">
-                   <p className="text-sm font-medium text-white truncate group-hover:text-brand-400 transition-colors">Harvey Specter</p>
-                   <p className="text-xs text-slate-500 truncate">Admin Access</p>
-                 </div>
-               )}
+             
+             {/* User Profile */}
+             <div className="flex items-center gap-3 relative group cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <div className="relative">
+                   <Avatar name="Harvey Specter" size={isSidebarCollapsed ? 'sm' : 'md'} />
+                   <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-dark-900 rounded-full"></span>
+                </div>
+                
+                {!isSidebarCollapsed && (
+                   <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">Harvey Specter</p>
+                      <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                         {userRole} <ChevronDown size={10}/>
+                      </p>
+                   </div>
+                )}
+
+                {/* Role Switcher Popover (Demo Only) */}
+                {!isSidebarCollapsed && (
+                   <div className="absolute bottom-full left-0 w-full bg-dark-900 border border-dark-700 rounded-xl shadow-xl mb-2 p-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-50">
+                      <p className="text-[10px] uppercase text-slate-500 font-bold px-2 py-1">Simulate Role</p>
+                      <button 
+                         onClick={() => setUserRole('Admin')} 
+                         className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-white/5 ${userRole === 'Admin' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}
+                      >
+                         Admin (Legal)
+                      </button>
+                      <button 
+                         onClick={() => setUserRole('Sales')} 
+                         className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-white/5 ${userRole === 'Sales' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}
+                      >
+                         Sales User
+                      </button>
+                   </div>
+                )}
              </div>
+
              <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5" title="Sign Out">
                 <LogOut size={18} />
              </button>
@@ -341,49 +400,24 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
              >
                 {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
              </button>
-             <h2 className="text-lg font-bold text-white uppercase tracking-wide drop-shadow-sm flex items-center gap-2">
-               {pageTitle.replace('-', ' ')}
-             </h2>
+             
+             {/* Breadcrumb / Page Title */}
+             <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white uppercase tracking-wide drop-shadow-sm">
+                  {pageTitle.replace('-', ' ')}
+                </h2>
+                {pageTitle === 'dashboard' && (
+                   <Badge color="brand" className="ml-2">Live</Badge>
+                )}
+             </div>
           </div>
           
           <div className="flex items-center gap-4">
-             {/* Theme Switcher */}
-             <div className="relative">
-               <button 
-                  onClick={() => setShowThemeMenu(!showThemeMenu)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-colors relative"
-                  title="Switch Theme"
-               >
-                 <Palette size={20} />
-                 <span className="absolute top-2 right-2 w-2 h-2 rounded-full border border-dark-950" style={{backgroundColor: themes.find(t => t.id === currentTheme)?.color}}></span>
-               </button>
-               
-               {showThemeMenu && (
-                 <div className="absolute right-0 top-full mt-2 w-48 bg-dark-900 border border-dark-700 rounded-xl shadow-xl p-2 z-50 animate-in slide-in-from-top-2 duration-200 backdrop-blur-2xl">
-                   <p className="text-[10px] font-bold text-slate-500 uppercase px-2 py-1 mb-1">Select Theme</p>
-                   {themes.map(theme => (
-                     <button
-                       key={theme.id}
-                       onClick={() => { setCurrentTheme(theme.id); setShowThemeMenu(false); }}
-                       className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm transition-colors ${currentTheme === theme.id ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'}`}
-                     >
-                       <div className="w-4 h-4 rounded-full border border-white/10 shadow-sm" style={{backgroundColor: theme.color}}></div>
-                       {theme.label}
-                       {currentTheme === theme.id && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-500"></div>}
-                     </button>
-                   ))}
-                 </div>
-               )}
-               {showThemeMenu && <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)}></div>}
-             </div>
-
-             <div className="h-6 w-px bg-dark-700 mx-1"></div>
-
              <div className="relative hidden md:block group">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={16} />
                <input 
                   type="text" 
-                  placeholder="Search platform..." 
+                  placeholder="Search contracts, clauses..." 
                   className="bg-dark-900/50 border border-dark-700 rounded-full py-1.5 pl-9 pr-4 text-sm text-slate-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/50 w-64 transition-all placeholder:text-slate-600"
                />
              </div>
@@ -406,7 +440,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                        <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                          Notifications {unreadCount > 0 && <span className="px-1.5 py-0.5 rounded bg-brand-500 text-[10px] text-white">{unreadCount}</span>}
                        </h3>
-                       <button onClick={handleMarkAllRead} className="text-[10px] text-brand-400 hover:text-brand-300 transition-colors">Mark all read</button>
+                       <button className="text-[10px] text-brand-400 hover:text-brand-300 transition-colors">Mark all read</button>
                     </div>
                     <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
                        {notifications.map((notif) => (
@@ -416,7 +450,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                                  notif.type === 'warning' ? 'bg-yellow-500/10 text-yellow-500' : 
                                  notif.type === 'alert' ? 'bg-red-500/10 text-red-500' : 
-                                 notif.type === 'system' ? 'bg-slate-500/10 text-slate-400' : 
                                  'bg-brand-500/10 text-brand-500'
                                }`}>
                                   <notif.icon size={16} />
@@ -431,27 +464,51 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             </div>
                          </div>
                        ))}
-                       {notifications.length === 0 && (
-                          <div className="p-6 text-center text-slate-500 text-xs">No notifications.</div>
-                       )}
-                    </div>
-                    <div className="p-2 border-t border-dark-700 bg-dark-950/30 text-center">
-                       <button className="text-xs text-slate-500 hover:text-white transition-colors flex items-center justify-center gap-1 w-full py-1">
-                          View all activity <ArrowRight size={10} />
-                       </button>
                     </div>
                  </div>
                )}
                {showNotifications && <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>}
              </div>
 
-             <Button 
-                variant="neon" 
-                className="text-xs h-9 px-4 shadow-[0_0_15px_rgba(var(--color-brand-500),0.15)]"
-                onClick={() => setShowRequestModal(true)}
-             >
-                New Request
-             </Button>
+             <div className="h-6 w-px bg-dark-700 mx-1"></div>
+
+             {/* Quick Actions Dropdown */}
+             <div className="relative">
+                <Button 
+                   variant="neon" 
+                   className="text-xs h-9 px-4 shadow-[0_0_15px_rgba(var(--color-brand-500),0.15)] gap-2 flex items-center"
+                   onClick={() => setShowQuickActions(!showQuickActions)}
+                >
+                   <Plus size={14}/> Quick Actions {showQuickActions ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}
+                </Button>
+
+                {showQuickActions && (
+                   <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowQuickActions(false)}></div>
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-dark-900 border border-dark-700 rounded-xl shadow-2xl z-50 animate-in slide-in-from-top-2 overflow-hidden">
+                         <div className="p-1 space-y-0.5">
+                            <button onClick={() => handleQuickAction('request')} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-left group">
+                               <div className="p-1.5 bg-brand-500/10 rounded text-brand-400 group-hover:bg-brand-500 group-hover:text-white transition-colors"><FileText size={14}/></div>
+                               New Request
+                            </button>
+                            <button onClick={() => handleQuickAction('draft')} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-left group">
+                               <div className="p-1.5 bg-purple-500/10 rounded text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors"><Copy size={14}/></div>
+                               Start Draft
+                            </button>
+                            <button onClick={() => handleQuickAction('upload')} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-left group">
+                               <div className="p-1.5 bg-blue-500/10 rounded text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors"><UploadCloud size={14}/></div>
+                               Upload Legacy
+                            </button>
+                            <div className="h-px bg-dark-700 my-1 mx-2"></div>
+                            <button onClick={() => handleQuickAction('ai')} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-left group">
+                               <div className="p-1.5 bg-yellow-500/10 rounded text-yellow-400 group-hover:bg-yellow-500 group-hover:text-white transition-colors"><BrainCircuit size={14}/></div>
+                               Ask AI Assistant
+                            </button>
+                         </div>
+                      </div>
+                   </>
+                )}
+             </div>
           </div>
         </header>
         

@@ -16,7 +16,7 @@ export enum ContractStatus {
   EXPIRED = 'Expired'
 }
 
-export type WorkflowCategory = 'trigger' | 'approval' | 'condition' | 'action' | 'integration' | 'stage' | 'utility';
+export type WorkflowCategory = 'trigger' | 'approval' | 'condition' | 'action' | 'integration' | 'stage' | 'utility' | 'ai_agent' | 'document';
 
 export type ActionType = 
   | 'generate_document' 
@@ -79,6 +79,11 @@ export interface WorkflowNodeConfig {
   
   // Scheduled Trigger
   cronSchedule?: string;
+
+  // AI Config
+  aiModel?: string;
+  aiPrompt?: string;
+  riskThreshold?: number;
 }
 
 export interface WorkflowNode {
