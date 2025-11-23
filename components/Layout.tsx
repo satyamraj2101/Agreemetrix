@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, FileText, Users, Settings, GitBranch, ShieldAlert, 
@@ -7,7 +7,7 @@ import {
   Copy, X, UploadCloud, DollarSign, Calendar, CheckCircle2, ArrowRight, Clock,
   PieChart, ChevronLeft, ChevronRight, Menu, AlertTriangle, Info, CheckSquare,
   ArchiveRestore, LogOut, Key, Plus, Zap, BrainCircuit, BookOpen, Layers,
-  ChevronDown, ChevronUp, BarChart3
+  ChevronDown, ChevronUp, BarChart3, Loader2, File
 } from 'lucide-react';
 import { Button, Input, Select, Badge, Logo, Avatar } from './UIComponents';
 
@@ -121,33 +121,93 @@ const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string; co
 };
 
 const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [step, setStep] = useState<'form' | 'processing' | 'triage'>('form');
+  const [files, setFiles] = useState<{name: string, size: string, progress: number}[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+          const newFile = {
+              name: e.target.files[0].name,
+              size: `${(e.target.files[0].size / 1024 / 1024).toFixed(2)} MB`,
+              progress: 0
+          };
+          setFiles([...files, newFile]);
+          
+          // Simulate upload progress
+          let progress = 0;
+          const interval = setInterval(() => {
+              progress += 10;
+              setFiles(prev => prev.map(f => f.name === newFile.name ? {...f, progress} : f));
+              if (progress >= 100) clearInterval(interval);
+          }, 200);
+      }
+  };
 
   const handleSubmit = () => {
-      setIsSubmitting(true);
+      setStep('processing');
       setTimeout(() => {
-          setIsSubmitting(false);
-          setIsSuccess(true);
-          setTimeout(() => {
-              onClose();
-          }, 2000);
-      }, 1500);
-  }
+          setStep('triage');
+      }, 2500);
+  };
 
-  if (isSuccess) {
+  const handleCreateContract = () => {
+      onClose();
+      navigate('/contract/new'); // Go to the creation wizard
+  };
+
+  if (step === 'triage') {
       return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-dark-900 border border-brand-500/30 w-full max-w-md rounded-2xl shadow-[0_0_50px_rgba(var(--color-brand-500),0.2)] p-8 flex flex-col items-center text-center relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-400 to-brand-600"></div>
-              <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center text-green-500 mb-6 ring-1 ring-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
-                  <CheckCircle2 size={40} />
+           <div className="bg-dark-900 border border-dark-700 w-full max-w-lg rounded-2xl shadow-[0_0_50px_rgba(var(--color-brand-500),0.15)] p-0 flex flex-col relative overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-brand-900/50 to-dark-900 p-6 border-b border-white/5">
+                  <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400 border border-brand-500/30">
+                          <Bot size={20} />
+                      </div>
+                      <h2 className="text-xl font-bold text-white">Request Triaged</h2>
+                  </div>
+                  <p className="text-slate-400 text-sm">Agreemetrix AI has analyzed your request and prepared the next steps.</p>
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Request Submitted!</h2>
-              <p className="text-slate-400 mb-6 leading-relaxed">Your request has been successfully queued and routed to the <span className="text-brand-400 font-medium">Legal Intake Team</span>. You can track its status in your dashboard.</p>
-              <div className="flex items-center gap-2 text-xs text-slate-500 font-mono bg-dark-950 px-4 py-2 rounded-lg border border-dark-800 mb-2">
-                  <span>REQ ID:</span>
-                  <span className="text-slate-300 font-bold">#REQ-{Math.floor(Math.random() * 10000)}</span>
+
+              <div className="p-6 space-y-6">
+                  <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-dark-950 border border-dark-800 p-3 rounded-xl text-center">
+                          <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Risk Score</div>
+                          <div className="text-2xl font-bold text-green-400">Low</div>
+                      </div>
+                      <div className="bg-dark-950 border border-dark-800 p-3 rounded-xl text-center">
+                          <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Complexity</div>
+                          <div className="text-2xl font-bold text-blue-400">Std</div>
+                      </div>
+                      <div className="bg-dark-950 border border-dark-800 p-3 rounded-xl text-center">
+                          <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Est. SLA</div>
+                          <div className="text-2xl font-bold text-white">2 Days</div>
+                      </div>
+                  </div>
+
+                  <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-slate-500 uppercase">Recommended Action</h3>
+                      <div className="flex items-center gap-4 p-4 bg-brand-500/10 border border-brand-500/20 rounded-xl">
+                          <FileText size={24} className="text-brand-400"/>
+                          <div>
+                              <h4 className="font-bold text-white text-sm">Generate from Standard NDA</h4>
+                              <p className="text-xs text-brand-200/70">Template v2.4 • Auto-Approval Workflow</p>
+                          </div>
+                          <div className="flex-1 text-right">
+                              <ChevronRight size={16} className="text-brand-400 inline-block"/>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="p-6 bg-dark-950/50 border-t border-dark-700 flex justify-end gap-3">
+                  <Button variant="ghost" onClick={onClose}>Close</Button>
+                  <Button variant="primary" onClick={handleCreateContract} className="shadow-lg shadow-brand-500/20">
+                      Create Contract Draft <ArrowRight size={16} className="ml-2"/>
+                  </Button>
               </div>
            </div>
         </div>
@@ -156,16 +216,16 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-dark-900 border border-dark-700 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
+        <div className="bg-dark-900 border border-dark-700 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
             {/* Header */}
             <div className="p-6 border-b border-dark-700 flex justify-between items-center bg-dark-950/50">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-400 border border-brand-500/20">
-                        <FileText size={24} />
+                    <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-400 border border-brand-500/20 shadow-[0_0_15px_rgba(var(--color-brand-500),0.15)]">
+                        {step === 'processing' ? <Loader2 size={24} className="animate-spin"/> : <FileText size={24} />}
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            New Legal Request
+                            {step === 'processing' ? 'Analyzing Request...' : 'New Legal Request'}
                         </h2>
                         <p className="text-sm text-slate-400">Submit a contract request, review, or legal query.</p>
                     </div>
@@ -176,79 +236,134 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
-                <div className="grid grid-cols-2 gap-8">
-                    {/* Left Column */}
-                    <div className="space-y-6">
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><FileText size={14}/> Request Information</h3>
-                            <Select label="Request Type" options={[
-                                {label: 'NDA (Non-Disclosure Agreement)', value: 'nda'},
-                                {label: 'MSA (Master Services Agreement)', value: 'msa'},
-                                {label: 'SOW (Statement of Work)', value: 'sow'},
-                                {label: 'Vendor Agreement', value: 'vendor'},
-                                {label: 'Software License', value: 'license'},
-                                {label: 'General Legal Advice', value: 'advice'}
-                            ]} />
-                            <Input label="Counterparty Name" placeholder="e.g. Acme Corp, TechFlow Inc" />
-                            <Input label="Counterparty Contact Email" placeholder="legal@counterparty.com" />
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                {step === 'processing' ? (
+                    <div className="h-full flex flex-col items-center justify-center space-y-8 py-12">
+                        <div className="relative w-24 h-24">
+                            <div className="absolute inset-0 border-4 border-dark-800 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-brand-500 rounded-full border-t-transparent animate-spin"></div>
+                            <Bot size={32} className="absolute inset-0 m-auto text-brand-400"/>
                         </div>
-
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><DollarSign size={14}/> Commercial Terms</h3>
-                            <div className="relative">
-                               <span className="absolute left-3 top-[33px] text-slate-500 font-sans text-sm">$</span>
-                               <Input label="Contract Value (USD)" placeholder="0.00" className="pl-7 font-mono" />
+                        <div className="text-center space-y-2">
+                            <h3 className="text-lg font-bold text-white">AI Triage in Progress</h3>
+                            <p className="text-slate-400 text-sm">Analyzing metadata, calculating risk score, and matching templates...</p>
+                        </div>
+                        <div className="w-full max-w-md space-y-3">
+                            <div className="flex justify-between text-xs text-slate-500">
+                                <span>Scanning attachments</span>
+                                <span className="text-green-400"><CheckCircle2 size={12} className="inline mr-1"/> Done</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Start Date" type="date" />
-                                <Input label="End Date" type="date" />
+                            <div className="flex justify-between text-xs text-slate-500">
+                                <span>Checking conflict of interest</span>
+                                <span className="text-green-400"><CheckCircle2 size={12} className="inline mr-1"/> Done</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-500">
+                                <span>Determining approval workflow</span>
+                                <span className="text-brand-400 animate-pulse">Processing...</span>
                             </div>
                         </div>
                     </div>
-                    
-                    {/* Right Column */}
-                    <div className="space-y-6">
-                         <div className="space-y-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><Clock size={14}/> Priority & SLA</h3>
-                            <Select label="Priority Level" options={[
-                                {label: 'Standard (5-7 Days)', value: 'standard'},
-                                {label: 'High (2-3 Days)', value: 'high'},
-                                {label: 'Urgent (24 Hours)', value: 'urgent'}
-                            ]} />
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Description & Notes</label>
-                                <textarea className="w-full rounded-lg bg-dark-950/50 border border-dark-700 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/50 transition-all h-32 resize-none" placeholder="Please describe the scope of work, key deliverables, or specific legal concerns..."></textarea>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><UploadCloud size={14}/> Attachments</h3>
-                            <div className="border-2 border-dashed border-dark-700 rounded-xl p-6 flex flex-col items-center justify-center text-slate-500 hover:border-brand-500/50 hover:bg-brand-500/5 transition-all cursor-pointer group">
-                                <div className="w-10 h-10 bg-dark-800 rounded-full flex items-center justify-center mb-2 group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
-                                    <UploadCloud size={20}/>
+                ) : (
+                    <div className="grid grid-cols-12 gap-8">
+                        {/* Left Column */}
+                        <div className="col-span-7 space-y-8">
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><FileText size={14}/> Request Information</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Select label="Request Type" options={[
+                                        {label: 'NDA (Non-Disclosure Agreement)', value: 'nda'},
+                                        {label: 'MSA (Master Services Agreement)', value: 'msa'},
+                                        {label: 'SOW (Statement of Work)', value: 'sow'},
+                                        {label: 'Vendor Agreement', value: 'vendor'},
+                                    ]} />
+                                    <Select label="Priority Level" options={[
+                                        {label: 'Standard (5-7 Days)', value: 'standard'},
+                                        {label: 'High (2-3 Days)', value: 'high'},
+                                        {label: 'Urgent (24 Hours)', value: 'urgent'}
+                                    ]} />
                                 </div>
-                                <p className="text-sm font-medium text-slate-300">Click to upload files</p>
-                                <p className="text-xs opacity-60 mt-1">Drafts, Third-party paper, Email threads</p>
+                                <Input label="Counterparty Name" placeholder="e.g. Acme Corp, TechFlow Inc" />
+                                <Input label="Counterparty Contact Email" placeholder="legal@counterparty.com" />
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><DollarSign size={14}/> Commercial Terms</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-[33px] text-slate-500 font-sans text-sm">$</span>
+                                        <Input label="Contract Value (USD)" placeholder="0.00" className="pl-7 font-mono" />
+                                    </div>
+                                    <Select label="Payment Terms" options={[{label:'Net 30', value:'30'}, {label:'Net 45', value:'45'}, {label:'Net 60', value:'60'}]} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input label="Start Date" type="date" />
+                                    <Input label="End Date" type="date" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Right Column */}
+                        <div className="col-span-5 space-y-8">
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><Info size={14}/> Description & Context</h3>
+                                <textarea className="w-full rounded-lg bg-dark-950/50 border border-dark-700 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/50 transition-all h-32 resize-none" placeholder="Describe the scope of work, key deliverables, or specific legal concerns..."></textarea>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><UploadCloud size={14}/> Attachments</h3>
+                                <div 
+                                    className="border-2 border-dashed border-dark-700 rounded-xl p-6 flex flex-col items-center justify-center text-slate-500 hover:border-brand-500/50 hover:bg-brand-500/5 transition-all cursor-pointer group relative"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload}/>
+                                    <div className="w-10 h-10 bg-dark-800 rounded-full flex items-center justify-center mb-2 group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+                                        <UploadCloud size={20}/>
+                                    </div>
+                                    <p className="text-sm font-medium text-slate-300">Click to upload files</p>
+                                    <p className="text-xs opacity-60 mt-1">Drafts, Third-party paper, Email threads</p>
+                                </div>
+
+                                {/* File List */}
+                                {files.length > 0 && (
+                                    <div className="space-y-2">
+                                        {files.map((file, i) => (
+                                            <div key={i} className="bg-dark-950 border border-dark-700 rounded-lg p-2 flex items-center gap-3">
+                                                <File size={16} className="text-brand-400"/>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between text-xs mb-1">
+                                                        <span className="text-white truncate">{file.name}</span>
+                                                        <span className="text-slate-500">{file.size}</span>
+                                                    </div>
+                                                    <div className="w-full bg-dark-800 h-1 rounded-full overflow-hidden">
+                                                        <div className="bg-brand-500 h-full transition-all duration-300" style={{width: `${file.progress}%`}}></div>
+                                                    </div>
+                                                </div>
+                                                <button className="text-slate-500 hover:text-red-400"><X size={14}/></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-dark-700 bg-dark-950/50 flex justify-between items-center">
-                <div className="flex items-center gap-2 text-xs text-slate-500 px-3 py-1.5 bg-brand-500/5 rounded-full border border-brand-500/10">
-                    <Bot size={14} className="text-brand-400"/>
-                    <span className="text-brand-100">AI Agent will auto-triage this based on value & risk.</span>
+            {step === 'form' && (
+                <div className="p-6 border-t border-dark-700 bg-dark-950/50 flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 px-3 py-1.5 bg-brand-500/5 rounded-full border border-brand-500/10">
+                        <Bot size={14} className="text-brand-400"/>
+                        <span className="text-brand-100">AI Agent will auto-triage this based on value & risk.</span>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                        <Button variant="primary" onClick={handleSubmit} className="min-w-[140px]">
+                            Submit Request
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex gap-3">
-                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting} className="min-w-[140px] flex justify-center">
-                        {isSubmitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : 'Submit Request'}
-                    </Button>
-                </div>
-            </div>
+            )}
         </div>
     </div>
   );
@@ -288,7 +403,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const handleQuickAction = (action: string) => {
     setShowQuickActions(false);
     if (action === 'request') setShowRequestModal(true);
-    if (action === 'draft') navigate('/templates');
+    if (action === 'draft') navigate('/contract/new');
     if (action === 'upload') navigate('/legacy-migration');
     if (action === 'ai') navigate('/bi');
   };

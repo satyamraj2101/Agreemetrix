@@ -1,8 +1,14 @@
 
 import React, { useState } from 'react';
-import { FileText, Filter, MessageCircle, CheckCircle2, ThumbsUp, ShieldAlert, Sparkles, ArrowRight, Workflow, List, AlertTriangle, Scale, Check, X, Activity } from 'lucide-react';
+import { 
+    FileText, Filter, MessageCircle, CheckCircle2, ThumbsUp, ShieldAlert, 
+    Sparkles, ArrowRight, Workflow, List, AlertTriangle, Scale, Check, X, 
+    Activity, Plus, Search, MoreVertical, RotateCcw, Clock, Braces, 
+    Type, Hash, Calendar, GripVertical, BookOpen, Tag
+} from 'lucide-react';
 import { Input, Button, Badge, Avatar } from '../UIComponents';
 import { Editor } from '@tiptap/react';
+import { MOCK_CLAUSES, MOCK_VARIABLES, MOCK_VERSIONS } from '../../mock/data';
 
 // --- TYPES ---
 export interface OutlineItem {
@@ -60,6 +66,180 @@ export const StructurePanel: React.FC<PanelProps & { outline: OutlineItem[] }> =
         </div>
     </div>
 );
+
+export const VariablesPanel: React.FC<{ editor: Editor | null }> = ({ editor }) => {
+    const [search, setSearch] = useState('');
+
+    const insertVariable = (key: string) => {
+        if (editor) {
+            editor.chain().focus().insertContent(`<span class="variable" data-id="${key}" style="background-color: rgba(20, 184, 166, 0.2); padding: 0 4px; border-radius: 4px; border: 1px solid rgba(20, 184, 166, 0.4); color: #14b8a6; font-family: monospace;">{{${key}}}</span> `).run();
+        }
+    };
+
+    const filteredVars = MOCK_VARIABLES.filter(v => 
+        v.label.toLowerCase().includes(search.toLowerCase()) || 
+        v.key.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const getTypeIcon = (type: string) => {
+        switch(type) {
+            case 'date': return <Calendar size={12}/>;
+            case 'number': 
+            case 'currency': return <Hash size={12}/>;
+            case 'select': return <List size={12}/>;
+            default: return <Type size={12}/>;
+        }
+    };
+
+    return (
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-left-4">
+            <div className="p-4 border-b border-dark-800">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase">Variables</h4>
+                    <button className="text-xs text-brand-400 hover:text-white flex items-center gap-1"><Plus size={12}/> New</button>
+                </div>
+                <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"/>
+                    <input 
+                        className="w-full bg-dark-900 border border-dark-700 rounded-lg py-1.5 pl-8 pr-2 text-xs text-white focus:border-brand-500 outline-none"
+                        placeholder="Search variables..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                {filteredVars.map((v, i) => (
+                    <div key={v.key} className="group flex items-center justify-between p-2 rounded-lg hover:bg-dark-900 border border-transparent hover:border-dark-700 transition-all cursor-default">
+                        <div className="flex items-start gap-3 overflow-hidden">
+                            <div className="mt-0.5 text-slate-500 bg-dark-800 p-1.5 rounded border border-dark-700">
+                                {getTypeIcon(v.type)}
+                            </div>
+                            <div className="flex flex-col truncate">
+                                <span className="text-xs font-bold text-slate-200 truncate">{v.label}</span>
+                                <span className="text-[10px] font-mono text-slate-500 truncate">{`{{${v.key}}}`}</span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => insertVariable(v.key)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 rounded transition-all"
+                            title="Insert Variable"
+                        >
+                            <Plus size={14}/>
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export const ClausesPanel: React.FC<{ editor: Editor | null }> = ({ editor }) => {
+    const [search, setSearch] = useState('');
+    
+    const insertClause = (clause: any) => {
+        if (editor) {
+            editor.chain().focus().insertContent(`
+                <div class="clause-block" style="margin: 1em 0; padding: 1em; background: rgba(30, 41, 59, 0.5); border-left: 3px solid #64748b; border-radius: 4px;">
+                    <p><strong>${clause.name}</strong></p>
+                    <p>${clause.content}</p>
+                </div>
+                <p></p>
+            `).run();
+        }
+    };
+
+    const filteredClauses = MOCK_CLAUSES.filter(c => 
+        c.name.toLowerCase().includes(search.toLowerCase()) || 
+        c.content.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-left-4">
+            <div className="p-4 border-b border-dark-800">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase">Clause Library</h4>
+                    <button className="text-xs text-brand-400 hover:text-white flex items-center gap-1"><BookOpen size={12}/> Manage</button>
+                </div>
+                <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"/>
+                    <input 
+                        className="w-full bg-dark-900 border border-dark-700 rounded-lg py-1.5 pl-8 pr-2 text-xs text-white focus:border-brand-500 outline-none"
+                        placeholder="Search playbook..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                {filteredClauses.map((clause) => (
+                    <div key={clause.id} className="bg-dark-900 border border-dark-700 rounded-xl p-3 hover:border-brand-500/30 transition-all group">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-bold text-white">{clause.name}</span>
+                            <Badge color="gray" className="text-[9px] px-1.5">{clause.category}</Badge>
+                        </div>
+                        <p className="text-[10px] text-slate-400 line-clamp-3 mb-3 italic leading-relaxed">
+                            "{clause.content}"
+                        </p>
+                        <div className="flex justify-between items-center">
+                            <div className="flex gap-1">
+                                {clause.riskLevel === 'High' && <Badge color="red" className="text-[9px] py-0">High Risk</Badge>}
+                            </div>
+                            <button 
+                                onClick={() => insertClause(clause)}
+                                className="text-[10px] font-bold bg-dark-800 hover:bg-brand-500 hover:text-white text-slate-300 px-2 py-1 rounded border border-dark-700 hover:border-brand-500 transition-colors flex items-center gap-1"
+                            >
+                                <Plus size={10}/> Insert
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export const HistoryPanel: React.FC = () => {
+    return (
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-left-4">
+            <div className="p-4 border-b border-dark-800 flex justify-between items-center">
+                <h4 className="text-xs font-bold text-slate-500 uppercase">Version History</h4>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div className="relative pl-4 border-l border-dark-800 space-y-8">
+                    {MOCK_VERSIONS.map((version, i) => (
+                        <div key={version.id} className="relative group">
+                            <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-dark-950 ${i === 0 ? 'bg-brand-500' : 'bg-dark-600 group-hover:bg-slate-400'} transition-colors`}></div>
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-start">
+                                    <span className={`text-xs font-bold ${i === 0 ? 'text-white' : 'text-slate-300'}`}>{version.name}</span>
+                                    {i === 0 && <Badge color="brand" className="text-[8px] py-0 px-1">Current</Badge>}
+                                </div>
+                                <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                                    <Clock size={10}/> {version.date}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Avatar name={version.author} size="sm" className="w-4 h-4 text-[8px]"/>
+                                    <span className="text-[10px] text-slate-400">{version.author}</span>
+                                </div>
+                                <div className="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {i !== 0 && (
+                                        <button className="px-2 py-1 bg-dark-800 border border-dark-700 rounded text-[10px] text-slate-300 hover:text-white hover:border-slate-500 transition-colors flex items-center gap-1">
+                                            <RotateCcw size={10}/> Restore
+                                        </button>
+                                    )}
+                                    <button className="px-2 py-1 bg-dark-800 border border-dark-700 rounded text-[10px] text-slate-300 hover:text-white hover:border-slate-500 transition-colors">
+                                        View
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const ReviewPanel: React.FC<{ 
     comments: any[], 

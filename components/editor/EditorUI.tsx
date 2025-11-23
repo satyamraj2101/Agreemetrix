@@ -1,6 +1,41 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
+
+// --- COLLAPSIBLE SECTION ---
+
+export const CollapsibleSection: React.FC<{ 
+    title: string; 
+    children: React.ReactNode; 
+    defaultOpen?: boolean; 
+    icon?: React.ElementType;
+    rightElement?: React.ReactNode;
+    className?: string;
+}> = ({ title, children, defaultOpen = true, icon: Icon, rightElement, className = '' }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    return (
+        <div className={`border-b border-dark-800/50 last:border-0 ${className}`}>
+            <div 
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors group select-none"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase group-hover:text-slate-300 transition-colors">
+                    {Icon && <Icon size={14} className="text-brand-400"/>}
+                    {title}
+                </div>
+                <div className="flex items-center gap-3">
+                    {rightElement}
+                    <ChevronDown size={14} className={`text-slate-600 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
+            </div>
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="px-4 pb-4">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // --- BUTTONS ---
 

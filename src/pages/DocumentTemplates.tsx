@@ -12,7 +12,10 @@ import {
 
 // Imports from extracted files
 import { EditorToolbar, RibbonTabType } from '../components/editor/EditorToolbar';
-import { OutlineItem, StructurePanel, ReviewPanel, CompliancePanel, AIPanel, LogicPanel, GovernancePanel } from '../components/editor/EditorPanels';
+import { 
+    OutlineItem, StructurePanel, ReviewPanel, CompliancePanel, AIPanel, 
+    LogicPanel, GovernancePanel, VariablesPanel, ClausesPanel, HistoryPanel 
+} from '../components/editor/EditorPanels';
 import { LayoutSettingsModal } from '../components/editor/EditorUI';
 
 // TipTap Imports
@@ -63,15 +66,6 @@ interface TrackedChange {
   status: 'pending' | 'accepted' | 'rejected';
 }
 
-interface VariableDefinition {
-  key: string;
-  label: string;
-  type: 'text' | 'number' | 'date' | 'currency' | 'select';
-  required: boolean;
-  options?: string[];
-  defaultValue?: string;
-}
-
 // --- UTILS ---
 
 interface ErrorBoundaryProps {
@@ -84,9 +78,11 @@ interface ErrorBoundaryState {
 
 // Simple error boundary for the editor component
 class EditorErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced constructor with a class property for state initialization.
-  // This resolves compile-time errors where `this.state` and `this.props` were not found on the component instance.
-  state: ErrorBoundaryState = { hasError: false };
+  public state: ErrorBoundaryState = { hasError: false };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true };
@@ -151,6 +147,33 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
 
   // Optimization: Refs for debouncing
   const outlineTimeoutRef = useRef<number | null>(null);
+
+  // --- RESIZE OBSERVER FOR SCALING ---
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(1056); // Start with A4 min-height
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // We use getBoundingClientRect for precise sub-pixel measurement
+        // but entry.contentRect is also fine. We need the height of the inner content.
+        // Since transform happens on this element, we need to measure it unscaled (or account for scale)
+        // But ResizeObserver typically reports unscaled bounds for the element itself.
+        const height = entry.target.getBoundingClientRect().height / (zoom / 100);
+        
+        // Update if height changed significantly (>1px) to avoid jitter loops
+        if (Math.abs(height - contentHeight) > 1) {
+            // Ensure we don't shrink below A4 minimum
+            setContentHeight(Math.max(1056, height));
+        }
+      }
+    });
+    
+    observer.observe(pageRef.current);
+    return () => observer.disconnect();
+  }, [contentHeight, zoom]);
 
   // Editor Init
   const editor = useEditor({
@@ -252,6 +275,12 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
       if (ribbonTab === 'governance') setRightTab('governance');
   }, [ribbonTab]);
 
+  // Calculate Scaled Dimensions for the Wrapper "Sizer"
+  const scale = zoom / 100;
+  const baseWidth = 816; // A4 width in px at 96 DPI
+  const scaledWidth = viewMode === 'web' ? '100%' : baseWidth * scale;
+  const scaledHeight = contentHeight * scale;
+
   if (!template) return null;
 
   return (
@@ -317,7 +346,7 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           </div>
        </div>
 
-       {/* 2. RIBBON TOOLBAR - REPLACED WITH COMPONENT */}
+       {/* 2. RIBBON TOOLBAR */}
        <EditorToolbar 
           editor={editor} 
           activeTab={ribbonTab} 
@@ -340,9 +369,9 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                 </div>
                 <div className="flex-1 overflow-hidden relative">
                     {leftTab === 'structure' && <StructurePanel editor={editor} outline={outline} />}
-                    {leftTab === 'variables' && <div className="p-4 text-slate-500 text-xs text-center">Variables Panel</div>}
-                    {leftTab === 'assets' && <div className="p-4 text-slate-500 text-xs text-center">Clauses Panel</div>}
-                    {leftTab === 'history' && <div className="p-4 text-xs text-slate-500 text-center mt-10">Version history...</div>}
+                    {leftTab === 'variables' && <VariablesPanel editor={editor} />}
+                    {leftTab === 'assets' && <ClausesPanel editor={editor} />}
+                    {leftTab === 'history' && <HistoryPanel />}
                 </div>
             </div>
           </div>
@@ -350,38 +379,53 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           {/* CENTER: Editor Canvas */}
           <div className="flex-1 bg-dark-900/30 relative flex flex-col overflow-hidden">
              
-             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex justify-center relative" onClick={() => editor?.commands.focus()}>
+             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex justify-center items-start relative" onClick={() => editor?.commands.focus()}>
                 <EditorErrorBoundary>
-                    <div 
-                       className={`bg-white text-black shadow-2xl transition-transform duration-200 ease-out origin-top mb-20 relative 
-                         ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
-                         ${redactionMode ? 'redaction-active' : ''}
-                         ${darkMode ? 'invert hue-rotate-180' : ''}
-                       `}
-                       style={{ 
-                           width: viewMode === 'web' ? '100%' : '816px', 
-                           minHeight: '1056px', 
-                           paddingTop: `${margins.top}px`,
-                           paddingBottom: `${margins.bottom}px`,
-                           paddingLeft: `${margins.left}px`,
-                           paddingRight: `${margins.right}px`,
-                           transform: `scale(${zoom / 100})`,
-                           marginTop: viewMode === 'focus' ? '0' : undefined
+                    {/* Sizer Wrapper: This div reserves the correct Scroll Area Size */}
+                    <div
+                       style={{
+                           width: typeof scaledWidth === 'number' ? `${scaledWidth}px` : scaledWidth,
+                           height: `${scaledHeight}px`, // This grows as contentHeight grows
+                           position: 'relative',
+                           marginTop: viewMode === 'focus' ? '0' : undefined,
+                           flexShrink: 0, // Prevent flexbox from squashing it
+                           transition: 'width 0.2s ease, height 0.2s ease' // Smooth zoom/resize
                        }}
                     >
-                       {/* Watermark */}
-                       {watermark && (
-                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                               <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
-                                   {watermark}
+                        {/* The Actual Page Content - Scaled and Positioned */}
+                        <div 
+                           ref={pageRef}
+                           className={`bg-white text-black shadow-2xl absolute top-0 left-0 origin-top-left
+                             ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
+                             ${redactionMode ? 'redaction-active' : ''}
+                             ${darkMode ? 'invert hue-rotate-180' : ''}
+                           `}
+                           style={{ 
+                               width: viewMode === 'web' ? '100%' : '816px', 
+                               minHeight: '1056px', 
+                               paddingTop: `${margins.top}px`,
+                               paddingBottom: `${margins.bottom}px`,
+                               paddingLeft: `${margins.left}px`,
+                               paddingRight: `${margins.right}px`,
+                               transform: `scale(${scale})`,
+                               // Critical: Align origin to the sizer's top-left so coordinates match
+                               transformOrigin: 'top left', 
+                           }}
+                        >
+                           {/* Watermark */}
+                           {watermark && (
+                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                                   <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
+                                       {watermark}
+                                   </div>
                                </div>
-                           </div>
-                       )}
+                           )}
 
-                       {/* Tiptap Editor */}
-                       <div className="relative z-10 h-full">
-                           <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full min-h-[800px]" />
-                       </div>
+                           {/* Tiptap Editor */}
+                           <div className="relative z-10 h-full">
+                               <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full min-h-[800px]" />
+                           </div>
+                        </div>
                     </div>
                 </EditorErrorBoundary>
              </div>

@@ -12,7 +12,10 @@ import {
 
 // Imports from extracted files
 import { EditorToolbar, RibbonTabType } from '../components/editor/EditorToolbar';
-import { OutlineItem, StructurePanel, ReviewPanel, CompliancePanel, AIPanel, LogicPanel, GovernancePanel } from '../components/editor/EditorPanels';
+import { 
+    OutlineItem, StructurePanel, ReviewPanel, CompliancePanel, AIPanel, 
+    LogicPanel, GovernancePanel, VariablesPanel, ClausesPanel, HistoryPanel 
+} from '../components/editor/EditorPanels';
 import { LayoutSettingsModal } from '../components/editor/EditorUI';
 
 // TipTap Imports
@@ -84,9 +87,11 @@ interface ErrorBoundaryState {
 
 // Simple error boundary for the editor component
 class EditorErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced constructor with a class property for state initialization.
-  // This resolves compile-time errors where `this.state` and `this.props` were not found on the component instance.
-  state: ErrorBoundaryState = { hasError: false };
+  public state: ErrorBoundaryState = { hasError: false };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true };
@@ -151,6 +156,28 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
 
   // Optimization: Refs for debouncing
   const outlineTimeoutRef = useRef<number | null>(null);
+
+  // Resize Observer for Page Scaling
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [pageDimensions, setPageDimensions] = useState({ width: 816, height: 1056 });
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // We use scrollHeight to capture the full height including content that might not be visible if overflow happened
+        const newHeight = entry.target.scrollHeight;
+        // Only update if significant change to avoid loops, though usually scrollHeight is stable
+        if (Math.abs(newHeight - pageDimensions.height) > 1) {
+            setPageDimensions(prev => ({ ...prev, height: Math.max(1056, newHeight) }));
+        }
+      }
+    });
+    
+    observer.observe(pageRef.current);
+    return () => observer.disconnect();
+  }, [pageDimensions.height]); // Dependency on height to keep stable
 
   // Editor Init
   const editor = useEditor({
@@ -340,9 +367,9 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                 </div>
                 <div className="flex-1 overflow-hidden relative">
                     {leftTab === 'structure' && <StructurePanel editor={editor} outline={outline} />}
-                    {leftTab === 'variables' && <div className="p-4 text-slate-500 text-xs text-center">Variables Panel</div>}
-                    {leftTab === 'assets' && <div className="p-4 text-slate-500 text-xs text-center">Clauses Panel</div>}
-                    {leftTab === 'history' && <div className="p-4 text-xs text-slate-500 text-center mt-10">Version history...</div>}
+                    {leftTab === 'variables' && <VariablesPanel editor={editor} />}
+                    {leftTab === 'assets' && <ClausesPanel editor={editor} />}
+                    {leftTab === 'history' && <HistoryPanel />}
                 </div>
             </div>
           </div>
