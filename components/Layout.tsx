@@ -7,7 +7,7 @@ import {
   Copy, X, UploadCloud, DollarSign, Calendar, CheckCircle2, ArrowRight, Clock,
   PieChart, ChevronLeft, ChevronRight, Menu, AlertTriangle, Info, CheckSquare,
   ArchiveRestore, LogOut, Key, Plus, Zap, BrainCircuit, BookOpen, Layers,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, BarChart3
 } from 'lucide-react';
 import { Button, Input, Select, Badge, Logo, Avatar } from './UIComponents';
 
@@ -30,6 +30,7 @@ const NAV_SECTIONS: NavGroup[] = [
     title: 'Intelligence',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Command Center' },
+      { to: '/reports', icon: BarChart3, label: 'Reports & Insights', badge: 'New', badgeColor: 'brand' },
       { to: '/bi', icon: PieChart, label: 'Business Intelligence' },
       { to: '/risks', icon: ShieldAlert, label: 'Risk & Obligations', badge: '3 Alerts', badgeColor: 'red' }
     ]

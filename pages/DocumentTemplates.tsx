@@ -1,562 +1,850 @@
-import React, { useState } from 'react';
-import { Card, Button, Input, Badge, Select } from '../components/UIComponents';
-import { MOCK_TEMPLATES, MOCK_TABLES } from '../mock/data';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, Button, Input, Badge, Select, Switch, Avatar } from '../components/UIComponents';
+import { MOCK_TEMPLATES, MOCK_TABLES, MOCK_CLAUSES } from '../mock/data';
 import { DocumentTemplate } from '../types';
 import { 
   FileText, Plus, Upload, Search, LayoutTemplate, MoreVertical, 
-  ChevronLeft, Save, Printer, Type, 
-  Braces, GitBranch, EyeOff, Bold, Italic, Underline, AlignLeft,
-  AlignCenter, AlignRight, List, MousePointer2, Sparkles,
-  ArrowRightLeft, CheckCircle2, AlertTriangle, RefreshCw, Workflow,
-  Check, Split, Merge, X, Cloud, ArrowRight, Layers, Wand2, ThumbsUp, Tag, Link as LinkIcon, MessageSquare,
-  ZoomIn, ZoomOut, Undo, Redo, PenTool, Database, BookOpen, GripVertical, UploadCloud, Loader2
+  ChevronLeft, Save, Printer, Type, Braces, GitBranch, EyeOff, 
+  Bold, Italic, Underline, List, MousePointer2, Sparkles,
+  CheckCircle2, AlertTriangle, RefreshCw, Workflow, Check, X, 
+  ArrowRight, Layers, Wand2, Code, Quote, Play, Bug, Lock, 
+  History, FileJson, GripVertical, UploadCloud, Loader2, PenTool,
+  Database, BookOpen, Split, Terminal, Globe, Columns, FileDiff,
+  Undo, Redo, Scissors, Copy, AlignLeft, AlignCenter, AlignRight,
+  Maximize2, Minimize2, Table as TableIcon, Eye, Shield, AlertCircle,
+  MessageSquare, UserPlus, CornerUpLeft, CornerUpRight,
+  FileOutput, ListOrdered, AlertOctagon, Highlighter,
+  Globe2, PenLine, CheckSquare, Paperclip, Eraser, ThumbsUp, ThumbsDown,
+  MessageSquarePlus, Trash2, MoreHorizontal, LockKeyhole, Flag, Link as LinkIcon, Image as ImageIcon,
+  Baseline, Superscript, Subscript, Palette, Layout, Paintbrush, AlignJustify,
+  Indent, Outdent, Pilcrow, CaseSensitive, ArrowUpDown, Languages, Calendar, RemoveFormatting, Clipboard,
+  Replace, Hammer, Bookmark, Files, Move, FileMinus, PanelTop, PanelBottom, Stamp, Frame, PaintBucket, 
+  Grid, ScanLine, FileSignature, RotateCw, Maximize, Settings, Hash
 } from 'lucide-react';
 
-const TemplateCard: React.FC<{ template: DocumentTemplate; onEdit: (t: DocumentTemplate) => void }> = ({ template, onEdit }) => (
-  <Card noPadding className="group cursor-pointer hover:border-brand-500/40 transition-all relative overflow-hidden hover:shadow-lg hover:-translate-y-1">
-     <div className="p-5 flex flex-col h-full" onClick={() => onEdit(template)}>
-        <div className="flex justify-between items-start mb-3">
-           <div className="w-10 h-10 bg-dark-800 rounded-lg flex items-center justify-center text-slate-400 group-hover:text-brand-400 group-hover:bg-brand-500/10 transition-colors">
-              <FileText size={20} />
-           </div>
-           <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-              <button className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white" onClick={(e) => e.stopPropagation()}>
-                 <MoreVertical size={16} />
-              </button>
-           </div>
-        </div>
-        
-        <h3 className="font-bold text-white mb-1 group-hover:text-brand-400 transition-colors line-clamp-1" title={template.name}>{template.name}</h3>
-        <div className="flex items-center gap-2 mb-4">
-           <Badge color="gray">{template.category}</Badge>
-           <span className="text-xs text-slate-500">v{template.version}</span>
-        </div>
+// TipTap Imports
+import { useEditor, EditorContent, JSONContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import ExtensionBubbleMenu from '@tiptap/extension-bubble-menu';
+import ExtensionFloatingMenu from '@tiptap/extension-floating-menu';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import TextAlign from '@tiptap/extension-text-align';
+import UnderlineExtension from '@tiptap/extension-underline';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
+import Highlight from '@tiptap/extension-highlight';
+import ImageExtension from '@tiptap/extension-image';
+import LinkExtension from '@tiptap/extension-link';
+import SubscriptExtension from '@tiptap/extension-subscript';
+import SuperscriptExtension from '@tiptap/extension-superscript';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import FontFamily from '@tiptap/extension-font-family';
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {template.tags?.slice(0, 3).map((tag, i) => (
-              <span key={i} className="text-[10px] bg-dark-800 text-slate-400 px-1.5 py-0.5 rounded border border-dark-700">{tag}</span>
-          ))}
-          {(template.tags?.length || 0) > 3 && <span className="text-[10px] text-slate-500">+{template.tags!.length - 3}</span>}
-        </div>
+// --- TYPES ---
 
-        <div className="mt-auto pt-4 border-t border-white/5 flex justify-between items-center text-xs text-slate-500">
-           <span>Updated {template.lastModified}</span>
-           <Badge color={template.status === 'Active' ? 'green' : 'yellow'}>{template.status}</Badge>
-        </div>
-     </div>
-  </Card>
-);
+type EditorMode = 'editing' | 'suggesting' | 'viewing' | 'diff';
+type LeftTab = 'structure' | 'variables' | 'assets' | 'history';
+type RightTab = 'review' | 'logic' | 'compliance' | 'ai' | 'settings';
 
-const RibbonButton = ({ icon: Icon, label, active, onClick }: any) => (
+interface Comment {
+  id: string;
+  user: string;
+  text: string;
+  date: string;
+  resolved: boolean;
+  replies: { user: string; text: string; date: string }[];
+  selectionId?: string; 
+}
+
+interface TrackedChange {
+  id: string;
+  type: 'insert' | 'delete' | 'format';
+  user: string;
+  date: string;
+  content: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+interface VariableDefinition {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'currency' | 'select';
+  required: boolean;
+  options?: string[];
+  defaultValue?: string;
+}
+
+// --- MOCK DATA EXTENDED ---
+
+const MOCK_COMMENTS: Comment[] = [
+  {
+    id: 'c1',
+    user: 'Mike Ross',
+    text: 'We need to clarify the indemnity cap here. Standard is 2x, this says unlimited.',
+    date: '2h ago',
+    resolved: false,
+    replies: [
+      { user: 'Harvey Specter', text: 'Agreed. Change it to 2x fees paid.', date: '1h ago' }
+    ]
+  },
+  {
+    id: 'c2',
+    user: 'Jessica Pearson',
+    text: 'Is this jurisdiction correct for EU clients?',
+    date: '1d ago',
+    resolved: true,
+    replies: []
+  }
+];
+
+const MOCK_CHANGES: TrackedChange[] = [
+  { id: 'tc1', type: 'delete', user: 'Mike Ross', date: '2h ago', content: 'perpetual', status: 'pending' },
+  { id: 'tc2', type: 'insert', user: 'Mike Ross', date: '2h ago', content: 'three (3) year', status: 'pending' },
+  { id: 'tc3', type: 'insert', user: 'Harvey Specter', date: '30m ago', content: 'Subject to Section 5.2...', status: 'accepted' }
+];
+
+const MOCK_VARIABLES: VariableDefinition[] = [
+  { key: 'counterparty_name', label: 'Counterparty Name', type: 'text', required: true },
+  { key: 'contract_value', label: 'Total Value', type: 'currency', required: true },
+  { key: 'effective_date', label: 'Effective Date', type: 'date', required: true },
+  { key: 'jurisdiction', label: 'Jurisdiction', type: 'select', required: true, options: ['New York', 'California', 'Delaware', 'London'] },
+  { key: 'payment_terms', label: 'Payment Terms', type: 'select', required: false, options: ['Net 30', 'Net 45', 'Net 60'], defaultValue: 'Net 30' },
+];
+
+// --- SUB-COMPONENTS ---
+
+const RibbonButton = ({ icon: Icon, label, active, onClick, disabled, badge, color, className = '', subLabel }: any) => (
     <button 
         onClick={onClick}
-        className={`flex flex-col items-center justify-center px-3 py-1.5 h-full min-w-[60px] rounded-lg transition-all group ${active ? 'bg-brand-500/10 text-brand-400' : 'hover:bg-white/5 text-slate-400 hover:text-white'}`}
+        disabled={disabled}
+        className={`flex flex-col items-center justify-center px-2 py-1.5 h-full min-w-[50px] rounded-lg transition-all group relative ${active ? 'bg-brand-500/10 text-brand-400' : disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5 text-slate-400 hover:text-white'} ${className}`}
+        title={label}
     >
-        <Icon size={20} className={`mb-1 ${active ? 'text-brand-400' : 'text-slate-400 group-hover:text-white'}`} />
-        <span className="text-[10px] font-medium leading-none">{label}</span>
+        <Icon size={18} className={`mb-1 ${active ? 'text-brand-400' : color ? color : disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-white'}`} />
+        <span className="text-[9px] font-medium leading-none text-center whitespace-nowrap">{label}</span>
+        {subLabel && <span className="text-[8px] text-slate-500 leading-none mt-0.5">{subLabel}</span>}
+        {badge && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>}
     </button>
 );
 
-const RibbonDivider = () => <div className="w-px h-8 bg-dark-700 mx-1 self-center"></div>;
+const RibbonDivider = () => <div className="w-px h-8 bg-dark-700 mx-1 self-center shrink-0"></div>;
 
-const ImportTemplateModal = ({ onClose, onImport }: { onClose: () => void, onImport: (file: File, meta: {name: string, category: string}) => void }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [meta, setMeta] = useState({ name: '', category: 'NDA' });
-  const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+const RibbonGroupLabel = ({ children }: { children?: React.ReactNode }) => (
+    <div className="absolute bottom-0 left-0 w-full text-center text-[8px] text-slate-600 font-bold uppercase tracking-wider pb-0.5 pointer-events-none select-none">
+        {children}
+    </div>
+);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const f = e.dataTransfer.files[0];
-      setFile(f);
-      setMeta(prev => ({ ...prev, name: f.name.replace(/\.[^/.]+$/, "") }));
+const LayoutSettingsModal: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    title: string;
+    children?: React.ReactNode;
+}> = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-dark-900 w-full max-w-md rounded-xl border border-dark-700 shadow-2xl overflow-hidden animate-in zoom-in-95">
+                <div className="p-4 border-b border-dark-700 flex justify-between items-center bg-dark-950/50">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">{title}</h3>
+                    <button onClick={onClose}><X size={16} className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <div className="p-6 space-y-4">
+                    {children}
+                </div>
+                <div className="p-4 border-t border-dark-700 bg-dark-900/30 flex justify-end gap-2">
+                    <Button variant="ghost" onClick={onClose} className="text-xs h-8">Cancel</Button>
+                    <Button variant="primary" onClick={onClose} className="text-xs h-8">Apply</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- MAIN EDITOR COMPONENT ---
+
+const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: DocumentTemplate) => void; onBack: () => void }> = ({ template, onSave, onBack }) => {
+  // UI State
+  const [ribbonTab, setRibbonTab] = useState<'home' | 'insert' | 'layout' | 'review' | 'view' | 'governance'>('home');
+  const [leftTab, setLeftTab] = useState<LeftTab>('structure');
+  const [rightTab, setRightTab] = useState<RightTab>('review');
+  const [mode, setMode] = useState<EditorMode>('editing');
+  const [zoom, setZoom] = useState(100);
+  const [activeCollaborators, setActiveCollaborators] = useState([
+      { id: 'u1', name: 'Harvey S.', color: '#3b82f6' },
+      { id: 'u2', name: 'Mike R.', color: '#10b981' }
+  ]);
+
+  // --- LAYOUT STATE ---
+  const [marginPreset, setMarginPreset] = useState('Normal');
+  const [margins, setMargins] = useState({ top: 96, bottom: 96, left: 96, right: 96 });
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [pageSizePreset, setPageSizePreset] = useState('Letter');
+  const [pageSize, setPageSize] = useState({ width: 816, height: 1056 });
+  const [columns, setColumns] = useState(1);
+  const [lineSpacing, setLineSpacing] = useState(1.5);
+  const [pageColor, setPageColor] = useState('#ffffff');
+  const [watermark, setWatermark] = useState<string>('');
+  const [showGrid, setShowGrid] = useState(false);
+  const [showClauseBoundaries, setShowClauseBoundaries] = useState(false);
+  const [riskHeatmap, setRiskHeatmap] = useState(false);
+  const [redactionMode, setRedactionMode] = useState(false);
+  
+  // Modals
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // Helper State
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findText, setFindText] = useState('');
+  const [formatPainterActive, setFormatPainterActive] = useState(false);
+
+  // Data State
+  const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
+  const [changes, setChanges] = useState<TrackedChange[]>(MOCK_CHANGES);
+  const [variables, setVariables] = useState<VariableDefinition[]>(MOCK_VARIABLES);
+  const [outline, setOutline] = useState<string[]>([]);
+  const [content, setContent] = useState(template?.content || '');
+
+  // Editor Init
+  const editor = useEditor({
+    extensions: [
+      StarterKit, 
+      TextStyle as any, 
+      Color,
+      FontFamily,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Placeholder.configure({ placeholder: 'Start drafting...' }),
+      ExtensionBubbleMenu, 
+      ExtensionFloatingMenu,
+      UnderlineExtension,
+      Highlight.configure({ multicolor: true }),
+      SubscriptExtension,
+      SuperscriptExtension,
+      (Table as any).configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      ImageExtension,
+      LinkExtension.configure({ openOnClick: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+    ],
+    content: content,
+    editable: mode !== 'viewing',
+    onUpdate: ({ editor }) => {
+        try {
+            const json = editor.getJSON();
+            if (json && Array.isArray(json.content)) {
+                const headers: string[] = [];
+                json.content.forEach((node) => {
+                    if (node && node.type === 'heading') {
+                        const contentArr = node.content;
+                        if (Array.isArray(contentArr) && contentArr.length > 0) {
+                            const firstChild = contentArr[0];
+                            if (firstChild && (firstChild as any).text) {
+                                headers.push((firstChild as any).text);
+                            } else {
+                                headers.push('Untitled Section');
+                            }
+                        } else {
+                            headers.push('Untitled Section');
+                        }
+                    }
+                });
+                setOutline(headers);
+            } else {
+                setOutline([]);
+            }
+        } catch (e) {
+            console.warn('Editor update parsing warning:', e);
+            setOutline([]);
+        }
     }
-  };
+  });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const f = e.target.files[0];
-      setFile(f);
-      setMeta(prev => ({ ...prev, name: f.name.replace(/\.[^/.]+$/, "") }));
-    }
+  if (!template) {
+      return (
+          <div className="flex items-center justify-center h-screen bg-dark-950 text-slate-500">
+              <div className="text-center">
+                  <AlertTriangle size={48} className="mx-auto mb-4 opacity-20"/>
+                  <p>No template context found.</p>
+                  <Button variant="secondary" onClick={onBack} className="mt-4">Return to Library</Button>
+              </div>
+          </div>
+      );
   }
 
-  const handleSubmit = () => {
-    if (!file) return;
-    setIsProcessing(true);
-    setTimeout(() => {
-        onImport(file, meta);
-        setIsProcessing(false);
-    }, 1500);
+  // --- HELPER FUNCTIONS ---
+
+  const addComment = () => {
+      const newComment: Comment = {
+          id: `c_${Date.now()}`,
+          user: 'Harvey Specter',
+          text: 'New comment on this section...',
+          date: 'Just now',
+          resolved: false,
+          replies: []
+      };
+      setComments([newComment, ...comments]);
+      setRightTab('review');
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in">
-       {/* Modal Content */}
-       <div className="bg-dark-900 w-full max-w-lg rounded-2xl border border-dark-700 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95">
-          <div className="p-6 border-b border-dark-700 flex justify-between items-center bg-dark-950/50">
-             <h3 className="text-lg font-bold text-white flex items-center gap-2"><Upload size={18}/> Import Template</h3>
-             <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20}/></button>
-          </div>
-          
-          <div className="p-6 space-y-6">
-             {/* Dropzone */}
-             {!file ? (
-                 <div 
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all ${isDragging ? 'border-brand-500 bg-brand-500/10' : 'border-dark-700 hover:border-brand-500/30 hover:bg-dark-800'}`}
-                 >
-                    <div className="w-12 h-12 bg-dark-800 rounded-full flex items-center justify-center mb-4">
-                       <UploadCloud size={24} className="text-slate-400"/>
-                    </div>
-                    <p className="text-sm font-bold text-white mb-1">Drag & drop document</p>
-                    <p className="text-xs text-slate-500 mb-4">Supports .docx, .pdf, .html</p>
-                    <label className="cursor-pointer">
-                       <span className="px-4 py-2 bg-dark-800 hover:bg-dark-700 rounded-lg text-xs font-bold text-white transition-colors border border-dark-600">Browse Files</span>
-                       <input type="file" className="hidden" onChange={handleFileSelect} accept=".docx,.pdf,.html" />
-                    </label>
-                 </div>
-             ) : (
-                 <div className="bg-dark-800 rounded-xl p-4 flex items-center gap-4 border border-dark-700">
-                    <div className="w-10 h-10 bg-brand-500/20 rounded-lg flex items-center justify-center text-brand-400">
-                       <FileText size={20}/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                       <p className="text-sm font-bold text-white truncate">{file.name}</p>
-                       <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                    <button onClick={() => setFile(null)} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"><X size={16}/></button>
-                 </div>
-             )}
+  const addImage = () => {
+      const url = window.prompt('Enter image URL');
+      if (url) {
+          (editor?.chain().focus() as any)?.setImage({ src: url }).run();
+      }
+  };
 
-             {/* Metadata Inputs */}
-             <div className="space-y-4">
-                <Input label="Template Name" value={meta.name} onChange={(e) => setMeta({...meta, name: e.target.value})} />
-                <Select 
-                   label="Category"
-                   options={['NDA', 'MSA', 'SOW', 'Vendor', 'Offer Letter', 'Other'].map(c => ({label: c, value: c}))}
-                   value={meta.category}
-                   onChange={(e) => setMeta({...meta, category: e.target.value})}
-                />
+  const addLink = () => {
+      const url = window.prompt('Enter Link URL');
+      if (url) {
+          editor?.chain().focus().setLink({ href: url }).run();
+      }
+  };
+
+  const handlePresetMargin = (type: string) => {
+      if (type === 'Normal') setMargins({ top: 96, bottom: 96, left: 96, right: 96 });
+      if (type === 'Narrow') setMargins({ top: 48, bottom: 48, left: 48, right: 48 });
+      if (type === 'Wide') setMargins({ top: 96, bottom: 96, left: 144, right: 144 });
+  };
+
+  const handlePageSizeChange = (type: string) => {
+      if (type === 'Letter') setPageSize({ width: 816, height: 1056 });
+      if (type === 'A4') setPageSize({ width: 794, height: 1123 });
+      if (type === 'Legal') setPageSize({ width: 816, height: 1344 });
+  };
+
+  // --- RENDERERS ---
+
+  const renderStructurePanel = () => (
+      <div className="flex flex-col h-full animate-in fade-in slide-in-from-left-4">
+          <div className="p-4 border-b border-dark-800 flex justify-between items-center">
+              <h4 className="text-xs font-bold text-slate-500 uppercase">Document Outline</h4>
+              <button className="text-xs text-brand-400 hover:text-white" onClick={() => editor?.commands.focus()}>Refresh</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+              {outline.length > 0 ? outline.map((h, i) => (
+                  <button key={i} onClick={() => { /* Scroll logic */ }} className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 truncate flex items-center gap-2 group transition-colors">
+                      <div className="w-1.5 h-1.5 bg-dark-700 rounded-full group-hover:bg-brand-500 transition-colors"></div>
+                      {h}
+                  </button>
+              )) : (
+                  <div className="p-4 text-center text-xs text-slate-500">No headings detected. Use H1-H3 to build structure.</div>
+              )}
+          </div>
+          <div className="p-4 border-t border-dark-800">
+              <div className="bg-dark-900 p-3 rounded-lg border border-dark-700">
+                  <h5 className="text-xs font-bold text-white mb-2 flex items-center gap-2"><FileText size={12} className="text-brand-400"/> Metadata</h5>
+                  <div className="space-y-2">
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>Author</span> <span className="text-slate-200">Harvey S.</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>Created</span> <span className="text-slate-200">Oct 12, 2023</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>Version</span> <span className="text-brand-400 font-bold">2.2 (Draft)</span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
+
+  const renderVariablePanel = () => <div className="p-4 text-slate-500 text-xs text-center">Variable Panel Mock</div>;
+  const renderAssetsPanel = () => <div className="p-4 text-slate-500 text-xs text-center">Assets Panel Mock</div>;
+  const renderReviewPanel = () => <div className="p-4 text-slate-500 text-xs text-center">Review Panel Mock</div>;
+  const renderLogicPanel = () => <div className="p-4 text-slate-500 text-xs text-center">Logic Panel Mock</div>;
+  const renderCompliancePanel = () => <div className="p-4 text-slate-500 text-xs text-center">Compliance Panel Mock</div>;
+  const renderAIPanel = () => <div className="p-4 text-slate-500 text-xs text-center">AI Panel Mock</div>;
+
+  return (
+    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-[#0B0E14] text-slate-200 overflow-hidden font-sans selection:bg-brand-500/30">
+       
+       {/* 1. COMMAND BAR */}
+       <div className="h-14 bg-dark-950 border-b border-dark-700 flex items-center justify-between px-4 shrink-0 z-30 shadow-md">
+          <div className="flex items-center gap-4">
+             <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><ChevronLeft size={18}/></button>
+             <div>
+                <div className="flex items-center gap-2">
+                   <span className="font-bold text-white text-sm">{template.name}</span>
+                   <Badge color={template.status === 'Active' ? 'green' : 'yellow'}>{template.status}</Badge>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                   <span>v{template.version}</span>
+                   <span>•</span>
+                   <span>Last saved {template.lastModified}</span>
+                </div>
              </div>
           </div>
 
-          <div className="p-6 border-t border-dark-700 bg-dark-950/30 flex justify-end gap-3">
-             <Button variant="ghost" onClick={onClose} disabled={isProcessing}>Cancel</Button>
-             <Button variant="primary" onClick={handleSubmit} disabled={!file || isProcessing} className="min-w-[100px]">
-                {isProcessing ? <Loader2 size={16} className="animate-spin"/> : 'Import'}
+          {/* Center Actions: Mode & Collaboration */}
+          <div className="flex items-center gap-4">
+             <div className="flex items-center bg-dark-900 rounded-lg p-1 border border-dark-700">
+                 {[
+                     {id: 'editing', label: 'Editing', icon: PenTool},
+                     {id: 'suggesting', label: 'Suggesting', icon: GitBranch},
+                     {id: 'viewing', label: 'Viewing', icon: Eye},
+                 ].map(m => (
+                     <button 
+                        key={m.id}
+                        onClick={() => setMode(m.id as EditorMode)}
+                        className={`px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2 transition-all ${mode === m.id ? 'bg-dark-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                         <m.icon size={12}/> {m.label}
+                     </button>
+                 ))}
+             </div>
+             
+             <div className="h-6 w-px bg-dark-800"></div>
+
+             {/* Avatars */}
+             <div className="flex items-center -space-x-2">
+                 {activeCollaborators.map(u => (
+                     <div key={u.id} className="w-8 h-8 rounded-full border-2 border-dark-950 bg-dark-800 flex items-center justify-center text-xs font-bold text-white relative group cursor-pointer" style={{backgroundColor: u.color}}>
+                         {u.name.charAt(0)}
+                         <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-dark-950 rounded-full"></span>
+                     </div>
+                 ))}
+                 <button className="w-8 h-8 rounded-full border-2 border-dark-950 bg-dark-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-dark-700 transition-colors">
+                     <UserPlus size={14}/>
+                 </button>
+             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+             <Button variant="secondary" className="h-8 text-xs"><Printer size={14} className="mr-2"/> Print</Button>
+             <Button variant="primary" className="h-8 text-xs shadow-lg shadow-brand-500/20" onClick={() => onSave(template)}>
+                <Save size={14} className="mr-2"/> Publish
              </Button>
           </div>
        </div>
+
+       {/* 2. RIBBON TOOLBAR */}
+       <div className="bg-dark-900 border-b border-dark-700 shrink-0 flex flex-col relative z-20">
+          <div className="flex px-2 border-b border-dark-800 overflow-x-auto">
+             {['Home', 'Insert', 'Layout', 'Review', 'View', 'Governance'].map(tab => (
+                <button 
+                    key={tab} 
+                    onClick={() => setRibbonTab(tab.toLowerCase() as any)} 
+                    className={`px-5 py-2 text-xs font-bold transition-all border-b-2 ${ribbonTab === tab.toLowerCase() ? 'border-brand-500 text-white bg-white/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                >
+                    {tab}
+                </button>
+             ))}
+          </div>
+          
+          <div className="h-20 flex items-center px-4 gap-1 overflow-x-auto custom-scrollbar bg-dark-900/50 whitespace-nowrap">
+             
+             {/* --- LAYOUT TAB --- */}
+             {ribbonTab === 'layout' && (
+                <>
+                   <div className="flex items-center gap-1 px-2 relative group/ribbon">
+                       <div className="flex flex-col gap-1 mr-2">
+                           <div className="flex items-center gap-2">
+                               <span className="text-[9px] font-bold text-slate-500 uppercase w-12 text-right">Margins</span>
+                               <Select 
+                                   options={[{label:'Normal', value:'Normal'}, {label:'Narrow', value:'Narrow'}, {label:'Wide', value:'Wide'}, {label:'Custom...', value:'Custom'}]} 
+                                   className="w-24 h-5 text-[9px] bg-dark-950 border-dark-700 py-0" 
+                                   onChange={(e) => {
+                                       const val = e.target.value;
+                                       setMarginPreset(val);
+                                       if(val === 'Custom') setActiveModal('margins');
+                                       else handlePresetMargin(val);
+                                   }}
+                                   value={marginPreset}
+                               />
+                           </div>
+                           <div className="flex items-center gap-2">
+                               <span className="text-[9px] font-bold text-slate-500 uppercase w-12 text-right">Size</span>
+                               <Select 
+                                   options={[{label:'Letter', value:'Letter'}, {label:'A4', value:'A4'}, {label:'Legal', value:'Legal'}, {label:'Custom...', value:'Custom'}]} 
+                                   className="w-24 h-5 text-[9px] bg-dark-950 border-dark-700 py-0" 
+                                   value={pageSizePreset} 
+                                   onChange={(e)=>{
+                                       const val = e.target.value;
+                                       setPageSizePreset(val);
+                                       if(val === 'Custom') setActiveModal('size');
+                                       else handlePageSizeChange(val);
+                                   }}
+                               />
+                           </div>
+                       </div>
+                       <RibbonButton icon={RotateCw} label="Orient." onClick={() => setOrientation(o => o === 'portrait' ? 'landscape' : 'portrait')} subLabel={orientation} />
+                       <RibbonButton icon={Columns} label="Cols" onClick={() => setColumns(c => c === 1 ? 2 : 1)} subLabel={columns === 1 ? 'One' : 'Two'} />
+                       <RibbonGroupLabel>Page Setup</RibbonGroupLabel>
+                   </div>
+                   <RibbonDivider />
+
+                   <div className="flex items-center gap-1 px-2 relative group/ribbon">
+                       <RibbonButton icon={FileMinus} label="Page Break" onClick={() => editor?.chain().focus().insertContent('<div class="page-break"></div>').run()} />
+                       <RibbonButton icon={Split} label="Sec Break" subLabel="Next" />
+                       <RibbonGroupLabel>Breaks</RibbonGroupLabel>
+                   </div>
+                   <RibbonDivider />
+
+                   <div className="flex items-center gap-1 px-2 relative group/ribbon">
+                       <RibbonButton icon={PanelTop} label="Header" />
+                       <RibbonButton icon={PanelBottom} label="Footer" />
+                       <RibbonButton icon={Hash} label="Page #" />
+                       <RibbonButton icon={Stamp} label="Watermark" onClick={() => setActiveModal('watermark')} />
+                       <RibbonGroupLabel>Elements</RibbonGroupLabel>
+                   </div>
+                   <RibbonDivider />
+
+                   <div className="flex items-center gap-1 px-2 relative group/ribbon">
+                       <RibbonButton icon={Grid} label="Grid" active={showGrid} onClick={() => setShowGrid(!showGrid)} />
+                       <RibbonButton icon={ScanLine} label="Clauses" active={showClauseBoundaries} onClick={() => setShowClauseBoundaries(!showClauseBoundaries)} />
+                       <RibbonButton icon={AlertOctagon} label="Heatmap" active={riskHeatmap} onClick={() => setRiskHeatmap(!riskHeatmap)} color={riskHeatmap ? 'text-red-400' : ''} />
+                       <RibbonGroupLabel>Advanced</RibbonGroupLabel>
+                   </div>
+                </>
+             )}
+
+             {ribbonTab === 'home' && (
+                <>
+                   <div className="flex items-center gap-1 px-2 relative group/ribbon">
+                       <RibbonButton icon={Undo} label="Undo" onClick={() => editor?.chain().focus().undo().run()} disabled={!editor?.can().undo()} />
+                       <RibbonButton icon={Redo} label="Redo" onClick={() => editor?.chain().focus().redo().run()} disabled={!editor?.can().redo()} />
+                       <RibbonButton icon={Paintbrush} label="Format" active={formatPainterActive} onClick={() => setFormatPainterActive(!formatPainterActive)} />
+                       <RibbonGroupLabel>Editing</RibbonGroupLabel>
+                   </div>
+                   <RibbonDivider />
+                   <div className="flex items-center gap-1 px-2 relative group/ribbon">
+                       <RibbonButton icon={Bold} label="Bold" active={editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()} />
+                       <RibbonButton icon={Italic} label="Italic" active={editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()} />
+                       <RibbonButton icon={Underline} label="Underline" active={editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()} />
+                       <RibbonGroupLabel>Font</RibbonGroupLabel>
+                   </div>
+                </>
+             )}
+             {ribbonTab === 'insert' && (
+                <>
+                   <RibbonButton icon={Braces} label="Variable" onClick={() => { setLeftTab('variables'); }} color="text-brand-400"/>
+                   <RibbonButton icon={BookOpen} label="Clause" onClick={() => { setLeftTab('assets'); }} color="text-blue-400"/>
+                   <RibbonButton icon={TableIcon} label="Table" onClick={() => (editor?.chain().focus() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}/>
+                   <RibbonButton icon={ImageIcon} label="Image" onClick={addImage}/>
+                   <RibbonButton icon={LinkIcon} label="Link" onClick={addLink}/>
+                   <RibbonDivider />
+                   <RibbonButton icon={Wand2} label="AI Block" badge color="text-purple-400" onClick={() => { setRightTab('ai'); }}/>
+                </>
+             )}
+             {ribbonTab === 'review' && (
+                <>
+                   <RibbonButton icon={MessageSquarePlus} label="Comment" onClick={addComment} />
+                   <RibbonButton icon={GitBranch} label="Track Changes" active={mode === 'suggesting'} onClick={() => setMode(m => m === 'suggesting' ? 'editing' : 'suggesting')}/>
+                   <RibbonDivider />
+                   <RibbonButton icon={EyeOff} label="Redact" active={redactionMode} onClick={() => setRedactionMode(!redactionMode)} color={redactionMode ? 'text-red-400' : ''} />
+                </>
+             )}
+             {ribbonTab === 'view' && (
+                 <>
+                    <RibbonButton icon={Eye} label="Read Mode" onClick={() => setMode('viewing')} active={mode === 'viewing'}/>
+                    <RibbonButton icon={FileDiff} label="Compare" onClick={() => setMode('diff')} active={mode === 'diff'}/>
+                    <RibbonDivider />
+                    <div className="flex items-center gap-2 px-2">
+                       <span className="text-[10px] text-slate-500 font-bold uppercase">Zoom</span>
+                       <div className="flex items-center bg-dark-950 rounded border border-dark-700">
+                           <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="px-2 hover:bg-white/10">-</button>
+                           <span className="text-xs w-8 text-center">{zoom}%</span>
+                           <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="px-2 hover:bg-white/10">+</button>
+                       </div>
+                    </div>
+                 </>
+             )}
+             {ribbonTab === 'governance' && (
+                 <>
+                    <RibbonButton icon={LockKeyhole} label="Hard Lock" color="text-red-400" />
+                    <RibbonButton icon={Flag} label="Flag Terms" />
+                    <RibbonButton icon={BookOpen} label="Playbook" onClick={() => setRightTab('compliance')} />
+                 </>
+             )}
+          </div>
+       </div>
+
+       {/* 3. WORKSPACE GRID */}
+       <div className="flex-1 flex overflow-hidden relative">
+          
+          {/* LEFT RAIL */}
+          <div className="w-64 bg-dark-950 border-r border-dark-800 flex flex-col z-20 shrink-0">
+             <div className="flex border-b border-dark-800 bg-dark-900">
+                <button onClick={() => setLeftTab('structure')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'structure' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Outline"><List size={16}/></button>
+                <button onClick={() => setLeftTab('variables')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'variables' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Variables"><Braces size={16}/></button>
+                <button onClick={() => setLeftTab('assets')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'assets' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Clauses"><BookOpen size={16}/></button>
+                <button onClick={() => setLeftTab('history')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'history' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="History"><History size={16}/></button>
+             </div>
+             <div className="flex-1 overflow-hidden relative">
+                {leftTab === 'structure' && renderStructurePanel()}
+                {leftTab === 'variables' && renderVariablePanel()}
+                {leftTab === 'assets' && renderAssetsPanel()}
+                {leftTab === 'history' && <div className="p-4 text-xs text-slate-500 text-center mt-10">Version history list...</div>}
+             </div>
+          </div>
+
+          {/* CENTER: Editor Canvas */}
+          <div className="flex-1 bg-dark-900/30 relative flex flex-col overflow-hidden">
+             
+             {/* Find & Replace Toolbar */}
+             {showFindReplace && (
+                 <div className="absolute top-4 right-8 z-30 bg-dark-900 border border-dark-700 rounded-lg shadow-xl p-2 flex items-center gap-2 animate-in slide-in-from-top-2">
+                     <Search size={14} className="text-slate-500"/>
+                     <input 
+                        className="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-xs text-white w-32 focus:border-brand-500 outline-none" 
+                        placeholder="Find..." 
+                        value={findText}
+                        onChange={(e) => setFindText(e.target.value)}
+                        autoFocus
+                     />
+                     <input className="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-xs text-white w-32 focus:border-brand-500 outline-none" placeholder="Replace..." />
+                     <button className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"><ArrowRight size={14}/></button>
+                     <button className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white" title="Replace All"><RefreshCw size={14}/></button>
+                     <div className="w-px h-4 bg-dark-700 mx-1"></div>
+                     <button onClick={() => setShowFindReplace(false)} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"><X size={14}/></button>
+                 </div>
+             )}
+
+             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex justify-center relative" onClick={() => editor?.commands.focus()}>
+                <div 
+                   className={`bg-white text-black shadow-2xl transition-transform duration-200 ease-out origin-top mb-20 relative 
+                     ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
+                     ${riskHeatmap ? 'risk-heatmap-active' : ''}
+                     ${redactionMode ? 'redaction-active' : ''}
+                   `}
+                   style={{ 
+                       width: orientation === 'landscape' ? '1056px' : '816px', 
+                       minHeight: '1056px', 
+                       paddingTop: `${margins.top}px`,
+                       paddingBottom: `${margins.bottom}px`,
+                       paddingLeft: `${margins.left}px`,
+                       paddingRight: `${margins.right}px`,
+                       transform: `scale(${zoom / 100})`,
+                       backgroundColor: pageColor,
+                       color: '#000',
+                       columnCount: columns,
+                       columnGap: '40px'
+                   }}
+                >
+                   {/* Watermark Layer */}
+                   {watermark && (
+                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                           <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
+                               {watermark}
+                           </div>
+                       </div>
+                   )}
+
+                   {/* Grid Overlay */}
+                   {showGrid && (
+                       <div className="absolute inset-0 pointer-events-none z-50" style={{backgroundImage: 'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
+                   )}
+
+                   {/* Clause Boundaries Overlay */}
+                   {showClauseBoundaries && (
+                       <div className="absolute inset-0 pointer-events-none z-40">
+                           <div className="absolute top-24 left-12 right-12 h-32 border-2 border-dashed border-blue-300 rounded bg-blue-50/20 flex items-start justify-end p-1">
+                               <span className="bg-blue-500 text-white text-[8px] px-1 rounded uppercase font-bold">Clause 1.1</span>
+                           </div>
+                       </div>
+                   )}
+
+                   {/* Tiptap Editor */}
+                   <div className="relative z-10 h-full">
+                       <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full" />
+                   </div>
+                   
+                   {/* Page Number Simulation */}
+                   <div className="absolute bottom-8 right-12 text-gray-400 text-xs font-serif pointer-events-none select-none">Page 1</div>
+                </div>
+             </div>
+             
+             {/* Zoom Controls */}
+             <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-dark-900/90 backdrop-blur border border-dark-700 rounded-full p-1 shadow-xl z-20">
+                <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10"><Minimize2 size={14}/></button>
+                <span className="text-xs font-mono w-10 text-center text-slate-300">{zoom}%</span>
+                <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10"><Maximize2 size={14}/></button>
+             </div>
+             
+             {/* Document Stats / Autosave Indicator */}
+             <div className="absolute bottom-6 right-6 flex items-center gap-4">
+                 <div className="text-[10px] text-slate-500 font-mono bg-dark-950/80 px-3 py-1 rounded-full border border-dark-800 backdrop-blur flex items-center gap-2">
+                    <span>{editor?.storage?.characterCount?.words?.() || 0} words</span>
+                    <span className="w-px h-3 bg-dark-700"></span>
+                    <span>~{Math.ceil((editor?.getText().length || 0) / 3000) || 1} pages</span>
+                 </div>
+                 <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2 bg-dark-950/80 px-3 py-1 rounded-full border border-dark-800 backdrop-blur">
+                    <RefreshCw size={10} className="animate-spin"/> Autosaving...
+                 </div>
+             </div>
+          </div>
+
+          {/* RIGHT RAIL */}
+          <div className="w-80 bg-dark-900 border-l border-dark-800 flex flex-col z-20 shrink-0 shadow-xl">
+             <div className="flex border-b border-dark-800 bg-dark-900">
+                {[
+                   {id: 'review', icon: MessageSquare},
+                   {id: 'logic', icon: Workflow},
+                   {id: 'compliance', icon: Shield},
+                   {id: 'ai', icon: Sparkles},
+                ].map(tab => (
+                   <button 
+                     key={tab.id}
+                     onClick={() => setRightTab(tab.id as RightTab)}
+                     className={`flex-1 py-3 flex items-center justify-center transition-all border-b-2 ${rightTab === tab.id ? 'border-brand-500 text-brand-400 bg-brand-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                   >
+                      <tab.icon size={18}/>
+                   </button>
+                ))}
+             </div>
+
+             <div className="flex-1 overflow-hidden relative bg-dark-950">
+                {rightTab === 'review' && renderReviewPanel()}
+                {rightTab === 'logic' && renderLogicPanel()}
+                {rightTab === 'compliance' && renderCompliancePanel()}
+                {rightTab === 'ai' && renderAIPanel()}
+             </div>
+          </div>
+       </div>
+
+       {/* --- MODALS --- */}
+       
+       <LayoutSettingsModal isOpen={activeModal === 'watermark'} onClose={() => setActiveModal(null)} title="Watermark Settings">
+           <div className="space-y-4">
+               <Input label="Text" value={watermark} onChange={(e) => setWatermark(e.target.value)} placeholder="CONFIDENTIAL" />
+               <div className="grid grid-cols-2 gap-4">
+                   <Select label="Color" options={[{label:'Gray', value:'gray'}, {label:'Red', value:'red'}]} value="gray" onChange={() => {}} />
+                   <Select label="Opacity" options={[{label:'25%', value:'25'}, {label:'50%', value:'50'}]} value="25" onChange={() => {}} />
+               </div>
+               <div className="flex gap-2">
+                   <Button variant="secondary" className="flex-1 text-xs" onClick={() => setWatermark('DRAFT')}>DRAFT</Button>
+                   <Button variant="secondary" className="flex-1 text-xs" onClick={() => setWatermark('CONFIDENTIAL')}>CONFIDENTIAL</Button>
+               </div>
+           </div>
+       </LayoutSettingsModal>
+
+       <LayoutSettingsModal isOpen={activeModal === 'margins'} onClose={() => setActiveModal(null)} title="Custom Margins">
+           <div className="grid grid-cols-2 gap-4">
+               <Input label="Top (px)" type="number" value={margins.top} onChange={(e) => setMargins({...margins, top: parseInt(e.target.value)})} />
+               <Input label="Bottom (px)" type="number" value={margins.bottom} onChange={(e) => setMargins({...margins, bottom: parseInt(e.target.value)})} />
+               <Input label="Left (px)" type="number" value={margins.left} onChange={(e) => setMargins({...margins, left: parseInt(e.target.value)})} />
+               <Input label="Right (px)" type="number" value={margins.right} onChange={(e) => setMargins({...margins, right: parseInt(e.target.value)})} />
+           </div>
+       </LayoutSettingsModal>
+
+       <style>{`
+         .risk-heatmap-active span, 
+         .risk-heatmap-active p {
+             text-shadow: 0 0 1px rgba(255,0,0,0.1);
+         }
+         .redaction-active .clause-block {
+             filter: blur(4px);
+             pointer-events: none;
+         }
+         .page-break {
+             page-break-after: always;
+             height: 1px;
+             border-bottom: 1px dashed #ccc;
+             margin: 20px 0;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+         }
+         .page-break::after {
+             content: 'PAGE BREAK';
+             background: #eee;
+             color: #999;
+             font-size: 10px;
+             padding: 2px 6px;
+             border-radius: 4px;
+         }
+       `}</style>
     </div>
   );
-}
+};
 
 const DocumentTemplates: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'library' | 'harmonization'>('library');
   const [view, setView] = useState<'list' | 'editor'>('list');
-  const [templates, setTemplates] = useState<DocumentTemplate[]>(MOCK_TEMPLATES);
-  const [activeTemplate, setActiveTemplate] = useState<DocumentTemplate | null>(null);
-  const [filterCategory, setFilterCategory] = useState('All');
-  const [filterTag, setFilterTag] = useState('');
-  const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
+  const [templates, setTemplates] = useState(MOCK_TEMPLATES);
 
-  // Editor State (New)
-  const [ribbonTab, setRibbonTab] = useState<'home' | 'insert' | 'layout' | 'review'>('home');
-  const [editorSidebarTab, setEditorSidebarTab] = useState<'variables' | 'conditions' | 'redaction'>('variables');
-  const [showRightSidebar, setShowRightSidebar] = useState(true);
-  const [zoom, setZoom] = useState(100);
-  const [showSmartAssist, setShowSmartAssist] = useState(false);
-
-  // Harmonization State
-  const [harmonizationStep, setHarmonizationStep] = useState<'upload' | 'analyzing' | 'review' | 'complete'>('upload');
-  const [uploadedFiles, setUploadedFiles] = useState<{name: string, size: string}[]>([]);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [activeClauseIndex, setActiveClauseIndex] = useState(0);
-  const [analyzedClauses] = useState([/* ... same mock data ... */]); // Kept existing mock data logic
-
-  // Filter Logic
-  const filteredTemplates = templates.filter(t => {
-    const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
-    const matchesTag = !filterTag || (t.tags && t.tags.includes(filterTag));
-    return matchesCategory && matchesTag;
-  });
-
-  // Actions
   const handleEdit = (template: DocumentTemplate) => {
-    setActiveTemplate(template);
+    setSelectedTemplate(template);
     setView('editor');
   };
 
   const handleCreate = () => {
     const newTemplate: DocumentTemplate = {
       id: `tpl_${Date.now()}`,
-      name: 'New Template',
-      category: 'NDA',
-      version: '0.1',
+      name: 'Untitled Template',
+      category: 'General',
+      version: '1.0',
       lastModified: 'Just now',
       status: 'Draft',
-      content: '<h1>New Agreement</h1><p>Start typing here...</p>',
+      content: '<p>Start typing...</p>',
       variables: [],
       conditions: [],
-      redactionRules: [],
-      tags: ['Draft']
+      redactionRules: []
     };
-    setActiveTemplate(newTemplate);
+    setSelectedTemplate(newTemplate);
     setView('editor');
   };
 
-  const handleImport = (file: File, meta: {name: string, category: string}) => {
-      const newTemplate: DocumentTemplate = {
-          id: `tpl_imp_${Date.now()}`,
-          name: meta.name,
-          category: meta.category,
-          version: '1.0',
-          lastModified: 'Just now',
-          status: 'Draft',
-          // Simulate extracted content
-          content: `<h1>${meta.name}</h1><p>Imported content from <strong>${file.name}</strong>.</p><p>This document was parsed and converted on ${new Date().toLocaleDateString()}.</p><br/><p><strong>1. Confidentiality</strong><br/>The parties agree...</p>`,
-          variables: [],
-          conditions: [],
-          redactionRules: [],
-          tags: ['Imported']
-      };
-      
-      setTemplates([newTemplate, ...templates]);
-      setShowImportModal(false);
+  const handleSave = (updatedTemplate: DocumentTemplate) => {
+    if (templates.find(t => t.id === updatedTemplate.id)) {
+      setTemplates(templates.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
+    } else {
+      setTemplates([...templates, updatedTemplate]);
+    }
+    setView('list');
+    setSelectedTemplate(null);
   };
 
-  // --- NEW EDITOR VIEW ---
-  if (view === 'editor' && activeTemplate) {
+  if (view === 'editor' && selectedTemplate) {
     return (
-      <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-[#0F1115] text-slate-200 overflow-hidden">
-        
-        {/* 1. TOP HEADER */}
-        <div className="h-14 bg-dark-950 border-b border-dark-700 flex items-center justify-between px-4 shrink-0 z-30">
-           <div className="flex items-center gap-4">
-              <button onClick={() => setView('list')} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
-                 <ChevronLeft size={20} />
-              </button>
-              <div className="flex flex-col">
-                 <Input 
-                    value={activeTemplate.name} 
-                    onChange={(e) => setActiveTemplate({...activeTemplate, name: e.target.value})}
-                    className="h-6 py-0 px-1 bg-transparent border-none hover:bg-white/5 focus:ring-0 text-sm font-bold w-96 text-white"
-                 />
-                 <div className="flex items-center gap-2 px-1 text-[10px] text-slate-500">
-                    <Badge color={activeTemplate.status === 'Active' ? 'green' : 'yellow'} className="py-0">{activeTemplate.status}</Badge>
-                    <span>Saved {activeTemplate.lastModified}</span>
-                 </div>
-              </div>
-           </div>
-
-           <div className="flex items-center gap-3">
-              <Button variant="secondary" className="h-8 text-xs"><Printer size={14} className="mr-2"/> Print</Button>
-              <Button variant="primary" className="h-8 text-xs shadow-lg"><Save size={14} className="mr-2"/> Save Template</Button>
-           </div>
-        </div>
-
-        {/* 2. RIBBON TOOLBAR */}
-        <div className="bg-dark-900 border-b border-dark-700 shrink-0 flex flex-col">
-            <div className="flex px-2 border-b border-dark-800">
-                {['Home', 'Insert', 'Layout', 'Review'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setRibbonTab(tab.toLowerCase() as any)}
-                        className={`px-5 py-2 text-xs font-bold transition-all border-b-2 ${ribbonTab === tab.toLowerCase() ? 'border-brand-500 text-white bg-white/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
-            
-            <div className="h-16 flex items-center px-4 gap-2 overflow-x-auto custom-scrollbar">
-                {ribbonTab === 'home' && (
-                    <>
-                        <div className="flex items-center gap-1 mr-2">
-                            <RibbonButton icon={Undo} label="Undo" />
-                            <RibbonButton icon={Redo} label="Redo" />
-                        </div>
-                        <RibbonDivider />
-                        <div className="flex items-center gap-2 mx-2">
-                            <Select options={[{label: 'Normal', value: 'p'}, {label: 'Heading 1', value: 'h1'}]} className="w-32 h-8 text-xs bg-dark-950" />
-                            <Select options={[{label: 'Inter', value: 'inter'}, {label: 'Times', value: 'times'}]} className="w-24 h-8 text-xs bg-dark-950" />
-                        </div>
-                        <RibbonDivider />
-                        <div className="flex items-center gap-1 mx-2">
-                            <RibbonButton icon={Bold} label="Bold" />
-                            <RibbonButton icon={Italic} label="Italic" />
-                            <RibbonButton icon={Underline} label="Underline" />
-                        </div>
-                        <RibbonDivider />
-                        <RibbonButton icon={AlignLeft} label="Left" />
-                        <RibbonButton icon={AlignCenter} label="Center" />
-                        <RibbonButton icon={AlignRight} label="Right" />
-                    </>
-                )}
-                {ribbonTab === 'insert' && (
-                    <>
-                        <RibbonButton icon={Database} label="Variable" onClick={() => { setShowRightSidebar(true); setEditorSidebarTab('variables'); }}/>
-                        <RibbonButton icon={GitBranch} label="Logic" onClick={() => { setShowRightSidebar(true); setEditorSidebarTab('conditions'); }}/>
-                        <RibbonDivider />
-                        <RibbonButton icon={PenTool} label="Signature" />
-                        <RibbonButton icon={List} label="Table" />
-                    </>
-                )}
-                {ribbonTab === 'layout' && (
-                    <>
-                        <div className="flex items-center gap-2 bg-dark-950 rounded-lg p-1 border border-dark-700">
-                            <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1 text-slate-400 hover:text-white"><ZoomOut size={16}/></button>
-                            <span className="text-xs font-mono w-10 text-center">{zoom}%</span>
-                            <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1 text-slate-400 hover:text-white"><ZoomIn size={16}/></button>
-                        </div>
-                        <RibbonDivider />
-                        <RibbonButton icon={GripVertical} label="Sidebar" active={showRightSidebar} onClick={() => setShowRightSidebar(!showRightSidebar)}/>
-                    </>
-                )}
-            </div>
-        </div>
-
-        {/* 3. WORKSPACE */}
-        <div className="flex-1 flex overflow-hidden relative">
-           {/* Center: Document Canvas */}
-           <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-dark-900/50 custom-scrollbar">
-               {/* Paper Page */}
-               <div 
-                  className="bg-white text-black shadow-2xl transition-transform duration-200 ease-out origin-top mb-20"
-                  style={{
-                      width: '816px',
-                      minHeight: '1056px',
-                      padding: '96px',
-                      transform: `scale(${zoom / 100})`,
-                  }}
-               >
-                  {/* Watermark */}
-                  {activeTemplate.status === 'Draft' && (
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-200 text-9xl font-bold -rotate-45 pointer-events-none select-none">
-                          DRAFT
-                      </div>
-                  )}
-
-                  {/* Content */}
-                  <div 
-                    className="prose max-w-none outline-none font-serif leading-relaxed text-[11pt]" 
-                    contentEditable 
-                    suppressContentEditableWarning
-                    dangerouslySetInnerHTML={{__html: activeTemplate.content}}
-                  >
-                  </div>
-
-                  {/* Logic Overlays Visual */}
-                  {editorSidebarTab === 'conditions' && activeTemplate.conditions.map((cond, i) => (
-                     <div key={i} className="absolute right-0 translate-x-full top-1/4 ml-4 w-64 p-3 bg-blue-50 border-l-4 border-blue-500 shadow-md rounded-r text-xs text-blue-800 z-10">
-                        <div className="flex items-center gap-2 font-bold mb-1"><GitBranch size={12}/> Logic Block</div>
-                        <code>{cond.condition}</code>
-                     </div>
-                  ))}
-               </div>
-           </div>
-
-           {/* Right Sidebar: Template Controls */}
-           {showRightSidebar && (
-               <div className="w-80 bg-dark-950 border-l border-dark-700 flex flex-col z-20 shadow-lg animate-in slide-in-from-right-5">
-                  <div className="flex border-b border-dark-800 bg-dark-900">
-                     <button 
-                       onClick={() => setEditorSidebarTab('variables')}
-                       className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors relative ${editorSidebarTab === 'variables' ? 'text-brand-400 bg-brand-500/5' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                       <Braces size={16} className="mx-auto mb-1"/> Vars
-                       {editorSidebarTab === 'variables' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-500"></div>}
-                     </button>
-                     <button 
-                       onClick={() => setEditorSidebarTab('conditions')}
-                       className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors relative ${editorSidebarTab === 'conditions' ? 'text-blue-400 bg-blue-500/5' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                       <GitBranch size={16} className="mx-auto mb-1"/> Logic
-                       {editorSidebarTab === 'conditions' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500"></div>}
-                     </button>
-                     <button 
-                       onClick={() => setEditorSidebarTab('redaction')}
-                       className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors relative ${editorSidebarTab === 'redaction' ? 'text-red-400 bg-red-500/5' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                       <EyeOff size={16} className="mx-auto mb-1"/> Mask
-                       {editorSidebarTab === 'redaction' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-500"></div>}
-                     </button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
-                     {editorSidebarTab === 'variables' && (
-                        <div className="space-y-6">
-                           <div className="p-4 bg-brand-500/10 border border-brand-500/20 rounded-xl text-xs text-brand-300 shadow-sm">
-                              <h4 className="font-bold mb-1 flex items-center gap-2"><MousePointer2 size={14}/> Drag & Drop</h4>
-                              Drag variables directly onto the canvas to insert dynamic fields.
-                           </div>
-                           
-                           <div>
-                              <div className="flex justify-between items-center mb-3">
-                                  <h4 className="text-xs font-bold text-slate-500 uppercase">System Variables</h4>
-                                  <button className="text-[10px] text-brand-500 font-bold hover:underline">+ New</button>
-                              </div>
-                              <div className="space-y-2">
-                                 {MOCK_TABLES[0].fields.map(field => (
-                                    <div key={field.id} draggable className="flex items-center gap-3 p-3 bg-dark-900 border border-dark-700 rounded-lg cursor-grab active:cursor-grabbing hover:border-brand-500/50 transition-all group">
-                                       <div className="p-1.5 bg-dark-800 rounded text-slate-500 group-hover:text-brand-400">
-                                          <Braces size={14}/>
-                                       </div>
-                                       <div>
-                                          <p className="text-sm font-medium text-slate-200">{field.name}</p>
-                                          <p className="text-[10px] text-slate-500 font-mono">{`{{${field.key}}}`}</p>
-                                       </div>
-                                    </div>
-                                 ))}
-                              </div>
-                           </div>
-                        </div>
-                     )}
-
-                     {editorSidebarTab === 'conditions' && (
-                        <div className="space-y-5">
-                           <Button variant="secondary" className="w-full border-dashed border-dark-700 text-slate-400 hover:text-white hover:border-slate-500"><Plus size={14} className="mr-2"/> New Condition Block</Button>
-                           <div className="space-y-3">
-                              {activeTemplate.conditions.map(cond => (
-                                 <div key={cond.id} className="p-4 bg-dark-900 border border-dark-700 rounded-xl shadow-sm hover:border-blue-500/50 transition-all cursor-pointer group">
-                                    <div className="flex justify-between items-center mb-2">
-                                       <span className="font-bold text-slate-200 text-sm group-hover:text-blue-400">{cond.name}</span>
-                                       <div className="p-1 bg-blue-500/10 rounded text-blue-400"><GitBranch size={12}/></div>
-                                    </div>
-                                    <code className="text-[10px] bg-dark-950 px-2 py-1 rounded text-slate-400 font-mono block mb-2 border border-dark-800">{cond.condition}</code>
-                                    <div className="text-xs text-slate-500 line-clamp-2">Content: "{cond.content}"</div>
-                                 </div>
-                              ))}
-                           </div>
-                        </div>
-                     )}
-
-                     {editorSidebarTab === 'redaction' && (
-                        <div className="space-y-5">
-                           <div className="space-y-3">
-                              <h4 className="text-xs font-bold text-slate-500 uppercase">Active Rules</h4>
-                              {activeTemplate.redactionRules.map(rule => (
-                                 <div key={rule.id} className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                    <div className="flex justify-between items-start mb-2">
-                                       <Badge color="red">{rule.role}</Badge>
-                                       <button className="text-slate-400 hover:text-red-500"><X size={14}/></button>
-                                    </div>
-                                    <div className="flex gap-2 text-xs text-slate-300">
-                                       <EyeOff size={14} className="text-red-400 mt-0.5"/>
-                                       {rule.description}
-                                    </div>
-                                 </div>
-                              ))}
-                           </div>
-                        </div>
-                     )}
-                  </div>
-                  
-                  <div className="p-4 bg-dark-900 border-t border-dark-800">
-                      <button 
-                        className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${showSmartAssist ? 'bg-brand-500 text-white' : 'bg-dark-800 text-slate-400 hover:text-white'}`}
-                        onClick={() => setShowSmartAssist(!showSmartAssist)}
-                      >
-                        <Sparkles size={14}/> {showSmartAssist ? 'AI Suggestions Active' : 'Enable AI Assist'}
-                      </button>
-                  </div>
-               </div>
-           )}
-        </div>
-      </div>
+      <TemplateEditor 
+        key={selectedTemplate.id} 
+        template={selectedTemplate} 
+        onSave={handleSave} 
+        onBack={() => { setView('list'); setSelectedTemplate(null); }} 
+      />
     );
   }
 
-  // --- LIST VIEW (LIBRARY) ---
   return (
     <div className="space-y-6">
-      {/* Top Tab Switcher */}
-      <div className="bg-dark-900 p-1 rounded-xl inline-flex border border-dark-700 mb-2">
-         <button 
-           onClick={() => setActiveTab('library')}
-           className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'library' ? 'bg-dark-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-         >
-           <LayoutTemplate size={16}/> Template Library
-         </button>
-         <button 
-           onClick={() => setActiveTab('harmonization')}
-           className="px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 text-slate-400 hover:text-white"
-         >
-           <Sparkles size={16}/> Harmonization Lab
-         </button>
-      </div>
-
-      {/* Library Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-dark-900/50 p-6 rounded-2xl border border-dark-700">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight mb-1">Available Templates</h2>
-          <p className="text-slate-400 text-sm">Manage, edit, and deploy standard agreements.</p>
-        </div>
-        <div className="flex gap-3">
-           <Button variant="secondary" className="flex items-center gap-2" onClick={() => setShowImportModal(true)}><Upload size={16}/> Import</Button>
-           <Button variant="primary" className="flex items-center gap-2 shadow-lg shadow-brand-500/20" onClick={handleCreate}><Plus size={16}/> Create Blank</Button>
-        </div>
-      </div>
-
-      {/* Filters & Search */}
-      <div className="flex items-center gap-4">
-         <div className="flex bg-dark-900 rounded-lg p-1 border border-dark-700">
-             {['All', 'NDA', 'MSA', 'SOW', 'Vendor'].map(cat => (
-                <button 
-                  key={cat}
-                  onClick={() => setFilterCategory(cat)}
-                  className={`px-4 py-2 text-xs font-bold rounded-md transition-all ${filterCategory === cat ? 'bg-dark-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  {cat}
-                </button>
-             ))}
-         </div>
-         
-         <div className="relative w-48">
-            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-            <Input 
-                placeholder="Filter by tag..." 
-                className="pl-9 h-10 bg-dark-900 text-xs" 
-                value={filterTag} 
-                onChange={(e) => setFilterTag(e.target.value)}
-            />
-         </div>
-
-         <div className="flex-1"></div>
-         <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-            <Input placeholder="Search templates..." className="pl-9 h-10 bg-dark-900" />
-         </div>
-      </div>
-
-      {/* Template Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-         {filteredTemplates.map(tpl => (
-            <TemplateCard key={tpl.id} template={tpl} onEdit={handleEdit} />
-         ))}
-         
-         {/* Empty State / Create New Placeholder */}
-         <button onClick={handleCreate} className="border-2 border-dashed border-dark-700 rounded-xl flex flex-col items-center justify-center p-8 text-slate-500 hover:border-brand-500/50 hover:text-brand-400 hover:bg-brand-500/5 transition-all duration-300 min-h-[220px] group">
-            <div className="w-12 h-12 rounded-full bg-dark-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
-               <Plus size={24} />
+        {/* Header */}
+        <div className="flex justify-between items-center">
+            <div>
+                <h2 className="text-2xl font-bold text-white tracking-tight">Document Templates</h2>
+                <p className="text-slate-400">Manage standard legal agreements and clauses.</p>
             </div>
-            <span className="font-bold">Create New Template</span>
-            <span className="text-xs mt-1 opacity-60 text-center">Start from scratch or use the Wizard</span>
-         </button>
-      </div>
+            <Button variant="primary" onClick={handleCreate} className="flex items-center gap-2"><Plus size={16}/> New Template</Button>
+        </div>
 
-      {/* Import Modal */}
-      {showImportModal && (
-          <ImportTemplateModal 
-              onClose={() => setShowImportModal(false)}
-              onImport={handleImport}
-          />
-      )}
+        {/* Template Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {templates.map(t => (
+                <Card key={t.id} className="group hover:border-brand-500/30 transition-all cursor-pointer hover:-translate-y-1" onClick={() => handleEdit(t)}>
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-dark-950 rounded-lg border border-dark-700 text-brand-400 group-hover:text-white group-hover:bg-brand-500/20 transition-colors">
+                            <FileText size={24}/>
+                        </div>
+                        <Badge color={t.status === 'Active' ? 'green' : 'yellow'}>{t.status}</Badge>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-1">{t.name}</h3>
+                    <p className="text-xs text-slate-500 mb-4">{t.category} • v{t.version}</p>
+                    <div className="text-[10px] text-slate-500 flex items-center gap-2">
+                        <History size={12}/> Last modified {t.lastModified}
+                    </div>
+                </Card>
+            ))}
+        </div>
     </div>
   );
 };

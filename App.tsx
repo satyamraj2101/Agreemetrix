@@ -19,6 +19,7 @@ import LegacyMigration from './pages/LegacyMigration';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import UserManagement from './pages/UserManagement';
+import Reports from './pages/Reports';
 
 const App: React.FC = () => {
   return (
@@ -32,6 +33,7 @@ const App: React.FC = () => {
         {/* Protected App Routes */}
         <Route element={<Layout><Outlet /></Layout>}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/bi" element={<BusinessIntelligence />} />
           <Route path="/workflow-ai" element={<WorkflowBuilder />} />
           <Route path="/templates" element={<DocumentTemplates />} />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { WorkflowNode, ConditionRule, WorkflowStageDefinition } from '../../types';
 import { Input, Select, Button, Badge, Switch, Avatar } from '../UIComponents';
@@ -172,7 +171,7 @@ const FieldMapper: React.FC<{
         <div className="space-y-2 bg-dark-950 border border-dark-700 rounded-xl p-3">
             <div className="flex justify-between items-center mb-2">
                 <h5 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><LinkIcon size={12}/> Field Map</h5>
-                <button onClick={addMapping} className="text-[10px] text-brand-400 hover:underline">+ Add Field</button>
+                <button onClick={() => addMapping()} className="text-[10px] text-brand-400 hover:underline">+ Add Field</button>
             </div>
             {Object.entries(mappings || {}).map(([key, val], i) => (
                 <div key={i} className="flex gap-2 items-center">
@@ -180,12 +179,12 @@ const FieldMapper: React.FC<{
                         className="flex-1 bg-dark-900 border border-dark-800 rounded px-2 py-1.5 text-xs text-white" 
                         placeholder="External Field"
                         value={key}
-                        onChange={(e) => updateMapping(key, e.target.value, val)}
+                        onChange={(e) => updateMapping(key, e.target.value, val as string)}
                     />
                     <span className="text-slate-600">→</span>
                     <select 
                         className="flex-1 bg-dark-900 border border-dark-800 rounded px-2 py-1.5 text-xs text-slate-300"
-                        value={val}
+                        value={val as string}
                         onChange={(e) => updateMapping(key, key, e.target.value)}
                     >
                         <option value="">Select Var...</option>
