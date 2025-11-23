@@ -1,22 +1,24 @@
 
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Badge, Input, Button, Select } from '../components/UIComponents';
-import { MOCK_CONTRACTS } from '../mock/data';
-import { Contract, ContractStatus } from '../types';
+import { MOCK_CONTRACTS, MOCK_OBLIGATIONS } from '../mock/data';
+import { Contract, ContractStatus, Obligation } from '../types';
 import { 
   Filter, Search, Download, FileText, MoreVertical, 
   Calendar, DollarSign, Shield, User, ArrowUpRight,
   CheckCircle, XCircle, Clock, Activity, Share2, Eye, 
-  AlertTriangle, FileCheck, Zap, X, ChevronRight
+  AlertTriangle, FileCheck, Zap, X, ChevronRight,
+  LayoutGrid, List as ListIcon, Sliders, CheckSquare,
+  Bell, Maximize2, Sparkles, Printer, ZoomIn, ZoomOut, ArrowRight
 } from 'lucide-react';
 
-// Helper for status colors
 const getStatusColor = (status: ContractStatus) => {
   switch (status) {
     case ContractStatus.SIGNED: return 'green';
+    case ContractStatus.ACTIVE: return 'green';
     case ContractStatus.REVIEW: return 'blue';
+    case ContractStatus.NEGOTIATION: return 'purple';
     case ContractStatus.APPROVAL: return 'yellow';
     case ContractStatus.DRAFT: return 'gray';
     case ContractStatus.EXPIRED: return 'red';
@@ -24,362 +26,476 @@ const getStatusColor = (status: ContractStatus) => {
   }
 };
 
-// --- COMPONENTS ---
+// --- SUB-COMPONENTS ---
 
-const ContractSnapshotModal: React.FC<{ contract: Contract; onClose: () => void }> = ({ contract, onClose }) => {
-  const navigate = useNavigate();
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-dark-900 w-full max-w-4xl rounded-2xl border border-dark-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 relative">
-        
-        {/* Header Background Pattern */}
-        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-brand-900/20 to-purple-900/20 z-0"></div>
-        <div className="absolute top-0 right-0 p-32 bg-brand-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-
-        {/* Modal Header */}
-        <div className="relative z-10 p-6 border-b border-white/5 flex justify-between items-start">
-          <div className="flex gap-4">
-            <div className="w-16 h-16 rounded-xl bg-dark-800 border border-dark-700 flex items-center justify-center shadow-lg">
-               <FileText size={32} className="text-brand-400" />
+const ContractQuickViewModal: React.FC<{ contract: Contract; onClose: () => void }> = ({ contract, onClose }) => (
+    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-dark-950 w-full max-w-6xl h-[85vh] rounded-3xl border border-dark-700 shadow-2xl flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-300">
+            
+            {/* Header */}
+            <div className="h-16 border-b border-dark-700 bg-dark-900/50 flex items-center justify-between px-6 shrink-0">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                        <FileText size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white leading-tight">{contract.title}</h2>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <span className="font-mono">{contract.id}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1"><User size={10}/> {contract.counterparty}</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Badge color={getStatusColor(contract.status)} className="mr-2">{contract.status}</Badge>
+                    <button className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><Printer size={18}/></button>
+                    <button className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><Share2 size={18}/></button>
+                    <div className="h-6 w-px bg-dark-700 mx-2"></div>
+                    <button onClick={onClose} className="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"><X size={20}/></button>
+                </div>
             </div>
-            <div>
-               <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-xl font-bold text-white tracking-tight">{contract.title}</h2>
-                  <Badge color={getStatusColor(contract.status)}>{contract.status}</Badge>
-               </div>
-               <p className="text-sm text-slate-400 flex items-center gap-2">
-                  <User size={14}/> {contract.counterparty}
-                  <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                  <span className="font-mono text-xs opacity-70">{contract.id}</span>
-               </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
-             <X size={24} />
-          </button>
-        </div>
 
-        {/* Modal Body */}
-        <div className="relative z-10 flex-1 overflow-y-auto p-6 custom-scrollbar">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Left Column: Metadata */}
-              <div className="lg:col-span-2 space-y-6">
-                 {/* Key Metrics */}
-                 <div className="grid grid-cols-3 gap-4">
-                    <div className="p-4 bg-dark-950/50 rounded-xl border border-dark-700">
-                       <p className="text-xs text-slate-500 font-bold uppercase mb-1">Total Value</p>
-                       <p className="text-xl font-bold text-white font-mono">${contract.value.toLocaleString()}</p>
+            {/* Body */}
+            <div className="flex-1 flex overflow-hidden">
+                
+                {/* Left Panel: Intelligence */}
+                <div className="w-80 lg:w-96 border-r border-dark-700 bg-dark-900/30 flex flex-col overflow-y-auto custom-scrollbar p-6 gap-6">
+                    
+                    {/* AI Insight Card */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-900/20 to-dark-900 border border-purple-500/20 shadow-inner relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-8 bg-purple-500/10 blur-2xl rounded-full -mr-4 -mt-4"></div>
+                        <div className="relative z-10">
+                            <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-2 mb-2">
+                                <Sparkles size={12}/> AI Insight
+                            </h4>
+                            <p className="text-sm text-slate-200 leading-relaxed">
+                                This contract has a <strong className="text-white">high risk score ({contract.riskScore})</strong> due to non-standard liability terms. Auto-renewal is active.
+                            </p>
+                        </div>
                     </div>
-                    <div className="p-4 bg-dark-950/50 rounded-xl border border-dark-700">
-                       <p className="text-xs text-slate-500 font-bold uppercase mb-1">Risk Score</p>
-                       <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${contract.riskScore > 50 ? 'bg-red-500' : 'bg-green-500'}`}></div>
-                          <p className={`text-xl font-bold ${contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}`}>{contract.riskScore}/100</p>
-                       </div>
-                    </div>
-                    <div className="p-4 bg-dark-950/50 rounded-xl border border-dark-700">
-                       <p className="text-xs text-slate-500 font-bold uppercase mb-1">Renewal</p>
-                       <p className="text-sm font-medium text-slate-200 flex items-center gap-2 h-7">
-                          <Calendar size={14} className="text-brand-400"/> {contract.renewalDate}
-                       </p>
-                    </div>
-                 </div>
 
-                 {/* AI Summary Section */}
-                 <div className="p-5 bg-brand-500/5 border border-brand-500/10 rounded-xl">
-                    <h3 className="text-sm font-bold text-brand-100 flex items-center gap-2 mb-3">
-                       <Zap size={16} className="text-brand-400" /> AI Executive Summary
-                    </h3>
-                    <p className="text-sm text-slate-300 leading-relaxed">
-                       This <strong>{contract.type}</strong> with <strong>{contract.counterparty}</strong> is currently in the <strong>{contract.status}</strong> stage. 
-                       Key obligations include a standard Net 45 payment term and a mutual non-solicitation clause. 
-                       {contract.riskScore > 50 
-                          ? ' Caution is advised due to non-standard liability caps detected in Section 4.' 
-                          : ' The agreement largely follows standard playbook terms with low deviation.'}
-                    </p>
-                 </div>
-
-                 {/* Recent Activity Mock */}
-                 <div>
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Recent Activity</h3>
-                    <div className="space-y-3">
-                       <div className="flex gap-3 items-start">
-                          <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0 text-xs font-bold">JD</div>
-                          <div className="bg-dark-950 border border-dark-700 p-3 rounded-lg rounded-tl-none flex-1">
-                             <p className="text-xs text-slate-300"><span className="font-bold text-white">John Doe</span> viewed the document.</p>
-                             <p className="text-[10px] text-slate-500 mt-1">2 hours ago</p>
-                          </div>
-                       </div>
-                       <div className="flex gap-3 items-start">
-                          <div className="w-8 h-8 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-400 shrink-0">
-                             <Zap size={14} />
-                          </div>
-                          <div className="bg-dark-950 border border-dark-700 p-3 rounded-lg rounded-tl-none flex-1">
-                             <p className="text-xs text-slate-300"><span className="font-bold text-brand-400">Agreemetrix AI</span> flagged a potential risk in Clause 12.3.</p>
-                             <p className="text-[10px] text-slate-500 mt-1">5 hours ago</p>
-                          </div>
-                       </div>
+                    {/* Scorecard */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 bg-dark-900 rounded-xl border border-dark-700 flex flex-col items-center justify-center text-center">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Total Value</p>
+                            <p className="text-lg font-bold text-white font-mono">${contract.value.toLocaleString()}</p>
+                        </div>
+                        <div className="p-4 bg-dark-900 rounded-xl border border-dark-700 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                            <div className={`absolute bottom-0 left-0 h-1 w-full ${contract.riskScore > 50 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Risk Score</p>
+                            <p className={`text-lg font-bold ${contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}`}>{contract.riskScore}/100</p>
+                        </div>
                     </div>
-                 </div>
-              </div>
 
-              {/* Right Column: Actions & Details */}
-              <div className="space-y-6">
-                 <div className="p-4 bg-dark-950 rounded-xl border border-dark-700 space-y-3">
-                    <Button variant="primary" className="w-full justify-center shadow-lg shadow-brand-500/20" onClick={() => navigate(`/contract/${contract.id}`)}>
-                       View Complete Contract Details <ArrowUpRight size={16} className="ml-2"/>
-                    </Button>
-                    <div className="grid grid-cols-2 gap-2">
-                       <Button variant="secondary" className="w-full justify-center text-xs"><Download size={14} className="mr-2"/> PDF</Button>
-                       <Button variant="secondary" className="w-full justify-center text-xs"><Share2 size={14} className="mr-2"/> Share</Button>
-                    </div>
-                 </div>
-
-                 <div>
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Required Actions</h3>
-                    <div className="space-y-2">
-                       {contract.status === ContractStatus.REVIEW ? (
-                          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-3">
-                             <Clock size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                             <div>
-                                <p className="text-sm font-bold text-blue-100">Pending Review</p>
-                                <p className="text-xs text-blue-200/70 mt-1">Legal team needs to approve redlines.</p>
-                                <button className="mt-2 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md transition-colors">Review Now</button>
-                             </div>
-                          </div>
-                       ) : contract.status === ContractStatus.APPROVAL ? (
-                          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
-                             <CheckCircle size={16} className="text-yellow-400 shrink-0 mt-0.5" />
-                             <div>
-                                <p className="text-sm font-bold text-yellow-100">Awaiting Approval</p>
-                                <p className="text-xs text-yellow-200/70 mt-1">CFO approval required for value > $100k.</p>
-                                <div className="flex gap-2 mt-2">
-                                   <button className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-md transition-colors">Approve</button>
-                                   <button className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-md transition-colors">Reject</button>
+                    {/* Key Dates Timeline */}
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Critical Dates</h4>
+                        <div className="space-y-4 relative pl-2">
+                            <div className="absolute left-[5px] top-1 bottom-1 w-px bg-dark-700"></div>
+                            
+                            <div className="flex gap-3 relative">
+                                <div className="w-2.5 h-2.5 rounded-full bg-brand-500 border-2 border-dark-950 z-10 mt-1"></div>
+                                <div>
+                                    <p className="text-xs text-slate-400">Start Date</p>
+                                    <p className="text-sm font-bold text-white">{contract.startDate}</p>
                                 </div>
-                             </div>
-                          </div>
-                       ) : (
-                          <div className="p-3 bg-dark-950 border border-dark-700 rounded-lg flex items-center justify-center text-slate-500 text-xs italic">
-                             No immediate actions required.
-                          </div>
-                       )}
+                            </div>
+                            <div className="flex gap-3 relative">
+                                <div className="w-2.5 h-2.5 rounded-full bg-dark-700 border-2 border-dark-950 z-10 mt-1"></div>
+                                <div>
+                                    <p className="text-xs text-slate-400">Renewal Deadline</p>
+                                    <p className="text-sm font-bold text-white">{contract.renewalDate}</p>
+                                    <Badge color="yellow" className="mt-1 text-[9px] px-1.5 py-0">Auto-Renews</Badge>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                 </div>
 
-                 <div className="space-y-2">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Details</h3>
-                    <div className="flex justify-between text-xs border-b border-white/5 pb-2">
-                       <span className="text-slate-400">Owner</span>
-                       <span className="text-white">{contract.owner}</span>
+                    {/* Obligations Teaser */}
+                    <div className="bg-dark-900 border border-dark-700 rounded-xl p-1">
+                       <div className="px-4 py-3 border-b border-dark-800 flex justify-between items-center">
+                          <span className="text-xs font-bold text-white">Obligations</span>
+                          <span className="text-xs text-slate-500">{contract.obligations?.length || 0} Active</span>
+                       </div>
+                       <div className="p-2 space-y-1">
+                          {(contract.obligations || []).slice(0, 2).map(ob => (
+                             <div key={ob.id} className="flex items-center gap-2 p-2 rounded hover:bg-dark-800/50 transition-colors">
+                                <div className={`w-1.5 h-1.5 rounded-full ${ob.priority === 'High' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+                                <span className="text-xs text-slate-300 truncate flex-1">{ob.title}</span>
+                                <span className="text-[10px] text-slate-500">{ob.dueDate}</span>
+                             </div>
+                          ))}
+                          {(!contract.obligations || contract.obligations.length === 0) && <div className="p-2 text-xs text-slate-500 text-center">No obligations tracked.</div>}
+                       </div>
                     </div>
-                    <div className="flex justify-between text-xs border-b border-white/5 pb-2">
-                       <span className="text-slate-400">Start Date</span>
-                       <span className="text-white">{contract.startDate}</span>
+
+                </div>
+
+                {/* Right Panel: Document Preview */}
+                <div className="flex-1 bg-dark-950 flex flex-col relative">
+                    {/* Preview Toolbar */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-dark-900/90 backdrop-blur border border-dark-700 rounded-full py-1.5 px-4 flex items-center gap-4 z-20 shadow-xl">
+                        <span className="text-xs text-slate-400 font-medium">Page 1 of 5</span>
+                        <div className="h-3 w-px bg-dark-700"></div>
+                        <button className="text-slate-400 hover:text-white transition-colors"><ZoomOut size={14}/></button>
+                        <button className="text-slate-400 hover:text-white transition-colors"><ZoomIn size={14}/></button>
                     </div>
-                    <div className="flex justify-between text-xs border-b border-white/5 pb-2">
-                       <span className="text-slate-400">Contract Type</span>
-                       <span className="text-white">{contract.type}</span>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8 bg-dark-950 relative flex justify-center">
+                        {/* Paper Mockup */}
+                        <div className="bg-white text-black w-[600px] min-h-[800px] shadow-[0_0_50px_rgba(0,0,0,0.5)] p-12 relative origin-top transition-transform duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-slate-100 to-white shadow-sm transform rotate-0"></div>
+                            
+                            {/* Header */}
+                            <div className="text-center mb-8">
+                                <h1 className="text-2xl font-serif font-bold uppercase tracking-widest mb-2">{contract.type} AGREEMENT</h1>
+                                <p className="text-[10px] font-serif text-slate-500">Reference No: {contract.id}</p>
+                            </div>
+
+                            {/* Body */}
+                            <div className="space-y-4 text-[10px] font-serif leading-relaxed text-justify">
+                                <p><strong>THIS AGREEMENT</strong> is made on <strong>{contract.startDate}</strong> between:</p>
+                                <p>
+                                    (1) <strong>Agreemetrix Inc.</strong>, a company incorporated in Delaware with registered number 123456 whose registered office is at 123 AI Blvd, San Francisco, CA ("Provider"); and<br/>
+                                    (2) <strong>{contract.counterparty}</strong>, a company incorporated in [Region] whose registered office is at [Address] ("Client").
+                                </p>
+                                
+                                <h2 className="text-sm font-bold mt-6 uppercase border-b border-black pb-1">1. Definitions</h2>
+                                <p>1.1 "Confidential Information" means all information disclosed by one party to the other...</p>
+                                <p>1.2 "Services" means the software services provided by the Provider as described in Schedule 1.</p>
+
+                                <h2 className="text-sm font-bold mt-6 uppercase border-b border-black pb-1">2. Term and Termination</h2>
+                                <p>2.1 This Agreement shall commence on the Effective Date and shall continue for an initial term of 12 months.</p>
+                                <p>2.2 Either party may terminate this Agreement with 30 days written notice prior to the renewal date.</p>
+
+                                <h2 className="text-sm font-bold mt-6 uppercase border-b border-black pb-1">3. Fees and Payment</h2>
+                                <p>3.1 The Client shall pay the Provider the Fees set out in the Order Form. Total Value: <strong>${contract.value.toLocaleString()}</strong>.</p>
+                                <p>3.2 All invoices are payable within 30 days of the invoice date.</p>
+                            </div>
+
+                            {/* Signatures */}
+                            <div className="mt-12 pt-8 border-t border-black flex justify-between">
+                                <div className="w-1/3">
+                                    <p className="text-[9px] uppercase font-bold mb-4">Signed for and on behalf of<br/>Agreemetrix Inc.</p>
+                                    <div className="h-8 border-b border-black mb-1"></div>
+                                    <p className="text-[8px]">Authorised Signatory</p>
+                                </div>
+                                <div className="w-1/3">
+                                    <p className="text-[9px] uppercase font-bold mb-4">Signed for and on behalf of<br/>{contract.counterparty}</p>
+                                    {contract.status === 'Signed' ? (
+                                        <div className="h-8 border-b border-black mb-1 font-script text-lg relative">
+                                            <span className="absolute bottom-1 left-0 text-blue-800">John Doe</span>
+                                        </div>
+                                    ) : (
+                                        <div className="h-8 border-b border-black mb-1"></div>
+                                    )}
+                                    <p className="text-[8px]">Authorised Signatory</p>
+                                </div>
+                            </div>
+
+                            {/* Watermark */}
+                            {(contract.status === 'Draft' || contract.status === 'Negotiation') && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                                    <div className="text-[120px] font-black text-red-500/10 -rotate-45 uppercase tracking-widest border-4 border-red-500/10 p-10 rounded-xl">
+                                        {contract.status}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                 </div>
-              </div>
-           </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-dark-700 bg-dark-900/50 flex justify-between items-center shrink-0">
+                <div className="text-xs text-slate-500">
+                    Last synchronized with repository: <span className="text-slate-300">Just now</span>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="ghost" onClick={onClose} className="text-xs">Close Preview</Button>
+                    <Link to={`/contract/${contract.id}`}>
+                        <Button variant="primary" className="text-xs shadow-lg shadow-brand-500/20">
+                            Open Full Contract <ArrowRight size={14} className="ml-2"/>
+                        </Button>
+                    </Link>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-  );
+);
+
+const FacetedSearchSidebar: React.FC<{ filters: any; setFilters: (f: any) => void }> = ({ filters, setFilters }) => {
+    return (
+        <div className="w-64 shrink-0 border-r border-dark-700 bg-dark-900/50 p-4 space-y-6 hidden lg:block custom-scrollbar overflow-y-auto h-full">
+            <div className="flex items-center gap-2 font-bold text-white text-sm mb-2">
+                <Filter size={16} className="text-brand-400"/> Filters
+            </div>
+            
+            {/* Status */}
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Status</label>
+                <div className="space-y-1">
+                    {Object.values(ContractStatus).map(s => (
+                        <label key={s} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white">
+                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500 focus:ring-offset-dark-900"/>
+                            {s}
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Contract Type</label>
+                <div className="space-y-1">
+                    {['MSA', 'NDA', 'SOW', 'Vendor', 'License'].map(t => (
+                        <label key={t} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white">
+                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500 focus:ring-offset-dark-900"/>
+                            {t}
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            {/* Value Range */}
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Value Range</label>
+                <div className="flex items-center gap-2">
+                    <Input placeholder="Min" className="h-8 text-xs bg-dark-950"/>
+                    <span className="text-slate-500">-</span>
+                    <Input placeholder="Max" className="h-8 text-xs bg-dark-950"/>
+                </div>
+            </div>
+
+            {/* Risk */}
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Risk Score</label>
+                <div className="space-y-1">
+                    <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> High ({'>'}75)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> Medium (50-75)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> Low ({'<'}50)
+                    </label>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ObligationsView: React.FC<{ obligations: Obligation[] }> = ({ obligations }) => {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in">
+            {obligations.map(obl => (
+                <div key={obl.id} className="bg-dark-900 border border-dark-700 rounded-xl p-4 hover:border-brand-500/30 transition-all group">
+                    <div className="flex justify-between items-start mb-3">
+                        <Badge color={obl.priority === 'High' ? 'red' : obl.priority === 'Medium' ? 'yellow' : 'blue'}>{obl.priority}</Badge>
+                        <div className={`p-1.5 rounded-lg ${obl.status === 'Completed' ? 'bg-green-500/10 text-green-400' : 'bg-slate-800 text-slate-400'}`}>
+                            {obl.status === 'Completed' ? <CheckCircle size={16}/> : <Clock size={16}/>}
+                        </div>
+                    </div>
+                    <h4 className="text-sm font-bold text-white mb-1 line-clamp-2">{obl.title}</h4>
+                    <p className="text-xs text-slate-500 mb-4">Owner: {obl.owner}</p>
+                    
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                        <div className="flex items-center gap-2 text-xs text-slate-300">
+                            <Calendar size={14} className={new Date(obl.dueDate) < new Date() ? 'text-red-400' : 'text-slate-500'}/>
+                            {obl.dueDate}
+                        </div>
+                        <button className="text-xs font-bold text-brand-400 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            ))}
+            {obligations.length === 0 && (
+                <div className="col-span-3 text-center py-12 text-slate-500 border-2 border-dashed border-dark-800 rounded-xl">
+                    <CheckSquare size={32} className="mx-auto mb-3 opacity-20"/>
+                    <p>No active obligations found matching filters.</p>
+                </div>
+            )}
+        </div>
+    );
 };
 
 const Repository: React.FC = () => {
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [quickViewContract, setQuickViewContract] = useState<Contract | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [activeTab, setActiveTab] = useState<'contracts' | 'obligations'>('contracts');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-
-  // Mock Filters logic
-  const filteredContracts = MOCK_CONTRACTS.filter(contract => {
-     const matchesSearch = contract.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           contract.counterparty.toLowerCase().includes(searchTerm.toLowerCase());
-     const matchesStatus = statusFilter === 'All' || contract.status === statusFilter;
-     return matchesSearch && matchesStatus;
-  });
+  const [filters, setFilters] = useState({});
 
   // Quick Stats
-  const totalValue = filteredContracts.reduce((acc, curr) => acc + curr.value, 0);
-  const activeCount = filteredContracts.filter(c => c.status !== ContractStatus.DRAFT && c.status !== ContractStatus.EXPIRED).length;
-  const riskCount = filteredContracts.filter(c => c.riskScore > 50).length;
+  const totalValue = MOCK_CONTRACTS.reduce((acc, curr) => acc + curr.value, 0);
+  const riskCount = MOCK_CONTRACTS.filter(c => c.riskScore > 50).length;
+  const pendingObligations = MOCK_OBLIGATIONS.filter(o => o.status === 'Pending').length;
 
   return (
-    <div className="space-y-8 pb-10">
-      
-      {/* Page Header with Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-         <div className="col-span-1 md:col-span-2 flex flex-col justify-center">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Contract Repository</h1>
-            <p className="text-slate-400">Centralized secure storage for all legal agreements.</p>
+    <div className="h-[calc(100vh-8rem)] flex flex-col">
+      {/* Header Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 shrink-0">
+         <div className="bg-dark-900/50 border border-dark-700 rounded-xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 rounded-lg text-blue-400"><FileText size={24}/></div>
+            <div><p className="text-xs text-slate-500 font-bold uppercase">Total Contracts</p><h3 className="text-2xl font-bold text-white">{MOCK_CONTRACTS.length}</h3></div>
          </div>
-         <div className="bg-dark-900/50 border border-dark-700 rounded-xl p-4 flex items-center justify-between backdrop-blur-sm">
-            <div>
-               <p className="text-xs text-slate-500 font-bold uppercase">Active Portfolio Value</p>
-               <p className="text-lg font-bold text-white font-mono">${(totalValue/1000).toFixed(1)}k</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center">
-               <DollarSign size={20} />
-            </div>
+         <div className="bg-dark-900/50 border border-dark-700 rounded-xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-green-500/10 rounded-lg text-green-400"><DollarSign size={24}/></div>
+            <div><p className="text-xs text-slate-500 font-bold uppercase">Portfolio Value</p><h3 className="text-2xl font-bold text-white">${(totalValue/1000).toFixed(1)}k</h3></div>
          </div>
-         <div className="bg-dark-900/50 border border-dark-700 rounded-xl p-4 flex items-center justify-between backdrop-blur-sm">
-            <div>
-               <p className="text-xs text-slate-500 font-bold uppercase">High Risk Contracts</p>
-               <p className="text-lg font-bold text-red-400 font-mono">{riskCount}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center">
-               <AlertTriangle size={20} />
-            </div>
+         <div className="bg-dark-900/50 border border-dark-700 rounded-xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-red-500/10 rounded-lg text-red-400"><AlertTriangle size={24}/></div>
+            <div><p className="text-xs text-slate-500 font-bold uppercase">High Risk</p><h3 className="text-2xl font-bold text-white">{riskCount}</h3></div>
+         </div>
+         <div className="bg-dark-900/50 border border-dark-700 rounded-xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-yellow-500/10 rounded-lg text-yellow-400"><Bell size={24}/></div>
+            <div><p className="text-xs text-slate-500 font-bold uppercase">Obligations Due</p><h3 className="text-2xl font-bold text-white">{pendingObligations}</h3></div>
          </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="sticky top-0 z-20 bg-dark-950/80 backdrop-blur-md py-4 border-b border-dark-700 -mx-6 px-6 flex flex-col md:flex-row gap-4 justify-between items-center transition-all">
-         <div className="flex gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-80 group">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={18} />
-               <Input 
-                  placeholder="Search contracts, parties, metadata..." 
-                  className="pl-10 bg-dark-900 border-dark-700 focus:border-brand-500 shadow-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)} 
-               />
-            </div>
-            <div className="w-40">
-               <Select 
-                  options={[
-                     {label: 'All Statuses', value: 'All'},
-                     {label: 'Draft', value: ContractStatus.DRAFT},
-                     {label: 'In Review', value: ContractStatus.REVIEW},
-                     {label: 'Pending Approval', value: ContractStatus.APPROVAL},
-                     {label: 'Signed', value: ContractStatus.SIGNED},
-                  ]} 
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-               />
-            </div>
-         </div>
-         <div className="flex gap-3 w-full md:w-auto justify-end">
-            <Button variant="secondary" className="hidden md:flex items-center gap-2"><Filter size={16} /> Advanced</Button>
-            <Button variant="secondary" className="flex items-center gap-2"><Download size={16} /> Export</Button>
-            <Button variant="primary" className="flex items-center gap-2 shadow-lg shadow-brand-500/20"><FileText size={16} /> New Contract</Button>
-         </div>
+      {/* Main Content Area */}
+      <div className="flex flex-1 overflow-hidden bg-dark-950 border border-dark-700 rounded-2xl shadow-2xl relative">
+          
+          {/* Sidebar Filters */}
+          <FacetedSearchSidebar filters={filters} setFilters={setFilters} />
+
+          {/* Results Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+              
+              {/* Toolbar */}
+              <div className="p-4 border-b border-dark-700 bg-dark-900/80 backdrop-blur-md flex flex-col md:flex-row gap-4 justify-between items-center z-10">
+                 <div className="flex gap-4 items-center w-full md:w-auto">
+                    <div className="flex bg-dark-950 rounded-lg p-1 border border-dark-800">
+                        <button 
+                            onClick={() => setActiveTab('contracts')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'contracts' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Contracts
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('obligations')}
+                            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'obligations' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Obligations
+                        </button>
+                    </div>
+                    <div className="relative w-full md:w-80 group">
+                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={16} />
+                       <Input 
+                          placeholder="Search repository..." 
+                          className="pl-10 bg-dark-950 border-dark-700 focus:border-brand-500 shadow-sm h-9"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)} 
+                       />
+                    </div>
+                 </div>
+                 <div className="flex gap-2 items-center">
+                    {activeTab === 'contracts' && (
+                        <div className="flex bg-dark-950 rounded-lg border border-dark-800 p-0.5">
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-dark-800 text-white' : 'text-slate-500'}`}><ListIcon size={16}/></button>
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-dark-800 text-white' : 'text-slate-500'}`}><LayoutGrid size={16}/></button>
+                        </div>
+                    )}
+                    <Button variant="secondary" className="h-9 text-xs"><Download size={14} className="mr-2"/> Export</Button>
+                    <Link to="/contract/new">
+                        <Button variant="primary" className="h-9 text-xs shadow-lg shadow-brand-500/20"><FileText size={14} className="mr-2"/> New</Button>
+                    </Link>
+                 </div>
+              </div>
+
+              {/* Content Grid/List */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 relative">
+                  {activeTab === 'contracts' ? (
+                      viewMode === 'list' ? (
+                          <div className="space-y-2">
+                              {/* Header */}
+                              <div className="grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-dark-900/50 rounded-lg mb-2">
+                                  <div className="col-span-4">Contract Name</div>
+                                  <div className="col-span-2">Status</div>
+                                  <div className="col-span-2">Value</div>
+                                  <div className="col-span-2">Risk</div>
+                                  <div className="col-span-2 text-right">Owner</div>
+                              </div>
+                              {MOCK_CONTRACTS.map(contract => (
+                                  <div key={contract.id} className="grid grid-cols-12 gap-4 px-4 py-3 bg-dark-900 border border-dark-700 rounded-lg items-center hover:border-brand-500/50 hover:bg-dark-800 transition-all group relative">
+                                      <div className="col-span-4">
+                                          <Link to={`/contract/${contract.id}`} className="font-bold text-white text-sm group-hover:text-brand-400 transition-colors hover:underline block">{contract.title}</Link>
+                                          <div className="text-xs text-slate-500 flex items-center gap-1"><User size={10}/> {contract.counterparty}</div>
+                                      </div>
+                                      <div className="col-span-2">
+                                          <Badge color={getStatusColor(contract.status)}>{contract.status}</Badge>
+                                      </div>
+                                      <div className="col-span-2 text-sm font-mono text-slate-300">
+                                          ${contract.value.toLocaleString()}
+                                      </div>
+                                      <div className="col-span-2">
+                                          <div className="flex items-center gap-2">
+                                              <div className="flex-1 h-1.5 bg-dark-950 rounded-full overflow-hidden">
+                                                  <div className={`h-full rounded-full ${contract.riskScore > 50 ? 'bg-red-500' : 'bg-green-500'}`} style={{width: `${contract.riskScore}%`}}></div>
+                                              </div>
+                                              <span className="text-xs font-bold text-slate-400">{contract.riskScore}</span>
+                                          </div>
+                                      </div>
+                                      <div className="col-span-2 text-right text-xs text-slate-400 flex items-center justify-end gap-2">
+                                          <span>{contract.owner}</span>
+                                          <button 
+                                            onClick={(e) => { e.preventDefault(); setQuickViewContract(contract); }}
+                                            className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Quick View"
+                                          >
+                                              <Maximize2 size={14}/>
+                                          </button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                              {MOCK_CONTRACTS.map(contract => (
+                                  <div key={contract.id} className="group bg-dark-900 border border-dark-700 rounded-xl p-5 hover:border-brand-500/50 transition-all hover:-translate-y-1 relative">
+                                      <div className="flex justify-between items-start mb-4">
+                                          <div className="p-2 bg-dark-800 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-brand-500/20 transition-colors">
+                                              <FileText size={20}/>
+                                          </div>
+                                          <Badge color={getStatusColor(contract.status)}>{contract.status}</Badge>
+                                      </div>
+                                      <Link to={`/contract/${contract.id}`} className="block">
+                                          <h4 className="text-sm font-bold text-white mb-1 truncate hover:text-brand-400 transition-colors">{contract.title}</h4>
+                                      </Link>
+                                      <p className="text-xs text-slate-500 mb-4">{contract.counterparty}</p>
+                                      <div className="flex justify-between items-end border-t border-dark-800 pt-3">
+                                          <div>
+                                              <p className="text-[10px] text-slate-500 uppercase font-bold">Value</p>
+                                              <p className="text-sm font-mono text-slate-200">${contract.value.toLocaleString()}</p>
+                                          </div>
+                                          <div className="text-right">
+                                              <p className="text-[10px] text-slate-500 uppercase font-bold">Risk</p>
+                                              <p className={`text-sm font-bold ${contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}`}>{contract.riskScore}</p>
+                                          </div>
+                                      </div>
+                                      <button 
+                                        onClick={(e) => { e.preventDefault(); setQuickViewContract(contract); }}
+                                        className="absolute top-4 right-20 p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Quick View"
+                                      >
+                                          <Maximize2 size={16}/>
+                                      </button>
+                                  </div>
+                              ))}
+                          </div>
+                      )
+                  ) : (
+                      <ObligationsView obligations={MOCK_OBLIGATIONS} />
+                  )}
+              </div>
+          </div>
       </div>
 
-      {/* Contracts List */}
-      <div className="space-y-3">
-         {/* Table Header */}
-         <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-            <div className="col-span-4">Contract Details</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-2">Value</div>
-            <div className="col-span-2">Risk</div>
-            <div className="col-span-2 text-right">Actions</div>
-         </div>
-
-         {filteredContracts.length === 0 ? (
-            <div className="text-center py-20 bg-dark-900/30 rounded-2xl border border-dark-700 border-dashed">
-               <FileText size={48} className="mx-auto text-slate-600 mb-4 opacity-50" />
-               <p className="text-slate-500 text-lg">No contracts found</p>
-               <p className="text-slate-600 text-sm">Try adjusting your filters or search terms.</p>
-            </div>
-         ) : (
-            filteredContracts.map((contract, index) => (
-               <div 
-                  key={contract.id}
-                  onClick={() => setSelectedContract(contract)}
-                  className="group relative bg-dark-900/40 border border-dark-700 hover:border-brand-500/50 hover:bg-dark-900 hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] rounded-xl p-4 md:p-0 transition-all duration-300 cursor-pointer overflow-hidden animate-in slide-in-from-bottom-2"
-                  style={{ animationDelay: `${index * 50}ms` }}
-               >
-                  {/* Hover Glow */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-brand-500/0 via-brand-500/5 to-brand-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  
-                  <div className="relative z-10 md:grid md:grid-cols-12 md:gap-4 md:items-center md:px-6 md:py-4">
-                     
-                     {/* Mobile Header */}
-                     <div className="flex justify-between items-start mb-4 md:hidden">
-                        <div className="flex items-center gap-3">
-                           <div className="p-2 bg-dark-800 rounded-lg text-slate-400">
-                              <FileText size={20} />
-                           </div>
-                           <div>
-                              <h3 className="font-bold text-white">{contract.title}</h3>
-                              <p className="text-xs text-slate-500">{contract.counterparty}</p>
-                           </div>
-                        </div>
-                        <Badge color={getStatusColor(contract.status)}>{contract.status}</Badge>
-                     </div>
-
-                     {/* Col 1: Details (Desktop) */}
-                     <div className="hidden md:col-span-4 md:flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-dark-800 border border-dark-700 flex items-center justify-center text-slate-400 group-hover:text-brand-400 group-hover:border-brand-500/30 transition-colors">
-                           {contract.type === 'NDA' ? <Shield size={18}/> : <FileText size={18}/>}
-                        </div>
-                        <div>
-                           <h3 className="font-bold text-slate-200 group-hover:text-white transition-colors">{contract.title}</h3>
-                           <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <span className="flex items-center gap-1"><User size={10}/> {contract.counterparty}</span>
-                              <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                              <span>{contract.id}</span>
-                           </div>
-                        </div>
-                     </div>
-
-                     {/* Col 2: Status (Desktop) */}
-                     <div className="hidden md:col-span-2 md:block">
-                        <Badge color={getStatusColor(contract.status)}>{contract.status}</Badge>
-                        <p className="text-[10px] text-slate-500 mt-1 pl-1">Updated today</p>
-                     </div>
-
-                     {/* Col 3: Value */}
-                     <div className="col-span-2 flex items-center justify-between md:block">
-                        <span className="text-xs font-bold text-slate-500 md:hidden">VALUE</span>
-                        <div>
-                           <p className="font-mono font-medium text-slate-300">${contract.value.toLocaleString()}</p>
-                           <p className="text-[10px] text-slate-500 hidden md:block">USD Total</p>
-                        </div>
-                     </div>
-
-                     {/* Col 4: Risk */}
-                     <div className="col-span-2 flex items-center justify-between md:block mt-2 md:mt-0">
-                        <span className="text-xs font-bold text-slate-500 md:hidden">RISK</span>
-                        <div className="flex items-center gap-3">
-                           <div className="flex-1 h-1.5 bg-dark-800 rounded-full overflow-hidden w-24">
-                              <div 
-                                 className={`h-full rounded-full ${contract.riskScore > 50 ? 'bg-red-500' : contract.riskScore > 25 ? 'bg-yellow-500' : 'bg-green-500'}`} 
-                                 style={{width: `${contract.riskScore}%`}}
-                              ></div>
-                           </div>
-                           <span className={`text-xs font-bold ${contract.riskScore > 50 ? 'text-red-400' : 'text-slate-400'}`}>{contract.riskScore}</span>
-                        </div>
-                     </div>
-
-                     {/* Col 5: Actions */}
-                     <div className="col-span-2 flex justify-end items-center gap-2 mt-4 md:mt-0 border-t border-white/5 pt-4 md:border-none md:pt-0">
-                        <Button variant="secondary" className="h-8 w-8 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" title="Quick View">
-                           <Eye size={14} />
-                        </Button>
-                        <Button variant="ghost" className="h-8 text-xs gap-1 text-slate-400 hover:text-brand-400">
-                           Details <ChevronRight size={14} />
-                        </Button>
-                     </div>
-                  </div>
-               </div>
-            ))
-         )}
-      </div>
-
-      {/* Modals */}
-      {selectedContract && (
-         <ContractSnapshotModal contract={selectedContract} onClose={() => setSelectedContract(null)} />
-      )}
+      {/* Snapshot Dialog */}
+      {quickViewContract && <ContractQuickViewModal contract={quickViewContract} onClose={() => setQuickViewContract(null)} />}
     </div>
   );
 };

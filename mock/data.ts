@@ -2,7 +2,7 @@
 import { 
   Contract, ContractStatus, Clause, UserRole, IntegrationApp, RiskItem, Counterparty, 
   FieldTable, SyncLog, DocumentTemplate, User, Department, RoleDefinition, Permission, 
-  UserGroup, Organization, WorkflowStage, WorkflowTemplate 
+  UserGroup, Organization, WorkflowStage, WorkflowTemplate, ContractVersion, AuditLogEntry, Obligation
 } from '../types';
 
 export const MOCK_ORGANIZATION: Organization = {
@@ -70,7 +70,6 @@ export const MOCK_USERS: User[] = [
   { id: 'u7', name: 'Benjamin', role: UserRole.ADMIN, email: 'benjamin@pearsonspecter.com', status: 'Invited', departmentId: 'dept_it', lastLogin: '-' },
 ];
 
-// --- NEW MOCKS FOR WORKFLOW PROPERTIES ---
 export const MOCK_FORMS = [
   { id: 'form_vendor', name: 'Vendor Intake Form v2' },
   { id: 'form_nda', name: 'NDA Request Form' },
@@ -84,18 +83,42 @@ export const MOCK_EMAIL_TEMPLATES = [
   { id: 'email_external', name: 'External Signatory Invite' },
 ];
 
+// --- NEW MOCK DATA ---
+
+const MOCK_VERSIONS_EXT: ContractVersion[] = [
+  { id: 'v3', versionNumber: '1.2', createdDate: 'Today, 10:23 AM', createdBy: 'Harvey Specter', description: 'Reconciled counterparty redlines', fileSize: '2.4 MB', changesCount: 3, isCurrent: true },
+  { id: 'v2', versionNumber: '1.1', createdDate: 'Yesterday, 4:45 PM', createdBy: 'Acme Legal (External)', description: 'Counterparty redlines on Liability Cap', fileSize: '2.3 MB', changesCount: 12, isCurrent: false },
+  { id: 'v1', versionNumber: '1.0', createdDate: 'Oct 12, 2023', createdBy: 'System', description: 'Initial Draft generated from Template', fileSize: '2.1 MB', changesCount: 0, isCurrent: false },
+];
+
+const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
+  { id: 'log_1', timestamp: '2024-04-02 14:30:05', user: 'Harvey Specter', action: 'Viewed Document', details: 'Accessed contract viewer', ipAddress: '192.168.1.1' },
+  { id: 'log_2', timestamp: '2024-04-02 14:35:12', user: 'Harvey Specter', action: 'Edited Clause', details: 'Modified Indemnification clause text', ipAddress: '192.168.1.1', hash: 'a1b2c3d4' },
+  { id: 'log_3', timestamp: '2024-04-01 09:15:00', user: 'John Doe (External)', action: 'Added Comment', details: 'Commented on Payment Terms', ipAddress: '203.0.113.42' },
+  { id: 'log_4', timestamp: '2024-03-30 11:00:00', user: 'System', action: 'Status Change', details: 'Changed status from Draft to Review', ipAddress: '127.0.0.1' },
+];
+
+export const MOCK_OBLIGATIONS: Obligation[] = [
+  { id: 'obl_1', title: 'Payment Milestone 1', dueDate: '2024-05-01', status: 'Pending', owner: 'Finance Dept', priority: 'High', recurrence: 'One-time' },
+  { id: 'obl_2', title: 'Annual Compliance Report', dueDate: '2024-12-31', status: 'Pending', owner: 'Compliance Team', priority: 'Medium', recurrence: 'Annual' },
+  { id: 'obl_3', title: 'Service Renewal Notice', dueDate: '2025-03-01', status: 'Pending', owner: 'Account Manager', priority: 'High', recurrence: 'Annual' },
+];
+
 export const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'CTR-2024-001',
     title: 'Master Services Agreement - Acme Corp',
     counterparty: 'Acme Corporation',
     value: 150000,
-    status: ContractStatus.REVIEW,
+    status: ContractStatus.NEGOTIATION, 
     startDate: '2024-01-15',
     renewalDate: '2025-01-15',
     riskScore: 75,
     owner: 'Sarah Jenkins',
-    type: 'MSA'
+    type: 'MSA',
+    versions: MOCK_VERSIONS_EXT,
+    auditLog: MOCK_AUDIT_LOGS,
+    obligations: MOCK_OBLIGATIONS
   },
   {
     id: 'CTR-2024-002',
@@ -107,7 +130,10 @@ export const MOCK_CONTRACTS: Contract[] = [
     renewalDate: '2024-11-01',
     riskScore: 20,
     owner: 'Mike Ross',
-    type: 'SaaS'
+    type: 'SaaS',
+    versions: [],
+    auditLog: [],
+    obligations: []
   },
   {
     id: 'CTR-2024-003',
@@ -119,7 +145,10 @@ export const MOCK_CONTRACTS: Contract[] = [
     renewalDate: '2026-05-20',
     riskScore: 10,
     owner: 'Jessica Pearson',
-    type: 'NDA'
+    type: 'NDA',
+    versions: [],
+    auditLog: [],
+    obligations: []
   },
   {
     id: 'CTR-2024-004',
@@ -131,7 +160,10 @@ export const MOCK_CONTRACTS: Contract[] = [
     renewalDate: '2024-12-31',
     riskScore: 88,
     owner: 'Louis Litt',
-    type: 'Consulting'
+    type: 'Consulting',
+    versions: [],
+    auditLog: [],
+    obligations: []
   },
   {
     id: 'CTR-2024-005',
@@ -143,7 +175,10 @@ export const MOCK_CONTRACTS: Contract[] = [
     renewalDate: '2024-02-01',
     riskScore: 5,
     owner: 'Donna Paulsen',
-    type: 'Vendor'
+    type: 'Vendor',
+    versions: [],
+    auditLog: [],
+    obligations: []
   }
 ];
 
@@ -328,9 +363,10 @@ export const MOCK_TEMPLATES: DocumentTemplate[] = [
 export const INITIAL_STAGES: WorkflowStage[] = [
   { id: 'stg_draft', name: 'Drafting', color: '#94a3b8', order: 0 },
   { id: 'stg_review', name: 'Review', color: '#3b82f6', order: 1 },
-  { id: 'stg_approval', name: 'Approval', color: '#eab308', order: 2 },
-  { id: 'stg_sign', name: 'Signature', color: '#a855f7', order: 3 },
-  { id: 'stg_active', name: 'Active', color: '#22c55e', order: 4 },
+  { id: 'stg_negotiation', name: 'Negotiation', color: '#8b5cf6', order: 2 }, // New
+  { id: 'stg_approval', name: 'Approval', color: '#eab308', order: 3 },
+  { id: 'stg_sign', name: 'Signature', color: '#a855f7', order: 4 },
+  { id: 'stg_active', name: 'Active', color: '#22c55e', order: 5 },
 ];
 
 export const INITIAL_TEMPLATES: WorkflowTemplate[] = [
@@ -364,7 +400,6 @@ export const MOCK_VERSIONS = [
   { id: 'v1', name: 'Version 1.0', date: 'Oct 12, 2023', author: 'System Auto-Gen' },
 ];
 
-// EXPANDED DESCRIPTIONS
 export const NODE_DESCRIPTIONS: Record<string, string> = {
   'manual_request': 'Triggers when a user manually initiates a request from the dashboard.',
   'form_submission': 'Triggers when an external intake form (e.g., Vendor Intake) is submitted.',
@@ -402,7 +437,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   'stage_transition': 'Updates the lifecycle stage of the contract (e.g., to "Active").',
 };
 
-// --- NEW EDITOR MOCKS ---
 export const MOCK_COMMENTS = [
   {
     id: 'c1',

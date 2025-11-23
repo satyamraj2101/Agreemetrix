@@ -30,7 +30,7 @@ const ContractCreationWizard: React.FC = () => {
 
   const handleNext = () => {
     if (step < 3) setStep(step + 1);
-    else navigate('/contract/new-draft'); // Redirect to the editor/viewer in "draft" mode
+    else navigate('/contract/CTR-2024-003'); // Use a specific mock ID that is in Draft to simulate new contract
   };
 
   const handleBack = () => {

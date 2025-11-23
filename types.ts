@@ -5,15 +5,49 @@ export enum UserRole {
   SALES = 'Sales',
   HR = 'HR',
   FINANCE = 'Finance',
-  VIEWER = 'Viewer'
+  VIEWER = 'Viewer',
+  EXTERNAL = 'External_Guest' // New for Negotiation
 }
 
 export enum ContractStatus {
   DRAFT = 'Draft',
   REVIEW = 'In Review',
+  NEGOTIATION = 'Negotiation', // New Stage
   APPROVAL = 'Pending Approval',
   SIGNED = 'Signed',
+  ACTIVE = 'Active',
   EXPIRED = 'Expired'
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  details: string;
+  ipAddress?: string;
+  hash?: string; // Compliance hash
+}
+
+export interface ContractVersion {
+  id: string;
+  versionNumber: string;
+  createdDate: string;
+  createdBy: string;
+  description: string;
+  fileSize: string;
+  changesCount: number;
+  isCurrent: boolean;
+}
+
+export interface Obligation {
+  id: string;
+  title: string;
+  dueDate: string;
+  status: 'Pending' | 'Completed' | 'At Risk' | 'Breached';
+  owner: string;
+  priority: 'High' | 'Medium' | 'Low';
+  recurrence?: 'Monthly' | 'Quarterly' | 'Annual' | 'One-time';
 }
 
 export type WorkflowCategory = 'trigger' | 'approval' | 'condition' | 'action' | 'integration' | 'stage' | 'utility' | 'ai_agent' | 'document';
@@ -40,62 +74,49 @@ export interface ConditionRule {
 }
 
 export interface WorkflowNodeConfig {
-  // Common
   label?: string;
   description?: string;
   retryPolicy?: { maxAttempts: number; backoff: 'linear' | 'exponential' };
   runAsUser?: string;
-
-  // Triggers
-  formId?: string; // For Form Submission
+  formId?: string;
   validateRules?: boolean;
-  crmObject?: string; // For CRM Trigger
+  crmObject?: string;
   matchRule?: string;
   crmTriggerStage?: string;
-  cronExpression?: string; // For Scheduled Run
+  cronExpression?: string;
   timezone?: string;
-  webhookSecret?: string; // For Incoming Webhook
+  webhookSecret?: string;
   responseCode?: string;
   importSource?: string;
   autoTag?: boolean;
-  
-  // Approvals
   approverType?: 'user' | 'role' | 'group' | 'dynamic';
-  approverId?: string; // ID of the user/role/group
+  approverId?: string;
   approvalOrder?: 'serial' | 'parallel';
-  quorum?: number; // For parallel (N of M)
-  escalationTime?: number; // Hours
+  quorum?: number;
+  escalationTime?: number;
   escalationAction?: string;
   fallbackApprover?: string;
-  
-  // Documents
   templateId?: string;
   outputFormat?: 'pdf' | 'docx' | 'html';
   includeRedlines?: boolean;
-  clauseId?: string; // For Insert Clause
+  clauseId?: string;
   position?: 'append' | 'replace' | 'prepend';
-  redactionMap?: Record<string, boolean>; // For Redact Fields {role: enabled}
-  
-  // Logic
-  conditionExpression?: string; // For complex logic
-  rules?: ConditionRule[]; // For Condition node
+  redactionMap?: Record<string, boolean>;
+  conditionExpression?: string;
+  rules?: ConditionRule[];
   delayDuration?: number;
   delayUnit?: 'minutes' | 'hours' | 'days' | 'weeks';
   interruptible?: boolean;
   splitType?: 'fanout' | 'map';
   joinType?: 'all' | 'any';
-  
-  // AI
   aiModel?: string;
   aiPrompt?: string;
   riskThreshold?: number;
-  extractTypes?: string[]; // ['dates', 'amounts', 'parties']
-  
-  // Integrations
-  integrationId?: string; // 'salesforce', 'slack'
+  extractTypes?: string[];
+  integrationId?: string;
   targetObject?: string;
   upsert?: boolean;
-  fieldMappings?: Record<string, string>; // { externalField: internalVar }
+  fieldMappings?: Record<string, string>;
   emailRecipient?: string;
   emailSubject?: string;
   emailTemplateId?: string;
@@ -105,11 +126,7 @@ export interface WorkflowNodeConfig {
   method?: string;
   authType?: string;
   payload?: string;
-  
-  // Stage
   stageId?: string;
-  
-  // Signatures
   signatureProvider?: 'docusign' | 'adobe' | 'hellosign';
   signers?: { role: string; email?: string; type: 'internal' | 'external'; order: number }[];
 }
@@ -201,8 +218,6 @@ export interface FieldMapping {
   active: boolean;
 }
 
-// --- Extended Field Definitions for Master Field Console ---
-
 export type FieldDataType = 
   | 'text' | 'rich_text' | 'number' | 'currency' | 'date' | 'datetime' 
   | 'boolean' | 'select' | 'multi_select' | 'relationship' | 'file' 
@@ -229,32 +244,20 @@ export interface FieldDefinition {
   required: boolean;
   unique?: boolean;
   defaultValue?: string;
-  
-  // Advanced
   isPII?: boolean;
   isEncrypted?: boolean;
   isIndexed?: boolean;
-  
-  // Logic
   formula?: string;
   validationRules?: FieldValidationRule[];
-  
-  // Relations & Options
   options?: string[];
   relatedTableId?: string;
-  
-  // Integration (Enhanced)
   integrationAppId?: string;
   externalObject?: string;
   externalField?: string;
   syncDirection?: SyncDirection;
   transformation?: string;
-  
-  // Context & Visibility
   visibleDocumentTypes?: string[];
   visibilityRules?: FieldVisibilityRule[];
-  
-  // Meta
   usageCount?: number;
   lastModified?: string;
   modifiedBy?: string;
@@ -268,7 +271,6 @@ export interface FieldTable {
   fields: FieldDefinition[]; 
 }
 
-// --- AI Types ---
 export interface AIMessage {
   id: string;
   role: 'user' | 'ai';
@@ -278,14 +280,28 @@ export interface AIMessage {
   actions?: { label: string; actionId: string; data?: any }[];
 }
 
-// Re-exports with updated definitions
 export interface User { id: string; name: string; email: string; role: UserRole; status: string; departmentId?: string; lastLogin?: string; groups?: string[]; }
 export interface Organization { id: string; name: string; domain: string; primaryContactEmail: string; address: string; subscriptionTier: string; licenseCount: number; licenseUsed: number; }
 export interface Department { id: string; name: string; headId?: string; description?: string; memberCount: number; }
 export interface Permission { id: string; key: string; name: string; description: string; module: string; }
 export interface RoleDefinition { id: string; name: string; description: string; isSystem: boolean; permissions: string[]; usersCount: number; }
 export interface UserGroup { id: string; name: string; description: string; members: string[]; }
-export interface Contract { id: string; title: string; counterparty: string; value: number; status: ContractStatus; startDate: string; renewalDate: string; riskScore: number; owner: string; type: string; }
+export interface Contract { 
+  id: string; 
+  title: string; 
+  counterparty: string; 
+  value: number; 
+  status: ContractStatus; 
+  startDate: string; 
+  renewalDate: string; 
+  riskScore: number; 
+  owner: string; 
+  type: string;
+  // Extended Fields
+  versions?: ContractVersion[];
+  auditLog?: AuditLogEntry[];
+  obligations?: Obligation[];
+}
 export interface IntegrationApp { id: string; name: string; category: string; description: string; icon: string; installed: boolean; status?: string; mappings?: FieldMapping[]; }
 export interface DocumentTemplate { id: string; name: string; category: string; version: string; lastModified: string; status: string; content: string; variables: any[]; conditions: any[]; redactionRules: any[]; tags?: string[]; }
 export interface Clause { id: string; name: string; category: string; content: string; riskLevel: string; tags: string[]; }

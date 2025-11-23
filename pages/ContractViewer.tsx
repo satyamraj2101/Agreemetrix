@@ -2,80 +2,42 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Badge, Avatar, Input, Select, Card } from '../components/UIComponents';
-import { MOCK_CONTRACTS, MOCK_CLAUSES, MOCK_VERSIONS as INITIAL_VERSIONS } from '../mock/data';
-import { DocumentTemplate } from '../types';
+import { MOCK_CONTRACTS, MOCK_VERSIONS, MOCK_OBLIGATIONS } from '../mock/data';
+import { Contract, ContractStatus, Obligation } from '../types';
 import { 
-  ChevronLeft, Save, Printer, Share2, FileText, MoreVertical,
-  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  List, Type, Search, ZoomIn, ZoomOut, Undo, Redo,
+  ChevronLeft, Save, Share2, FileText, MoreVertical,
   MessageSquare, GitBranch, Sparkles, History, Database, 
-  BookOpen, Check, X, Eye, EyeOff, Plus, Minus,
-  Settings, Download, PenTool, ChevronDown, GripVertical,
-  CheckCircle2, AlertTriangle, Copy, Calendar, DollarSign,
-  User, Shield, Link as LinkIcon, Globe, Layers, Upload,
-  Activity, Clock, Briefcase, TrendingUp, CheckSquare,
-  AlertCircle, FolderTree, Bot, Play, Flag, Wand2, Quote, Code,
-  Workflow, ArrowRight, Trash2, MousePointer2,
-  Minimize2, Maximize2, RefreshCw
+  Check, X, Eye, Settings, Download, PenTool, ChevronDown,
+  CheckCircle2, AlertTriangle, Calendar, DollarSign,
+  User, Globe, Activity, Clock, Shield, ArrowRight,
+  FileClock, Lock, Globe2, ExternalLink, Users, RefreshCw,
+  Minimize2, Maximize2, BookOpen, LayoutTemplate, Scale,
+  Printer, Mail, Flag, Bell, CreditCard, CheckSquare, Type, Briefcase
 } from 'lucide-react';
 
 // Imports for Editor
 import { EditorToolbar } from '../components/editor/EditorToolbar';
 import { StructurePanel, ReviewPanel, CompliancePanel, AIPanel, LogicPanel, GovernancePanel, VariablesPanel, ClausesPanel, HistoryPanel } from '../components/editor/EditorPanels';
-import { LayoutSettingsModal, CollapsibleSection } from '../components/editor/EditorUI';
+import { CollapsibleSection } from '../components/editor/EditorUI';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import ExtensionBubbleMenu from '@tiptap/extension-bubble-menu';
-import ExtensionFloatingMenu from '@tiptap/extension-floating-menu';
-import TextStyle from '@tiptap/extension-text-style';
-import Color from '@tiptap/extension-color';
-import TextAlign from '@tiptap/extension-text-align';
-import UnderlineExtension from '@tiptap/extension-underline';
-import TiptapTable from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
-import Highlight from '@tiptap/extension-highlight';
-import ImageExtension from '@tiptap/extension-image';
-import LinkExtension from '@tiptap/extension-link';
-import SubscriptExtension from '@tiptap/extension-subscript';
-import SuperscriptExtension from '@tiptap/extension-superscript';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import FontFamily from '@tiptap/extension-font-family';
 
 // --- TYPES ---
 
-type ViewTab = 'document' | 'signature' | 'overview' | 'workflow' | 'obligations';
-type LifecycleStage = 'Request' | 'Draft' | 'Review' | 'Approval' | 'Sign' | 'Active';
+type ViewTab = 'document' | 'signature' | 'overview' | 'workflow' | 'audit';
+type LifecycleStage = 'Request' | 'Draft' | 'Review' | 'Negotiation' | 'Approval' | 'Sign' | 'Active';
+type ViewerMode = 'Internal' | 'Guest_Portal';
 
-const LIFECYCLE_STEPS: LifecycleStage[] = ['Request', 'Draft', 'Review', 'Approval', 'Sign', 'Active'];
+const LIFECYCLE_STEPS: LifecycleStage[] = ['Request', 'Draft', 'Review', 'Negotiation', 'Approval', 'Sign', 'Active'];
 
-interface Signer {
-    id: string;
-    name: string;
-    email: string;
-    role: 'Internal' | 'External';
-    color: string;
-}
-
-interface PlacedField {
-    id: string;
-    type: string;
-    x: number;
-    y: number;
-    signerId: string;
-    page: number;
-}
-
-// --- HELPER COMPONENTS ---
+// --- SUB-COMPONENTS ---
 
 const LifecycleRibbon: React.FC<{ currentStage: LifecycleStage }> = ({ currentStage }) => {
     const currentIndex = LIFECYCLE_STEPS.indexOf(currentStage);
     
     return (
-        <div className="flex items-center w-full bg-dark-900 border-b border-dark-800 px-6 py-0 h-12 overflow-x-auto custom-scrollbar">
+        <div className="flex items-center w-full bg-dark-900 border-b border-dark-800 px-6 py-0 h-12 overflow-x-auto custom-scrollbar shrink-0">
             {LIFECYCLE_STEPS.map((step, i) => {
                 const isActive = i === currentIndex;
                 const isPast = i < currentIndex;
@@ -99,102 +61,107 @@ const LifecycleRibbon: React.FC<{ currentStage: LifecycleStage }> = ({ currentSt
     );
 };
 
+const AuditLogPanel: React.FC<{ contract: Contract }> = ({ contract }) => (
+    <div className="h-full flex flex-col bg-dark-950 animate-in fade-in slide-in-from-right-2">
+        <div className="p-4 border-b border-dark-800 bg-dark-900/50">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Shield size={16} className="text-brand-400"/> Immutable Audit Trail
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Legally admissible record of all activities.</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <div className="relative border-l-2 border-dark-800 ml-3 space-y-8">
+                {(contract.auditLog || []).map((log, i) => (
+                    <div key={log.id} className="relative pl-6 group">
+                        <div className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-dark-950 border-2 border-slate-600 group-hover:border-brand-500 transition-colors"></div>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex justify-between items-start">
+                                <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{log.action}</span>
+                                <span className="text-xs text-slate-500 font-mono">{log.timestamp.split(' ')[1]}</span>
+                            </div>
+                            <p className="text-xs text-slate-400">{log.details}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                                <span className="text-[10px] bg-dark-800 px-1.5 py-0.5 rounded text-slate-500 border border-dark-700 flex items-center gap-1">
+                                    <User size={8}/> {log.user}
+                                </span>
+                                <span className="text-[10px] bg-dark-800 px-1.5 py-0.5 rounded text-slate-500 border border-dark-700 flex items-center gap-1">
+                                    <Globe size={8}/> {log.ipAddress}
+                                </span>
+                                {log.hash && (
+                                    <span className="text-[10px] text-brand-500/50 font-mono" title="Merkle Hash">{log.hash}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
+// --- SIGNATURE MODE COMPONENTS ---
+
+const DraggableField: React.FC<{ label: string; icon: any; type: string }> = ({ label, icon: Icon, type }) => {
+    return (
+        <div 
+            draggable 
+            onDragStart={(e) => {
+                e.dataTransfer.setData('field_type', type);
+                e.dataTransfer.setData('field_label', label);
+            }}
+            className="flex items-center gap-3 p-3 bg-dark-900 border border-dark-700 rounded-lg cursor-grab active:cursor-grabbing hover:border-brand-500/50 hover:bg-brand-500/5 transition-all group"
+        >
+            <div className="p-1.5 bg-dark-800 rounded text-slate-400 group-hover:text-white group-hover:bg-brand-500 transition-colors">
+                <Icon size={14} />
+            </div>
+            <span className="text-xs font-bold text-slate-300 group-hover:text-white">{label}</span>
+        </div>
+    );
+};
+
 const SignatureSetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
-    const [activeSignerId, setActiveSignerId] = useState('s1');
-    const [placedFields, setPlacedFields] = useState<PlacedField[]>([]);
-    const [zoom, setZoom] = useState(100);
-    const canvasRef = useRef<HTMLDivElement>(null);
-
-    const signers: Signer[] = [
-        { id: 's1', name: 'Harvey Specter', email: 'harvey@psl.com', role: 'Internal', color: 'bg-blue-500' },
-        { id: 's2', name: 'John Doe', email: 'legal@acme.com', role: 'External', color: 'bg-yellow-500' }
-    ];
-
-    const activeSigner = signers.find(s => s.id === activeSignerId);
-
-    const handleDragStart = (e: React.DragEvent, type: string) => {
-        e.dataTransfer.setData('fieldType', type);
-    };
+    const [placedFields, setPlacedFields] = useState<{id: string, x: number, y: number, type: string, label: string}[]>([]);
+    const docRef = useRef<HTMLDivElement>(null);
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        const fieldType = e.dataTransfer.getData('fieldType');
-        if (!fieldType || !canvasRef.current) return;
+        const type = e.dataTransfer.getData('field_type');
+        const label = e.dataTransfer.getData('field_label');
+        if(!type || !docRef.current) return;
 
-        const rect = canvasRef.current.getBoundingClientRect();
-        // Calculate position relative to the canvas (taking zoom into account)
-        const x = (e.clientX - rect.left) / (zoom / 100);
-        const y = (e.clientY - rect.top) / (zoom / 100);
+        const rect = docRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-        const newField: PlacedField = {
-            id: `f_${Date.now()}`,
-            type: fieldType,
-            x: Math.min(Math.max(0, x - 60), 816 - 120), // Simple bounds checking
-            y: Math.min(Math.max(0, y - 20), 1056 - 40),
-            signerId: activeSignerId,
-            page: 1
-        };
-
-        setPlacedFields([...placedFields, newField]);
-    };
-
-    const removeField = (id: string) => {
-        setPlacedFields(placedFields.filter(f => f.id !== id));
+        setPlacedFields([...placedFields, { id: `f_${Date.now()}`, x, y, type, label }]);
     };
 
     return (
-        <div className="flex h-full bg-dark-950">
-            {/* Sidebar */}
-            <div className="w-72 border-r border-dark-800 bg-dark-900 flex flex-col z-20">
-                <div className="p-4 border-b border-dark-800">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">1. Select Signer</h4>
-                    <div className="space-y-2">
-                        {signers.map(s => (
-                            <div 
-                                key={s.id} 
-                                onClick={() => setActiveSignerId(s.id)}
-                                className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${activeSignerId === s.id ? `bg-${s.color === 'bg-blue-500' ? 'blue' : 'yellow'}-500/10 border-${s.color === 'bg-blue-500' ? 'blue' : 'yellow'}-500` : 'bg-dark-950 border-dark-700 hover:border-slate-600'}`}
-                            >
-                                <div className={`w-8 h-8 rounded-full ${s.color} text-white flex items-center justify-center text-xs font-bold shadow-lg`}>
-                                    {s.name.charAt(0)}
-                                </div>
-                                <div className="flex-1">
-                                    <p className={`text-sm font-bold ${activeSignerId === s.id ? 'text-white' : 'text-slate-300'}`}>{s.name}</p>
-                                    <p className="text-[10px] text-slate-500">{s.role} • {s.email}</p>
-                                </div>
-                                {activeSignerId === s.id && <div className={`w-2 h-2 rounded-full ${s.color}`}></div>}
-                            </div>
-                        ))}
-                    </div>
-                    <Button variant="ghost" className="w-full mt-3 text-xs border border-dashed border-dark-700 hover:border-slate-500 text-slate-400 hover:text-white">
-                        <Plus size={14} className="mr-2"/> Add Signer
-                    </Button>
+        <div className="flex h-full bg-dark-950 animate-in fade-in">
+            {/* Tools Sidebar */}
+            <div className="w-64 border-r border-dark-800 bg-dark-900 flex flex-col z-20 shadow-xl">
+                <div className="p-5 border-b border-dark-800">
+                    <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                        <PenTool size={16} className="text-brand-400"/> Signature Fields
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Drag fields onto the document.</p>
+                </div>
+                
+                <div className="p-5 space-y-3 flex-1 overflow-y-auto">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Signer: Counterparty</div>
+                    <DraggableField label="Signature" type="sign" icon={PenTool} />
+                    <DraggableField label="Initials" type="initial" icon={Type} />
+                    <DraggableField label="Date Signed" type="date" icon={Calendar} />
+                    
+                    <div className="h-px bg-dark-800 my-4"></div>
+                    
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Signer: Internal</div>
+                    <DraggableField label="Signature" type="sign" icon={PenTool} />
+                    <DraggableField label="Name" type="text" icon={User} />
+                    <DraggableField label="Title" type="text" icon={Briefcase} />
                 </div>
 
-                <div className="p-4 flex-1 overflow-y-auto">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">2. Drag Fields</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                        {['Signature', 'Initials', 'Date Signed', 'Name', 'Title', 'Company', 'Text Box', 'Checkbox'].map(field => (
-                            <div 
-                                key={field} 
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, field)}
-                                className="p-3 bg-dark-950 border border-dark-700 rounded-lg text-xs font-medium text-slate-300 flex flex-col items-center gap-2 hover:border-brand-500 hover:bg-brand-500/5 hover:text-white cursor-grab active:cursor-grabbing transition-all"
-                            >
-                                <div className="p-1.5 bg-dark-800 rounded text-slate-400">
-                                    {field === 'Signature' ? <PenTool size={16}/> : field === 'Date Signed' ? <Calendar size={16}/> : <Type size={16}/>}
-                                </div>
-                                {field}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="p-4 border-t border-dark-800 bg-dark-950/50">
-                    <div className="flex justify-between items-center mb-4 text-xs text-slate-400">
-                        <span>Fields placed: <strong className="text-white">{placedFields.length}</strong></span>
-                        <button className="hover:text-red-400" onClick={() => setPlacedFields([])}>Reset All</button>
-                    </div>
+                <div className="p-5 border-t border-dark-800 bg-dark-950/50">
                     <Button variant="primary" className="w-full shadow-lg shadow-brand-500/20" onClick={onComplete} disabled={placedFields.length === 0}>
                         Send Envelope <ArrowRight size={16} className="ml-2"/>
                     </Button>
@@ -202,222 +169,171 @@ const SignatureSetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) =>
             </div>
 
             {/* Canvas */}
-            <div className="flex-1 bg-dark-950/50 overflow-y-auto p-8 flex justify-center relative" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-1 bg-dark-950/50 p-8 flex justify-center overflow-y-auto relative">
                 <div 
-                    className="bg-white transition-transform duration-200 shadow-2xl origin-top relative"
-                    style={{ 
-                        width: '816px', 
-                        minHeight: '1056px',
-                        transform: `scale(${zoom / 100})`
-                    }}
+                    ref={docRef}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    className="bg-white w-[816px] min-h-[1056px] shadow-2xl relative transition-transform origin-top"
                 >
-                    {/* Drop Zone Overlay */}
-                    <div 
-                        ref={canvasRef}
-                        className="absolute inset-0 z-10"
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={handleDrop}
-                    >
-                        {placedFields.map((field) => {
-                            const signer = signers.find(s => s.id === field.signerId);
-                            const borderColor = signer?.color.replace('bg-', 'border-');
-                            const bgColor = signer?.color.replace('bg-', 'bg-') + '/10';
-                            const textColor = signer?.color.replace('bg-', 'text-');
+                    {/* Mock Content Background */}
+                    <div className="absolute inset-0 p-16 opacity-30 pointer-events-none">
+                        <div className="w-1/3 h-8 bg-slate-800 mb-8"></div>
+                        <div className="space-y-4">
+                            {Array.from({length: 20}).map((_, i) => (
+                                <div key={i} className="w-full h-3 bg-slate-300 rounded"></div>
+                            ))}
+                        </div>
+                    </div>
 
-                            return (
-                                <div
-                                    key={field.id}
-                                    className={`absolute flex items-center justify-center border-2 rounded group cursor-pointer hover:shadow-lg ${borderColor} ${bgColor}`}
-                                    style={{
-                                        left: field.x,
-                                        top: field.y,
-                                        width: '140px',
-                                        height: '40px'
-                                    }}
-                                >
-                                    <span className={`text-xs font-bold uppercase ${textColor} flex items-center gap-1`}>
-                                        {field.type}
-                                        {signer?.role === 'Internal' ? <User size={10}/> : <Globe size={10}/>}
-                                    </span>
-                                    
-                                    {/* Delete Button */}
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                                    >
-                                        <X size={12}/>
-                                    </button>
-                                    
-                                    {/* Tooltip */}
-                                    <div className={`absolute top-full left-0 mt-1 px-2 py-1 rounded text-[9px] text-white bg-dark-900 shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none`}>
-                                        Assigned to: {signer?.name}
+                    {/* Placed Fields */}
+                    {placedFields.map(field => (
+                        <div 
+                            key={field.id}
+                            className="absolute flex flex-col justify-center px-3 py-2 bg-yellow-100/80 border-2 border-yellow-500 border-dashed rounded cursor-move shadow-lg hover:scale-105 transition-transform"
+                            style={{ left: field.x - 60, top: field.y - 20, width: 160, height: 50 }}
+                        >
+                            <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider flex items-center gap-1">
+                                {field.type === 'sign' ? <PenTool size={10}/> : <Type size={10}/>} {field.label}
+                            </span>
+                            <div className="h-px bg-yellow-700/50 w-full mt-2"></div>
+                            <button 
+                                onClick={() => setPlacedFields(placedFields.filter(f => f.id !== field.id))}
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                            >
+                                <X size={12}/>
+                            </button>
+                        </div>
+                    ))}
+
+                    {placedFields.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="bg-dark-900/80 backdrop-blur text-white px-6 py-3 rounded-full shadow-2xl border border-white/10 animate-bounce">
+                                Drag signature fields here
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- ACTIVE MODE COMPONENTS ---
+
+const ActiveContractDashboard: React.FC<{ contract: Contract }> = ({ contract }) => {
+    const daysUntilRenewal = 45; // Mock calculation
+    
+    return (
+        <div className="w-full bg-dark-900 border-b border-dark-800 animate-in slide-in-from-top-4">
+            <div className="max-w-5xl mx-auto px-6 py-6">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <Activity size={18} className="text-green-400"/> Contract Intelligence
+                        </h2>
+                        <p className="text-xs text-slate-500">Real-time monitoring of active terms.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="secondary" className="text-xs h-8"><Printer size={14} className="mr-2"/> Print Summary</Button>
+                        <Button variant="primary" className="text-xs h-8"><RefreshCw size={14} className="mr-2"/> Sync ERP</Button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4">
+                    <div className="p-4 bg-dark-950 border border-dark-700 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/5 rounded-full -mr-4 -mt-4 group-hover:scale-110 transition-transform"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">Total Value</p>
+                        <h3 className="text-2xl font-bold text-white font-mono">${contract.value.toLocaleString()}</h3>
+                        <p className="text-[10px] text-green-400 mt-1 flex items-center gap-1"><ArrowRight size={10} className="-rotate-45"/> On Budget</p>
+                    </div>
+
+                    <div className="p-4 bg-dark-950 border border-dark-700 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-500/5 rounded-full -mr-4 -mt-4 group-hover:scale-110 transition-transform"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">Renewal In</p>
+                        <h3 className="text-2xl font-bold text-white">{daysUntilRenewal} Days</h3>
+                        <p className="text-[10px] text-yellow-400 mt-1 flex items-center gap-1"><AlertTriangle size={10}/> Auto-Renews</p>
+                    </div>
+
+                    <div className="p-4 bg-dark-950 border border-dark-700 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full -mr-4 -mt-4 group-hover:scale-110 transition-transform"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">Obligations</p>
+                        <h3 className="text-2xl font-bold text-white">2 / 5</h3>
+                        <p className="text-[10px] text-blue-400 mt-1 flex items-center gap-1"><CheckCircle2 size={10}/> Completed</p>
+                    </div>
+
+                    <div className="p-4 bg-dark-950 border border-dark-700 rounded-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/5 rounded-full -mr-4 -mt-4 group-hover:scale-110 transition-transform"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">Owner</p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Avatar name={contract.owner} size="sm" />
+                            <span className="text-sm font-bold text-white truncate">{contract.owner}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ObligationsPanel: React.FC<{ obligations: Obligation[] }> = ({ obligations }) => {
+    return (
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-2 bg-dark-950">
+            <CollapsibleSection title="Deliverables & Tasks" icon={CheckSquare} defaultOpen={true} rightElement={<Badge color="blue">{obligations.length}</Badge>}>
+                <div className="space-y-3 mt-2">
+                    {obligations.map(ob => (
+                        <div key={ob.id} className="p-3 bg-dark-900 border border-dark-700 rounded-xl hover:border-brand-500/30 transition-all group">
+                            <div className="flex items-start gap-3">
+                                <div className={`mt-0.5 p-1 rounded ${ob.status === 'Completed' ? 'bg-green-500 text-dark-900' : 'bg-dark-800 text-slate-500 border border-dark-600'}`}>
+                                    <Check size={12} />
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`text-xs font-bold ${ob.status === 'Completed' ? 'text-slate-500 line-through' : 'text-white'}`}>{ob.title}</p>
+                                    <div className="flex items-center justify-between mt-2">
+                                        <span className={`text-[10px] flex items-center gap-1 ${new Date(ob.dueDate) < new Date() && ob.status !== 'Completed' ? 'text-red-400' : 'text-slate-500'}`}>
+                                            <Calendar size={10}/> {ob.dueDate}
+                                        </span>
+                                        <Badge color={ob.priority === 'High' ? 'red' : 'gray'} className="text-[9px] py-0 px-1.5">{ob.priority}</Badge>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Mock Document Content */}
-                    <div className="p-16 text-black font-serif text-sm space-y-6 pointer-events-none select-none opacity-80">
-                        <h1 className="text-center text-2xl font-bold mb-12">MASTER SERVICES AGREEMENT</h1>
-                        <p>This Master Services Agreement (the "Agreement") is entered into as of April 1, 2024 (the "Effective Date"), by and between <strong>Agreemetrix Inc.</strong>, a Delaware corporation ("Client"), and <strong>TechFlow Inc.</strong> ("Provider").</p>
-                        <p className="font-bold mt-6">1. SERVICES</p>
-                        <p>Provider agrees to perform the services described in one or more Statements of Work ("SOW") attached hereto (the "Services"). Provider shall perform the Services in a professional and workmanlike manner.</p>
-                        <p className="font-bold mt-6">2. PAYMENT</p>
-                        <p>Client shall pay Provider the fees set forth in the applicable SOW. Unless otherwise specified, payment terms are Net 30 days from receipt of an undisputed invoice.</p>
-                        <p className="font-bold mt-6">3. TERM AND TERMINATION</p>
-                        <p>This Agreement commences on the Effective Date and continues for a period of one (1) year, automatically renewing for successive one-year terms unless terminated by either party with thirty (30) days' written notice.</p>
-                        <p className="font-bold mt-6">4. CONFIDENTIALITY</p>
-                        <p>Each party agrees to protect the other party's Confidential Information with the same degree of care it uses to protect its own confidential information of like nature, but in no event less than reasonable care.</p>
-                        
-                        {/* Spacer for signature area at bottom */}
-                        <div className="mt-32 pt-8 border-t-2 border-black flex justify-between">
-                            <div className="w-5/12">
-                                <p className="font-bold mb-4">Agreemetrix Inc.</p>
-                                <div className="h-10 border-b border-black mb-2"></div>
-                                <p className="text-xs">Authorized Signature</p>
-                                <p className="mt-4 text-xs">Name: Harvey Specter</p>
-                                <p className="text-xs">Title: Senior Partner</p>
-                            </div>
-                            <div className="w-5/12">
-                                <p className="font-bold mb-4">TechFlow Inc.</p>
-                                <div className="h-10 border-b border-black mb-2"></div>
-                                <p className="text-xs">Authorized Signature</p>
-                                <p className="mt-4 text-xs">Name: _________________</p>
-                                <p className="text-xs">Title: __________________</p>
                             </div>
                         </div>
+                    ))}
+                    {obligations.length === 0 && <div className="text-center text-xs text-slate-500 py-4">No active obligations.</div>}
+                </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Financial Terms" icon={CreditCard} defaultOpen={true}>
+                <div className="p-4 bg-dark-900 border border-dark-700 rounded-xl space-y-3">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Payment Terms</span>
+                        <span className="text-white font-mono">Net 45</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Penalty Rate</span>
+                        <span className="text-white font-mono">1.5% / mo</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Renewal Cap</span>
+                        <span className="text-white font-mono">5%</span>
                     </div>
                 </div>
-
-                {/* Zoom Controls */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-dark-900/90 backdrop-blur border border-dark-700 rounded-full p-1 shadow-xl z-20">
-                    <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10"><Minimize2 size={14}/></button>
-                    <span className="text-xs font-mono w-10 text-center text-slate-300">{zoom}%</span>
-                    <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10"><Maximize2 size={14}/></button>
-                </div>
-            </div>
+            </CollapsibleSection>
         </div>
     );
 };
 
-// --- ACTIVE (SIGNED) VIEW ---
-
-const ActiveContractView: React.FC = () => {
-    return (
-        <div className="flex h-full bg-dark-950">
-            {/* Left Sidebar: Metadata & Activity */}
-            <div className="w-80 border-r border-dark-800 bg-dark-900 flex flex-col z-20 overflow-hidden">
-                <div className="p-6 border-b border-dark-800">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center text-green-500 border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
-                            <CheckCircle2 size={24}/>
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">Active</h3>
-                            <p className="text-xs text-green-400 font-medium">Signed on Apr 2, 2024</p>
-                        </div>
-                    </div>
-                    <Button variant="primary" className="w-full shadow-lg shadow-brand-500/10 mb-2">
-                        <Download size={16} className="mr-2"/> Download Signed PDF
-                    </Button>
-                    <Button variant="secondary" className="w-full text-xs">
-                        <Share2 size={14} className="mr-2"/> Share with Stakeholders
-                    </Button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <CollapsibleSection title="Key Terms" icon={FileText} defaultOpen={true}>
-                        <div className="space-y-3 mt-2">
-                            <div className="p-3 bg-dark-950 rounded-lg border border-dark-800">
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Effective Date</p>
-                                <p className="text-sm text-white font-medium">April 1, 2024</p>
-                            </div>
-                            <div className="p-3 bg-dark-950 rounded-lg border border-dark-800">
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Renewal Date</p>
-                                <div className="flex justify-between items-center">
-                                    <p className="text-sm text-white font-medium">April 1, 2025</p>
-                                    <Badge color="yellow">364 Days Left</Badge>
-                                </div>
-                            </div>
-                            <div className="p-3 bg-dark-950 rounded-lg border border-dark-800">
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Total Value</p>
-                                <p className="text-sm text-white font-medium font-mono">$150,000.00 USD</p>
-                            </div>
-                        </div>
-                    </CollapsibleSection>
-
-                    <CollapsibleSection title="Obligations" icon={CheckSquare} defaultOpen={true} rightElement={<Badge color="blue">2</Badge>}>
-                        <div className="space-y-2 mt-2">
-                            <div className="flex gap-3 items-start p-2 hover:bg-dark-800 rounded transition-colors cursor-pointer">
-                                <div className="mt-0.5 min-w-[16px]"><Clock size={16} className="text-yellow-500"/></div>
-                                <div>
-                                    <p className="text-xs text-slate-200 font-medium">Payment Milestone 1</p>
-                                    <p className="text-[10px] text-slate-500">Due May 1, 2024</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 items-start p-2 hover:bg-dark-800 rounded transition-colors cursor-pointer">
-                                <div className="mt-0.5 min-w-[16px]"><RefreshCw size={16} className="text-blue-500"/></div>
-                                <div>
-                                    <p className="text-xs text-slate-200 font-medium">QBR Meeting</p>
-                                    <p className="text-[10px] text-slate-500">Due July 1, 2024</p>
-                                </div>
-                            </div>
-                        </div>
-                    </CollapsibleSection>
-                </div>
-            </div>
-
-            {/* Main Viewer */}
-            <div className="flex-1 bg-dark-950/50 p-8 overflow-y-auto flex justify-center">
-                <div className="bg-white w-[816px] min-h-[1056px] shadow-2xl relative text-black p-16 font-serif text-sm opacity-90 select-none pointer-events-none">
-                    {/* Watermark */}
-                    <div className="absolute top-8 right-8 border-4 border-green-600 text-green-600 px-4 py-2 rounded font-sans font-bold text-xl opacity-40 rotate-[-15deg]">
-                        SIGNED & EXECUTED
-                    </div>
-
-                    <h1 className="text-center text-2xl font-bold mb-12">MASTER SERVICES AGREEMENT</h1>
-                    <p className="mb-6 text-justify leading-relaxed">This Master Services Agreement (the "Agreement") is entered into as of April 1, 2024 (the "Effective Date"), by and between <strong>Agreemetrix Inc.</strong>, a Delaware corporation ("Client"), and <strong>TechFlow Inc.</strong> ("Provider").</p>
-                    
-                    <p className="font-bold mt-6 mb-2">1. SERVICES</p>
-                    <p className="mb-4 text-justify leading-relaxed">Provider agrees to perform the services described in one or more Statements of Work ("SOW") attached hereto (the "Services"). Provider shall perform the Services in a professional and workmanlike manner consistent with industry standards.</p>
-                    
-                    <p className="font-bold mt-6 mb-2">2. PAYMENT</p>
-                    <p className="mb-4 text-justify leading-relaxed">Client shall pay Provider the fees set forth in the applicable SOW. Unless otherwise specified, payment terms are Net 30 days from receipt of an undisputed invoice. Late payments shall accrue interest at a rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.</p>
-                    
-                    <div className="mt-20 pt-8 border-t-2 border-black flex justify-between">
-                        <div className="w-5/12 relative">
-                            {/* Digital Signature Stamp */}
-                            <div className="absolute -top-12 left-4 font-script text-3xl text-blue-800 opacity-90 rotate-[-5deg]">Harvey Specter</div>
-                            <div className="absolute -top-14 left-32 text-[8px] font-sans text-slate-500 bg-white/80 px-1 border border-slate-300">
-                                Digitally Signed<br/>ID: 8a92-b412<br/>04/02/2024
-                            </div>
-
-                            <p className="font-bold mb-4">Agreemetrix Inc.</p>
-                            <div className="h-10 border-b border-black mb-2"></div>
-                            <p className="text-xs">Authorized Signature</p>
-                            <p className="mt-4 text-xs">Name: Harvey Specter</p>
-                            <p className="text-xs">Title: Senior Partner</p>
-                        </div>
-                        <div className="w-5/12 relative">
-                             {/* Digital Signature Stamp */}
-                             <div className="absolute -top-10 left-6 font-script text-2xl text-black opacity-80">John Doe</div>
-                             <div className="absolute -top-14 left-32 text-[8px] font-sans text-slate-500 bg-white/80 px-1 border border-slate-300">
-                                Digitally Signed<br/>ID: 7c31-f900<br/>04/02/2024
-                            </div>
-
-                            <p className="font-bold mb-4">TechFlow Inc.</p>
-                            <div className="h-10 border-b border-black mb-2"></div>
-                            <p className="text-xs">Authorized Signature</p>
-                            <p className="mt-4 text-xs">Name: John Doe</p>
-                            <p className="text-xs">Title: CEO</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+const NegotiationBanner: React.FC<{ isGuest: boolean }> = ({ isGuest }) => (
+    <div className={`w-full px-6 py-2 flex justify-between items-center ${isGuest ? 'bg-orange-500/10 border-b border-orange-500/20' : 'bg-purple-500/10 border-b border-purple-500/20'}`}>
+        <div className="flex items-center gap-2">
+            {isGuest ? <Globe2 size={16} className="text-orange-400"/> : <Users size={16} className="text-purple-400"/>}
+            <span className={`text-xs font-bold uppercase tracking-wider ${isGuest ? 'text-orange-400' : 'text-purple-400'}`}>
+                {isGuest ? 'Guest Negotiation Portal' : 'Internal Team View'}
+            </span>
         </div>
-    );
-};
+        {isGuest && <div className="text-xs text-orange-300/70">You are viewing as <strong>Acme Corp (Guest)</strong>. Internal notes are hidden.</div>}
+    </div>
+);
 
 // --- MAIN COMPONENT ---
 
@@ -425,63 +341,43 @@ const ContractViewer: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Determine Contract Context (Mock)
-  const contract = id === 'new-draft' ? {
-      id: 'CTR-DRAFT-001',
-      title: 'MSA - TechFlow Inc (Draft)',
-      counterparty: 'TechFlow Inc',
-      value: 150000,
-      status: 'Draft',
-      startDate: '2024-04-01',
-      renewalDate: '2025-04-01',
-      riskScore: 10,
-      owner: 'Harvey Specter',
-      type: 'MSA'
-  } : MOCK_CONTRACTS.find(c => c.id === id) || MOCK_CONTRACTS[0];
+  // Find Data
+  const contract = MOCK_CONTRACTS.find(c => c.id === id) || MOCK_CONTRACTS[0];
 
   // State
   const [activeView, setActiveView] = useState<ViewTab>('document');
-  const [lifecycleStage, setLifecycleStage] = useState<LifecycleStage>(
-      contract.status === 'Draft' ? 'Draft' : 
-      contract.status === 'In Review' ? 'Review' : 
-      contract.status === 'Pending Approval' ? 'Approval' :
-      contract.status === 'Signed' ? 'Active' : 'Draft'
-  );
+  const [lifecycleStage, setLifecycleStage] = useState<LifecycleStage>(contract.status as LifecycleStage || 'Draft');
+  const [viewerMode, setViewerMode] = useState<ViewerMode>('Internal');
+  const [ribbonTab, setRibbonTab] = useState('home');
+  const [rightPanel, setRightPanel] = useState<'review' | 'history' | 'audit' | 'governance' | 'obligations'>('review');
 
-  // Force Active view if status matches
+  // Auto-set logic based on stage
   useEffect(() => {
-      if (contract.status === 'Signed' || lifecycleStage === 'Active') {
-          setActiveView('overview'); // Reuse logic or create distinct active view switch
+      if (lifecycleStage === 'Sign') setActiveView('signature');
+      else if (lifecycleStage === 'Active') {
+          setActiveView('document');
+          setRightPanel('obligations');
+      } else {
+          setActiveView('document');
+          setRightPanel('review');
       }
-  }, [contract.status, lifecycleStage]);
+  }, [lifecycleStage]);
 
-  // Editor State (Lifted from internal component for direct control)
+  // Editor Hook (Simulated)
   const editor = useEditor({
-    extensions: [
-      StarterKit, TextStyle as any, Color, FontFamily, TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder: 'Start drafting...' }), ExtensionBubbleMenu, ExtensionFloatingMenu,
-      UnderlineExtension, Highlight.configure({ multicolor: true }), SubscriptExtension, SuperscriptExtension,
-      (TiptapTable as any).configure({ resizable: true }), TableRow, TableHeader, TableCell, ImageExtension, 
-      LinkExtension, TaskList, TaskItem
-    ],
-    content: `<h1>${contract.type} Agreement</h1><p>This ${contract.type} ("Agreement") is made effective as of <strong>${contract.startDate}</strong>.</p><p>Between <strong>Agreemetrix Inc.</strong> and <strong>${contract.counterparty}</strong>.</p><p>WHEREAS, Provider is in the business of providing software services...</p>`,
+    extensions: [StarterKit, Placeholder.configure({ placeholder: 'Loading contract...' })],
+    content: `<h1>${contract.type} Agreement</h1><p>Between <strong>Agreemetrix Inc.</strong> and <strong>${contract.counterparty}</strong>...</p>
+    <p>This agreement is entered into on {{effective_date}}.</p>
+    <h2>1. Services</h2>
+    <p>Provider agrees to deliver services as outlined in Exhibit A.</p>
+    <h2>2. Payment</h2>
+    <p>Client shall pay all invoices within 30 days.</p>
+    `,
+    editable: viewerMode === 'Internal' && lifecycleStage !== 'Active' && lifecycleStage !== 'Sign', 
   });
 
-  const [ribbonTab, setRibbonTab] = useState('home');
-  const [leftTab, setLeftTab] = useState('structure');
-  const [rightTab, setRightTab] = useState('review');
-  const [isLeftOpen, setIsLeftOpen] = useState(true);
-  const [isRightOpen, setIsRightOpen] = useState(true);
-
-  const handlePrimaryAction = () => {
-      if (lifecycleStage === 'Draft') setLifecycleStage('Review');
-      else if (lifecycleStage === 'Review') setLifecycleStage('Approval');
-      else if (lifecycleStage === 'Approval') setActiveView('signature'); // Go to sign setup
-      else if (lifecycleStage === 'Sign') setLifecycleStage('Active');
-  };
-
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-[#0F1115] text-slate-200 overflow-hidden">
+    <div className={`h-[calc(100vh-8rem)] flex flex-col -m-6 bg-[#0F1115] text-slate-200 overflow-hidden border-t-4 ${viewerMode === 'Guest_Portal' ? 'border-orange-500' : 'border-transparent'}`}>
         
         {/* 1. GLOBAL HEADER */}
         <div className="h-16 bg-dark-950 border-b border-dark-700 flex items-center justify-between px-6 shrink-0 z-30 shadow-lg">
@@ -492,7 +388,7 @@ const ContractViewer: React.FC = () => {
                 <div className="flex flex-col">
                     <div className="flex items-center gap-3">
                         <h1 className="text-lg font-bold text-white tracking-tight">{contract.title}</h1>
-                        <Badge color={contract.status === 'Signed' || lifecycleStage === 'Active' ? 'green' : 'blue'}>{lifecycleStage}</Badge>
+                        <Badge color={lifecycleStage === 'Active' ? 'green' : lifecycleStage === 'Negotiation' ? 'purple' : 'blue'}>{lifecycleStage}</Badge>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                        <span className="font-mono opacity-70">{contract.id}</span>
@@ -504,117 +400,120 @@ const ContractViewer: React.FC = () => {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-                {lifecycleStage !== 'Active' && (
-                    <>
-                        <Button variant="secondary" className="h-9 text-xs shadow-sm"><Share2 size={16} className="mr-2"/> Share</Button>
-                        <div className="h-8 w-px bg-dark-700 mx-1"></div>
-                        <Button variant="primary" className="h-9 text-xs shadow-lg shadow-brand-500/20" onClick={handlePrimaryAction}>
-                            {lifecycleStage === 'Draft' ? 'Send for Review' : 
-                            lifecycleStage === 'Review' ? 'Submit for Approval' :
-                            lifecycleStage === 'Approval' ? 'Prepare for Signature' :
-                            lifecycleStage === 'Sign' ? 'Mark as Signed' : 'Download PDF'}
-                            <ArrowRight size={16} className="ml-2"/>
-                        </Button>
-                    </>
+                {lifecycleStage !== 'Active' && lifecycleStage !== 'Sign' && (
+                    <div className="flex bg-dark-900 rounded-lg p-1 border border-dark-800 mr-4">
+                        <button onClick={() => setViewerMode('Internal')} className={`px-3 py-1 text-xs font-bold rounded transition-all ${viewerMode === 'Internal' ? 'bg-dark-800 text-white shadow' : 'text-slate-500'}`}>Internal</button>
+                        <button onClick={() => setViewerMode('Guest_Portal')} className={`px-3 py-1 text-xs font-bold rounded transition-all ${viewerMode === 'Guest_Portal' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'text-slate-500'}`}>Simulate Guest</button>
+                    </div>
+                )}
+
+                {lifecycleStage === 'Draft' && (
+                    <Button variant="primary" className="h-9 text-xs shadow-lg shadow-brand-500/20" onClick={() => setLifecycleStage('Negotiation')}>
+                        Send for Review <ArrowRight size={16} className="ml-2"/>
+                    </Button>
+                )}
+                {lifecycleStage === 'Negotiation' && (
+                    <Button variant="primary" className="h-9 text-xs shadow-lg shadow-brand-500/20" onClick={() => setLifecycleStage('Approval')}>
+                        Submit for Approval <ArrowRight size={16} className="ml-2"/>
+                    </Button>
+                )}
+                {lifecycleStage === 'Approval' && (
+                    <Button variant="primary" className="h-9 text-xs shadow-lg shadow-brand-500/20" onClick={() => setLifecycleStage('Sign')}>
+                        Prepare Signature <PenTool size={16} className="ml-2"/>
+                    </Button>
                 )}
                 {lifecycleStage === 'Active' && (
-                    <Button variant="secondary" className="h-9 text-xs border-green-500/30 text-green-400 bg-green-500/10 cursor-default">
-                        <CheckCircle2 size={16} className="mr-2"/> Contract Active
+                    <Button variant="secondary" className="h-9 text-xs">
+                        <Download size={16} className="mr-2"/> Download Signed Copy
                     </Button>
                 )}
             </div>
         </div>
 
-        {/* 2. LIFECYCLE RIBBON */}
+        {/* 2. CONTEXT BAR */}
         <LifecycleRibbon currentStage={lifecycleStage} />
+        {lifecycleStage === 'Negotiation' && <NegotiationBanner isGuest={viewerMode === 'Guest_Portal'} />}
 
-        {/* 3. NAVIGATION TABS (Hidden in Active View for simplicity, or show subset) */}
-        {lifecycleStage !== 'Active' && (
-            <div className="bg-dark-900 border-b border-dark-700 px-6 flex gap-6 shrink-0">
+        {/* 3. MAIN WORKSPACE */}
+        <div className="flex-1 flex overflow-hidden relative">
+            
+            {/* LEFT: Navigation & Structure */}
+            <div className="w-16 border-r border-dark-800 bg-dark-900 flex flex-col items-center py-4 gap-4 z-20 shrink-0">
                 {[
-                    { id: 'document', label: 'Document Editor', icon: FileText },
-                    { id: 'signature', label: 'Signature Setup', icon: PenTool, disabled: lifecycleStage === 'Draft' || lifecycleStage === 'Review' },
-                    { id: 'overview', label: 'Overview', icon: Activity },
-                    { id: 'workflow', label: 'Workflow', icon: GitBranch },
+                    { id: 'document', icon: FileText, label: 'Editor', disabled: false },
+                    { id: 'signature', icon: PenTool, label: 'Sign', disabled: lifecycleStage !== 'Sign' && lifecycleStage !== 'Active' },
+                    { id: 'audit', icon: Shield, label: 'Audit', disabled: false },
                 ].map(tab => (
-                    <button
+                    <button 
                         key={tab.id}
                         disabled={tab.disabled}
-                        onClick={() => setActiveView(tab.id as ViewTab)}
-                        className={`flex items-center gap-2 py-3 text-sm font-medium border-b-2 transition-all ${activeView === tab.id ? 'border-brand-500 text-white' : 'border-transparent text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed'}`}
+                        onClick={() => {
+                            if(tab.id === 'audit') { setRightPanel('audit'); }
+                            else { setActiveView(tab.id as ViewTab); }
+                        }}
+                        className={`p-3 rounded-xl transition-all group relative ${activeView === tab.id && rightPanel !== 'audit' ? 'bg-brand-500/20 text-brand-400' : 'text-slate-500 hover:text-white hover:bg-white/5'} ${tab.disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        title={tab.label}
                     >
-                        <tab.icon size={16} /> {tab.label}
+                        <tab.icon size={20} />
                     </button>
                 ))}
+                <div className="h-px w-8 bg-dark-700 my-2"></div>
+                <button onClick={() => setRightPanel('history')} className={`p-3 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 ${rightPanel === 'history' ? 'text-brand-400 bg-brand-500/10' : ''}`} title="History"><History size={20}/></button>
+                {viewerMode === 'Internal' && <button onClick={() => setRightPanel('governance')} className={`p-3 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 ${rightPanel === 'governance' ? 'text-brand-400 bg-brand-500/10' : ''}`} title="Governance"><Scale size={20}/></button>}
+                {lifecycleStage === 'Active' && <button onClick={() => setRightPanel('obligations')} className={`p-3 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 ${rightPanel === 'obligations' ? 'text-brand-400 bg-brand-500/10' : ''}`} title="Obligations"><CheckSquare size={20}/></button>}
             </div>
-        )}
 
-        {/* 4. MAIN CONTENT AREA */}
-        <div className="flex-1 overflow-hidden relative bg-dark-950">
-            
-            {/* ACTIVE / SIGNED VIEW */}
-            {lifecycleStage === 'Active' ? (
-                <ActiveContractView />
-            ) : (
-                <>
-                    {/* DOCUMENT EDITOR VIEW */}
-                    {activeView === 'document' && (
-                        <div className="flex h-full flex-col">
-                            {/* Use the EditorToolbar component we extracted */}
+            {/* CENTER: Canvas */}
+            <div className="flex-1 bg-dark-950 flex flex-col overflow-hidden relative">
+                {activeView === 'document' && (
+                    <>
+                        {/* Ribbon only if Internal & Editing */}
+                        {viewerMode === 'Internal' && lifecycleStage !== 'Active' && (
                             <EditorToolbar 
-                                editor={editor}
-                                activeTab={ribbonTab as any}
+                                editor={editor} 
+                                activeTab={ribbonTab as any} 
                                 onTabChange={(t) => setRibbonTab(t)}
-                                state={{zoom: 100, showRuler: true, showGrid: false, darkMode: false, trackChanges: false, redactionMode: false, viewMode: 'print'}}
-                                actions={{
-                                    setZoom: ()=>{}, toggleRuler: ()=>{}, toggleGrid: ()=>{}, toggleDarkMode: ()=>{}, 
-                                    toggleTrackChanges: ()=>{}, toggleRedaction: ()=>{}, setViewMode: ()=>{}, 
-                                    addComment: ()=>{}, runGovernance: ()=>{}, exportDoc: ()=>{}
-                                }}
+                                state={{zoom: 100, showRuler: true, showGrid: false, darkMode: false, trackChanges: true, redactionMode: false, viewMode: 'print'}}
+                                actions={{ setZoom: ()=>{}, toggleRuler: ()=>{}, toggleGrid: ()=>{}, toggleDarkMode: ()=>{}, toggleTrackChanges: ()=>{}, toggleRedaction: ()=>{}, setViewMode: ()=>{}, addComment: ()=>{}, runGovernance: ()=>{}, exportDoc: ()=>{} }}
                             />
-                            
-                            <div className="flex-1 flex overflow-hidden">
-                                {/* Left Panel */}
-                                <div className={`bg-dark-950 border-r border-dark-800 transition-all duration-300 ${isLeftOpen ? 'w-64' : 'w-0'}`}>
-                                    {isLeftOpen && <StructurePanel editor={editor} outline={[]} />}
-                                </div>
+                        )}
+                        
+                        {/* Active Dashboard Header */}
+                        {lifecycleStage === 'Active' && <ActiveContractDashboard contract={contract} />}
 
-                                {/* Canvas */}
-                                <div className="flex-1 bg-dark-900/50 overflow-y-auto p-8 flex justify-center">
-                                    <div className="bg-white w-[816px] min-h-[1056px] shadow-2xl text-black relative">
-                                        <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none p-24 min-h-full"/>
+                        <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-dark-900/50" onClick={() => editor?.commands.focus()}>
+                            <div className={`bg-white text-black shadow-2xl min-h-[1056px] w-[816px] transition-transform origin-top relative ${viewerMode === 'Guest_Portal' ? 'ring-8 ring-orange-500/20' : ''}`}>
+                                {/* Watermark for Guest */}
+                                {viewerMode === 'Guest_Portal' && (
+                                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0">
+                                        <div className="text-slate-100 text-9xl font-bold -rotate-45 opacity-50">EXTERNAL VIEW</div>
                                     </div>
-                                </div>
-
-                                {/* Right Panel */}
-                                <div className={`bg-dark-900 border-l border-dark-800 transition-all duration-300 ${isRightOpen ? 'w-80' : 'w-0'}`}>
-                                    {isRightOpen && <ReviewPanel comments={[]} changes={[]} onAddComment={()=>{}} />}
+                                )}
+                                {/* Active Watermark */}
+                                {lifecycleStage === 'Active' && (
+                                    <div className="absolute top-12 right-12 border-4 border-green-600 text-green-600 p-2 rounded font-black text-xl opacity-80 rotate-12 pointer-events-none z-20">
+                                        SIGNED & EXECUTED
+                                    </div>
+                                )}
+                                <div className="relative z-10 p-16">
+                                    <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none"/>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </>
+                )}
+                
+                {activeView === 'signature' && <SignatureSetup onComplete={() => { setLifecycleStage('Active'); setRightPanel('obligations'); }} />}
+            </div>
 
-                    {/* SIGNATURE VIEW */}
-                    {activeView === 'signature' && (
-                        <SignatureSetup onComplete={() => {
-                            setLifecycleStage('Sign');
-                            // Ideally show a notification here
-                        }} />
-                    )}
-
-                    {/* OVERVIEW VIEW */}
-                    {activeView === 'overview' && (
-                        <div className="p-8 max-w-5xl mx-auto space-y-6">
-                            <Card title="Executive Summary">
-                                <div className="p-4 flex gap-4 bg-brand-500/10 border border-brand-500/20 rounded-xl">
-                                    <Bot size={24} className="text-brand-400"/>
-                                    <p className="text-sm text-slate-300">This contract is in the <strong>{lifecycleStage}</strong> stage. It contains standard terms with one detected deviation in the Indemnity clause.</p>
-                                </div>
-                            </Card>
-                        </div>
-                    )}
-                </>
-            )}
+            {/* RIGHT: Panels */}
+            <div className="w-80 border-l border-dark-800 bg-dark-900 flex flex-col z-20 shrink-0 shadow-xl transition-all">
+                {rightPanel === 'review' && <ReviewPanel comments={viewerMode === 'Internal' ? [] : []} changes={[]} onAddComment={()=>{}} />}
+                {rightPanel === 'audit' && <AuditLogPanel contract={contract} />}
+                {rightPanel === 'history' && <HistoryPanel />}
+                {rightPanel === 'governance' && viewerMode === 'Internal' && <GovernancePanel />}
+                {rightPanel === 'obligations' && <ObligationsPanel obligations={MOCK_OBLIGATIONS} />}
+            </div>
 
         </div>
     </div>
