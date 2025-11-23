@@ -1,18 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Badge, Select } from '../components/UIComponents';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Card, Button, Input, Badge, Select, Switch, Avatar } from '../components/UIComponents';
 import { MOCK_TEMPLATES, MOCK_COMMENTS as INITIAL_COMMENTS, MOCK_CHANGES, MOCK_VARIABLES } from '../mock/data';
 import { DocumentTemplate } from '../types';
 import { 
   FileText, Plus, ChevronLeft, Save, Printer, List, History, 
   BookOpen, Braces, MessageSquare, Shield, Workflow, Sparkles,
   AlertTriangle, UserPlus, Minimize2, Maximize2, RefreshCw,
-  PenTool, GitBranch, Eye
+  PenTool, GitBranch, Eye, MoreVertical, ChevronRight
 } from 'lucide-react';
 
 // Imports from extracted files
 import { EditorToolbar, RibbonTabType } from '../components/editor/EditorToolbar';
-import { StructurePanel, ReviewPanel, CompliancePanel, AIPanel, LogicPanel, GovernancePanel } from '../components/editor/EditorPanels';
+import { OutlineItem, StructurePanel, ReviewPanel, CompliancePanel, AIPanel, LogicPanel, GovernancePanel } from '../components/editor/EditorPanels';
 import { LayoutSettingsModal } from '../components/editor/EditorUI';
 
 // TipTap Imports
@@ -44,6 +44,75 @@ type EditorMode = 'editing' | 'suggesting' | 'viewing' | 'diff';
 type LeftTab = 'structure' | 'variables' | 'assets' | 'history';
 type RightTab = 'review' | 'logic' | 'compliance' | 'ai' | 'settings' | 'governance';
 
+interface Comment {
+  id: string;
+  user: string;
+  text: string;
+  date: string;
+  resolved: boolean;
+  replies: { user: string; text: string; date: string }[];
+  selectionId?: string; 
+}
+
+interface TrackedChange {
+  id: string;
+  type: 'insert' | 'delete' | 'format';
+  user: string;
+  date: string;
+  content: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+interface VariableDefinition {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'currency' | 'select';
+  required: boolean;
+  options?: string[];
+  defaultValue?: string;
+}
+
+// --- UTILS ---
+
+interface ErrorBoundaryProps {
+  children?: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+// Simple error boundary for the editor component
+class EditorErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // FIX: Replaced constructor with a class property for state initialization.
+  // This resolves compile-time errors where `this.state` and `this.props` were not found on the component instance.
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(error: any): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("Editor crashed:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full bg-dark-950 text-slate-400">
+          <div className="text-center">
+            <AlertTriangle size={48} className="mx-auto mb-4 text-red-500" />
+            <h3 className="text-lg font-bold text-white">Editor Encountered an Error</h3>
+            <p className="text-sm mb-4">Something went wrong while rendering the document.</p>
+            <Button variant="secondary" onClick={() => window.location.reload()}>Reload Page</Button>
+          </div>
+        </div>
+      );
+    }
+    return (this as any).props.children;
+  }
+}
+
 // --- MAIN EDITOR COMPONENT ---
 
 const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: DocumentTemplate) => void; onBack: () => void }> = ({ template, onSave, onBack }) => {
@@ -52,6 +121,8 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
   const [leftTab, setLeftTab] = useState<LeftTab>('structure');
   const [rightTab, setRightTab] = useState<RightTab>('review');
   const [mode, setMode] = useState<EditorMode>('editing');
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
   const [activeCollaborators] = useState([
       { id: 'u1', name: 'Harvey S.', color: '#3b82f6' },
       { id: 'u2', name: 'Mike R.', color: '#10b981' }
@@ -66,21 +137,20 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
   const [redactionMode, setRedactionMode] = useState(false);
   const [viewMode, setViewMode] = useState<'print' | 'web' | 'focus'>('print');
   
-  // Force update for toolbar state sync
-  const [, setUpdateTick] = useState(0);
-
-  // Layout State (Managed here but controlled via toolbar)
+  // Layout State
   const [margins, setMargins] = useState({ top: 96, bottom: 96, left: 96, right: 96 });
   const [watermark, setWatermark] = useState<string>('');
 
   // Data State
   const [comments, setComments] = useState(INITIAL_COMMENTS);
   const [changes] = useState(MOCK_CHANGES);
-  const [outline, setOutline] = useState<string[]>([]);
-  const [content] = useState(template?.content || '');
-
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  
   // Modals
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // Optimization: Refs for debouncing
+  const outlineTimeoutRef = useRef<number | null>(null);
 
   // Editor Init
   const editor = useEditor({
@@ -106,60 +176,47 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
       TaskList,
       TaskItem.configure({ nested: true }),
     ],
-    content: content,
+    content: template?.content || '',
     editable: mode !== 'viewing',
     onUpdate: ({ editor }) => {
-        try {
-            const json = editor.getJSON();
-            if (json && Array.isArray(json.content)) {
-                const headers: string[] = [];
-                json.content.forEach((node) => {
-                    if (node && node.type === 'heading') {
-                        const contentArr = node.content;
-                        if (Array.isArray(contentArr) && contentArr.length > 0) {
-                            const firstChild = contentArr[0];
-                            if (firstChild && (firstChild as any).text) {
-                                headers.push((firstChild as any).text);
-                            } else {
-                                headers.push('Untitled Section');
-                            }
-                        } else {
-                            headers.push('Untitled Section');
-                        }
+        // Debounce heavy outline calculation
+        if (outlineTimeoutRef.current) {
+            clearTimeout(outlineTimeoutRef.current);
+        }
+        
+        outlineTimeoutRef.current = window.setTimeout(() => {
+            try {
+                const headers: OutlineItem[] = [];
+                editor.state.doc.forEach((node, pos) => {
+                    if (node.type.name === 'heading') {
+                        headers.push({
+                            text: node.textContent || 'Untitled Section',
+                            level: node.attrs.level,
+                            pos: pos,
+                        });
                     }
                 });
                 setOutline(headers);
-            } else {
-                setOutline([]);
+            } catch (e) {
+                console.warn('Outline parsing failed', e);
             }
-        } catch (e) {
-            console.warn('Editor update parsing warning:', e);
-            setOutline([]);
-        }
-        setUpdateTick(t => t + 1);
-    },
-    onSelectionUpdate: () => {
-        setUpdateTick(t => t + 1);
-    },
-    onTransaction: () => {
-        setUpdateTick(t => t + 1);
+        }, 500); // 500ms debounce
     }
   });
 
-  // Actions passed to Toolbar
   const editorActions = {
       setZoom,
       toggleRuler: () => setShowRuler(!showRuler),
       toggleGrid: () => setShowGrid(!showGrid),
       toggleDarkMode: () => setDarkMode(!darkMode),
-      toggleTrackChanges: () => setTrackChanges(!trackChanges),
+      toggleTrackChanges: () => setMode(prev => prev === 'suggesting' ? 'editing' : 'suggesting'),
       toggleRedaction: () => setRedactionMode(!redactionMode),
       setViewMode,
       addComment: () => {
           const newComment = {
               id: `c_${Date.now()}`,
               user: 'Harvey Specter',
-              text: 'New comment on this section...',
+              text: 'New comment...',
               date: 'Just now',
               resolved: false,
               replies: []
@@ -170,9 +227,7 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
       runGovernance: () => {
           setRightTab('governance');
       },
-      exportDoc: () => {
-          alert('Exporting document...');
-      },
+      exportDoc: () => alert('Exporting...'),
       onAction: (action: string) => {
           if (action === 'margins') setActiveModal('margins');
           if (action === 'watermark') setActiveModal('watermark');
@@ -180,8 +235,18 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           if (action === 'open_variables') setLeftTab('variables');
       }
   };
+  
+  const editorState = {
+    zoom,
+    showRuler,
+    showGrid,
+    darkMode,
+    trackChanges: mode === 'suggesting',
+    redactionMode,
+    viewMode,
+  };
 
-  // Sync Ribbon Tab with Right Panel
+  // Sync Ribbon with Sidebars
   useEffect(() => {
       if (ribbonTab === 'review') setRightTab('review');
       if (ribbonTab === 'governance') setRightTab('governance');
@@ -193,10 +258,13 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
     <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-[#0B0E14] text-slate-200 overflow-hidden font-sans selection:bg-brand-500/30">
        
        {/* 1. COMMAND BAR */}
-       <div className="h-14 bg-dark-950 border-b border-dark-700 flex items-center justify-between px-4 shrink-0 z-30 shadow-md">
-          <div className="flex items-center gap-4">
+       <div className="h-14 bg-dark-950 border-b border-dark-700 flex items-center justify-between px-4 shrink-0 z-30 shadow-md relative">
+          <div className="flex items-center gap-1">
              <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><ChevronLeft size={18}/></button>
-             <div>
+             <button onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title={isLeftSidebarOpen ? "Collapse Left Panel" : "Expand Left Panel"}>
+                <ChevronLeft size={18} className={`transition-transform duration-300 ${isLeftSidebarOpen ? '' : 'rotate-180'}`} />
+             </button>
+             <div className="ml-2">
                 <div className="flex items-center gap-2">
                    <span className="font-bold text-white text-sm">{template.name}</span>
                    <Badge color={template.status === 'Active' ? 'green' : 'yellow'}>{template.status}</Badge>
@@ -209,8 +277,8 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
              </div>
           </div>
 
-          {/* Center Actions: Mode & Collaboration */}
-          <div className="flex items-center gap-4">
+          {/* Mode Switcher */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
              <div className="flex items-center bg-dark-900 rounded-lg p-1 border border-dark-700">
                  {[
                      {id: 'editing', label: 'Editing', icon: PenTool},
@@ -226,37 +294,35 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                      </button>
                  ))}
              </div>
-             
-             <div className="h-6 w-px bg-dark-800"></div>
+          </div>
 
-             {/* Avatars */}
-             <div className="flex items-center -space-x-2">
+          <div className="flex items-center gap-1">
+             <div className="flex items-center -space-x-2 mr-2">
                  {activeCollaborators.map(u => (
-                     <div key={u.id} className="w-8 h-8 rounded-full border-2 border-dark-950 bg-dark-800 flex items-center justify-center text-xs font-bold text-white relative group cursor-pointer" style={{backgroundColor: u.color}}>
+                     <div key={u.id} className="w-8 h-8 rounded-full border-2 border-dark-950 bg-dark-800 flex items-center justify-center text-xs font-bold text-white relative" style={{backgroundColor: u.color}}>
                          {u.name.charAt(0)}
-                         <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-dark-950 rounded-full"></span>
                      </div>
                  ))}
                  <button className="w-8 h-8 rounded-full border-2 border-dark-950 bg-dark-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-dark-700 transition-colors">
                      <UserPlus size={14}/>
                  </button>
              </div>
-          </div>
-
-          <div className="flex items-center gap-3">
              <Button variant="secondary" className="h-8 text-xs"><Printer size={14} className="mr-2"/> Print</Button>
              <Button variant="primary" className="h-8 text-xs shadow-lg shadow-brand-500/20" onClick={() => onSave(template)}>
                 <Save size={14} className="mr-2"/> Publish
              </Button>
+             <button onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title={isRightSidebarOpen ? "Collapse Right Panel" : "Expand Right Panel"}>
+                <ChevronRight size={18} className={`transition-transform duration-300 ${isRightSidebarOpen ? '' : 'rotate-180'}`} />
+             </button>
           </div>
        </div>
 
-       {/* 2. RIBBON TOOLBAR (EXTRACTED) */}
+       {/* 2. RIBBON TOOLBAR - REPLACED WITH COMPONENT */}
        <EditorToolbar 
           editor={editor} 
           activeTab={ribbonTab} 
           onTabChange={setRibbonTab}
-          state={{ zoom, showRuler, showGrid, darkMode, trackChanges, redactionMode, viewMode }}
+          state={editorState}
           actions={editorActions}
        />
 
@@ -264,82 +330,70 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
        <div className="flex-1 flex overflow-hidden relative">
           
           {/* LEFT RAIL */}
-          <div className="w-64 bg-dark-950 border-r border-dark-800 flex flex-col z-20 shrink-0">
-             <div className="flex border-b border-dark-800 bg-dark-900">
-                <button onClick={() => setLeftTab('structure')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'structure' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Outline"><List size={16}/></button>
-                <button onClick={() => setLeftTab('variables')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'variables' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Variables"><Braces size={16}/></button>
-                <button onClick={() => setLeftTab('assets')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'assets' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Clauses"><BookOpen size={16}/></button>
-                <button onClick={() => setLeftTab('history')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'history' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="History"><History size={16}/></button>
-             </div>
-             <div className="flex-1 overflow-hidden relative">
-                {leftTab === 'structure' && <StructurePanel editor={editor} outline={outline} />}
-                {leftTab === 'variables' && <div className="p-4 text-slate-500 text-xs text-center">Variable Panel Mock</div>}
-                {leftTab === 'assets' && <div className="p-4 text-slate-500 text-xs text-center">Assets Panel Mock</div>}
-                {leftTab === 'history' && <div className="p-4 text-xs text-slate-500 text-center mt-10">Version history list...</div>}
-             </div>
+          <div className={`bg-dark-950 border-r border-dark-800 flex flex-col z-20 shrink-0 transition-all duration-300 ease-in-out ${isLeftSidebarOpen ? 'w-64' : 'w-0'}`}>
+            <div className="flex flex-col h-full overflow-hidden whitespace-nowrap">
+                <div className="flex border-b border-dark-800 bg-dark-900">
+                    <button onClick={() => setLeftTab('structure')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'structure' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Outline"><List size={16}/></button>
+                    <button onClick={() => setLeftTab('variables')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'variables' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Variables"><Braces size={16}/></button>
+                    <button onClick={() => setLeftTab('assets')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'assets' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="Clauses"><BookOpen size={16}/></button>
+                    <button onClick={() => setLeftTab('history')} className={`flex-1 py-3 flex justify-center border-b-2 transition-all ${leftTab === 'history' ? 'border-brand-500 text-brand-400' : 'border-transparent text-slate-500 hover:text-white'}`} title="History"><History size={16}/></button>
+                </div>
+                <div className="flex-1 overflow-hidden relative">
+                    {leftTab === 'structure' && <StructurePanel editor={editor} outline={outline} />}
+                    {leftTab === 'variables' && <div className="p-4 text-slate-500 text-xs text-center">Variables Panel</div>}
+                    {leftTab === 'assets' && <div className="p-4 text-slate-500 text-xs text-center">Clauses Panel</div>}
+                    {leftTab === 'history' && <div className="p-4 text-xs text-slate-500 text-center mt-10">Version history...</div>}
+                </div>
+            </div>
           </div>
 
           {/* CENTER: Editor Canvas */}
           <div className="flex-1 bg-dark-900/30 relative flex flex-col overflow-hidden">
              
              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex justify-center relative" onClick={() => editor?.commands.focus()}>
-                <div 
-                   className={`bg-white text-black shadow-2xl transition-transform duration-200 ease-out origin-top mb-20 relative 
-                     ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
-                     ${redactionMode ? 'redaction-active' : ''}
-                     ${darkMode ? 'invert hue-rotate-180' : ''}
-                   `}
-                   style={{ 
-                       width: viewMode === 'web' ? '100%' : '816px', 
-                       minHeight: '1056px', 
-                       paddingTop: `${margins.top}px`,
-                       paddingBottom: `${margins.bottom}px`,
-                       paddingLeft: `${margins.left}px`,
-                       paddingRight: `${margins.right}px`,
-                       transform: `scale(${zoom / 100})`,
-                       marginTop: viewMode === 'focus' ? '0' : undefined
-                   }}
-                >
-                   {/* Watermark */}
-                   {watermark && (
-                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                           <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
-                               {watermark}
+                <EditorErrorBoundary>
+                    <div 
+                       className={`bg-white text-black shadow-2xl transition-transform duration-200 ease-out origin-top mb-20 relative 
+                         ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
+                         ${redactionMode ? 'redaction-active' : ''}
+                         ${darkMode ? 'invert hue-rotate-180' : ''}
+                       `}
+                       style={{ 
+                           width: viewMode === 'web' ? '100%' : '816px', 
+                           minHeight: '1056px', 
+                           paddingTop: `${margins.top}px`,
+                           paddingBottom: `${margins.bottom}px`,
+                           paddingLeft: `${margins.left}px`,
+                           paddingRight: `${margins.right}px`,
+                           transform: `scale(${zoom / 100})`,
+                           marginTop: viewMode === 'focus' ? '0' : undefined
+                       }}
+                    >
+                       {/* Watermark */}
+                       {watermark && (
+                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                               <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
+                                   {watermark}
+                               </div>
                            </div>
+                       )}
+
+                       {/* Tiptap Editor */}
+                       <div className="relative z-10 h-full">
+                           <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full min-h-[800px]" />
                        </div>
-                   )}
-
-                   {/* Ruler Mock */}
-                   {showRuler && viewMode === 'print' && (
-                       <div className="absolute top-0 left-0 right-0 h-6 bg-gray-100 border-b border-gray-300 flex items-end px-[96px]">
-                           <div className="w-full h-1/2 flex justify-between">
-                               {Array.from({length: 20}).map((_, i) => (
-                                   <div key={i} className="w-px h-full bg-gray-400"></div>
-                               ))}
-                           </div>
-                       </div>
-                   )}
-
-                   {/* Grid Overlay */}
-                   {showGrid && (
-                       <div className="absolute inset-0 pointer-events-none z-50" style={{backgroundImage: 'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
-                   )}
-
-                   {/* Tiptap Editor */}
-                   <div className="relative z-10 h-full">
-                       <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full" />
-                   </div>
-                </div>
+                    </div>
+                </EditorErrorBoundary>
              </div>
              
-             {/* Zoom Controls Overlay */}
+             {/* Zoom Controls */}
              <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-dark-900/90 backdrop-blur border border-dark-700 rounded-full p-1 shadow-xl z-20">
                 <button onClick={() => setZoom(Math.max(50, zoom - 10))} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10"><Minimize2 size={14}/></button>
                 <span className="text-xs font-mono w-10 text-center text-slate-300">{zoom}%</span>
                 <button onClick={() => setZoom(Math.min(200, zoom + 10))} className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10"><Maximize2 size={14}/></button>
              </div>
              
-             {/* Stats Overlay */}
+             {/* Stats */}
              <div className="absolute bottom-6 right-6 flex items-center gap-4">
                  <div className="text-[10px] text-slate-500 font-mono bg-dark-950/80 px-3 py-1 rounded-full border border-dark-800 backdrop-blur flex items-center gap-2">
                     <span>{editor?.storage?.characterCount?.words?.() || 0} words</span>
@@ -353,31 +407,33 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           </div>
 
           {/* RIGHT RAIL */}
-          <div className="w-80 bg-dark-900 border-l border-dark-800 flex flex-col z-20 shrink-0 shadow-xl">
-             <div className="flex border-b border-dark-800 bg-dark-900">
-                {[
-                   {id: 'review', icon: MessageSquare},
-                   {id: 'logic', icon: Workflow},
-                   {id: 'compliance', icon: Shield},
-                   {id: 'ai', icon: Sparkles},
-                   {id: 'governance', icon: AlertTriangle},
-                ].map(tab => (
-                   <button 
-                     key={tab.id}
-                     onClick={() => setRightTab(tab.id as RightTab)}
-                     className={`flex-1 py-3 flex items-center justify-center transition-all border-b-2 ${rightTab === tab.id ? 'border-brand-500 text-brand-400 bg-brand-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                   >
-                      <tab.icon size={18}/>
-                   </button>
-                ))}
-             </div>
+          <div className={`bg-dark-900 border-l border-dark-800 flex flex-col z-20 shrink-0 shadow-xl transition-all duration-300 ease-in-out ${isRightSidebarOpen ? 'w-80' : 'w-0'}`}>
+             <div className="flex flex-col h-full overflow-hidden whitespace-nowrap">
+                <div className="flex border-b border-dark-800 bg-dark-900">
+                    {[
+                       {id: 'review', icon: MessageSquare},
+                       {id: 'logic', icon: Workflow},
+                       {id: 'compliance', icon: Shield},
+                       {id: 'ai', icon: Sparkles},
+                       {id: 'governance', icon: AlertTriangle},
+                    ].map(tab => (
+                       <button 
+                         key={tab.id}
+                         onClick={() => setRightTab(tab.id as RightTab)}
+                         className={`flex-1 py-3 flex items-center justify-center transition-all border-b-2 ${rightTab === tab.id ? 'border-brand-500 text-brand-400 bg-brand-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                       >
+                          <tab.icon size={18}/>
+                       </button>
+                    ))}
+                </div>
 
-             <div className="flex-1 overflow-hidden relative bg-dark-950">
-                {rightTab === 'review' && <ReviewPanel comments={comments} changes={changes} onAddComment={editorActions.addComment} />}
-                {rightTab === 'logic' && <LogicPanel />}
-                {rightTab === 'compliance' && <CompliancePanel />}
-                {rightTab === 'ai' && <AIPanel />}
-                {rightTab === 'governance' && <GovernancePanel />}
+                <div className="flex-1 overflow-hidden relative bg-dark-950">
+                    {rightTab === 'review' && <ReviewPanel comments={comments} changes={changes} onAddComment={editorActions.addComment} />}
+                    {rightTab === 'logic' && <LogicPanel />}
+                    {rightTab === 'compliance' && <CompliancePanel />}
+                    {rightTab === 'ai' && <AIPanel />}
+                    {rightTab === 'governance' && <GovernancePanel />}
+                </div>
              </div>
           </div>
        </div>
@@ -412,23 +468,6 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
              color: transparent;
              text-shadow: 0 0 8px rgba(0,0,0,0.5);
          }
-         .page-break {
-             page-break-after: always;
-             height: 1px;
-             border-bottom: 1px dashed #ccc;
-             margin: 20px 0;
-             display: flex;
-             align-items: center;
-             justify-content: center;
-         }
-         .page-break::after {
-             content: 'PAGE BREAK';
-             background: #eee;
-             color: #999;
-             font-size: 10px;
-             padding: 2px 6px;
-             border-radius: 4px;
-         }
        `}</style>
     </div>
   );
@@ -452,7 +491,7 @@ const DocumentTemplates: React.FC = () => {
       version: '1.0',
       lastModified: 'Just now',
       status: 'Draft',
-      content: '<p>Start typing...</p>',
+      content: '<h1>Untitled Document</h1><p>Start typing here...</p>',
       variables: [],
       conditions: [],
       redactionRules: []

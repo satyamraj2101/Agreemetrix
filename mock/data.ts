@@ -401,3 +401,39 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   
   'stage_transition': 'Updates the lifecycle stage of the contract (e.g., to "Active").',
 };
+
+// --- NEW EDITOR MOCKS ---
+export const MOCK_COMMENTS = [
+  {
+    id: 'c1',
+    user: 'Mike Ross',
+    text: 'We need to clarify the indemnity cap here. Standard is 2x, this says unlimited.',
+    date: '2h ago',
+    resolved: false,
+    replies: [
+      { user: 'Harvey Specter', text: 'Agreed. Change it to 2x fees paid.', date: '1h ago' }
+    ]
+  },
+  {
+    id: 'c2',
+    user: 'Jessica Pearson',
+    text: 'Is this jurisdiction correct for EU clients?',
+    date: '1d ago',
+    resolved: true,
+    replies: []
+  }
+];
+
+export const MOCK_CHANGES = [
+  { id: 'tc1', type: 'delete', user: 'Mike Ross', date: '2h ago', content: 'perpetual', status: 'pending' },
+  { id: 'tc2', type: 'insert', user: 'Mike Ross', date: '2h ago', content: 'three (3) year', status: 'pending' },
+  { id: 'tc3', type: 'insert', user: 'Harvey Specter', date: '30m ago', content: 'Subject to Section 5.2...', status: 'accepted' }
+];
+
+export const MOCK_VARIABLES = [
+  { key: 'counterparty_name', label: 'Counterparty Name', type: 'text', required: true },
+  { key: 'contract_value', label: 'Total Value', type: 'currency', required: true },
+  { key: 'effective_date', label: 'Effective Date', type: 'date', required: true },
+  { key: 'jurisdiction', label: 'Jurisdiction', type: 'select', required: true, options: ['New York', 'California', 'Delaware', 'London'] },
+  { key: 'payment_terms', label: 'Payment Terms', type: 'select', required: false, options: ['Net 30', 'Net 45', 'Net 60'], defaultValue: 'Net 30' },
+];
