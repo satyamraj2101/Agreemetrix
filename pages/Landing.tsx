@@ -6,10 +6,47 @@ import {
   ArrowRight, Shield, Zap, CheckCircle2, Globe, 
   BarChart2, Workflow, Lock, Bot, Search, ChevronRight,
   Menu, X, Check, Server, Users, CreditCard, Sparkles,
-  Cpu, FileText, LayoutTemplate, Share2
+  Cpu, FileText, LayoutTemplate, Share2, MousePointer2,
+  Play, GitBranch, Activity, Box, AlertTriangle
 } from 'lucide-react';
 
-// --- HERO GRAPHIC COMPONENT ---
+// --- VISUAL COMPONENTS ---
+
+const GridBackground = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20"></div>
+    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand-500/50 to-transparent"></div>
+  </div>
+);
+
+const GlowingOrb = ({ color = "brand", size = "large", position = "top-left", delay = 0 }: { color?: string, size?: string, position?: string, delay?: number }) => {
+    const colorMap: Record<string, string> = {
+        brand: "bg-brand-500",
+        purple: "bg-purple-500",
+        blue: "bg-blue-500",
+    };
+    const sizeMap: Record<string, string> = {
+        small: "w-64 h-64 blur-[80px]",
+        medium: "w-96 h-96 blur-[100px]",
+        large: "w-[500px] h-[500px] blur-[120px]",
+    };
+    const posMap: Record<string, string> = {
+        "top-left": "top-[-10%] left-[-10%]",
+        "top-right": "top-[-10%] right-[-10%]",
+        "bottom-left": "bottom-[-10%] left-[-10%]",
+        "bottom-right": "bottom-[-10%] right-[-10%]",
+        "center": "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+    };
+
+    return (
+        <div 
+            className={`absolute ${posMap[position]} ${sizeMap[size]} ${colorMap[color]} rounded-full opacity-20 animate-blob mix-blend-screen pointer-events-none`}
+            style={{ animationDelay: `${delay}s` }}
+        ></div>
+    );
+};
+
+// Enhanced Hero Graphic with 3D Tilt
 const HeroGraphic = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -27,99 +64,128 @@ const HeroGraphic = () => {
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setMousePosition({ x: 0, y: 0 })}
-      className="relative w-full max-w-6xl mx-auto perspective-1000 py-20"
-      style={{ perspective: '1000px' }}
+      className="relative w-full max-w-7xl mx-auto perspective-1000 py-20 group"
+      style={{ perspective: '2000px' }}
     >
       <div 
-        className="relative transition-transform duration-200 ease-out will-change-transform"
+        className="relative transition-transform duration-100 ease-out will-change-transform transform-gpu"
         style={{
-          transform: `rotateY(${mousePosition.x * 5}deg) rotateX(${mousePosition.y * -5}deg) scale(1.02)`
+          transform: `rotateY(${mousePosition.x * 2}deg) rotateX(${mousePosition.y * -2}deg)`
         }}
       >
         {/* Glow Effect behind the board */}
-        <div className="absolute -inset-1 bg-gradient-to-r from-brand-500 to-purple-600 rounded-2xl opacity-20 blur-2xl animate-pulse-slow"></div>
+        <div className="absolute -inset-2 bg-gradient-to-r from-brand-500 via-blue-500 to-purple-600 rounded-2xl opacity-20 blur-2xl group-hover:opacity-30 transition-opacity duration-500"></div>
         
         {/* Main Dashboard Mockup */}
-        <div className="relative bg-dark-950 border border-dark-700 rounded-xl shadow-2xl overflow-hidden">
+        <div className="relative bg-[#0B0E14] border border-white/10 rounded-xl shadow-2xl overflow-hidden ring-1 ring-white/5">
           {/* Mockup Header */}
-          <div className="h-10 border-b border-dark-800 bg-dark-900/90 backdrop-blur flex items-center px-4 justify-between">
+          <div className="h-12 border-b border-white/5 bg-white/[0.02] backdrop-blur flex items-center px-4 justify-between">
              <div className="flex gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></div>
                 <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
                 <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50"></div>
              </div>
-             <div className="text-[10px] font-mono text-slate-500 flex items-center gap-2">
-                <Lock size={10} /> agreemetrix.ai
+             <div className="flex-1 flex justify-center">
+                <div className="bg-black/40 px-4 py-1.5 rounded-md border border-white/5 flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                    <Lock size={10} /> app.agreemetrix.ai
+                </div>
+             </div>
+             <div className="flex gap-3">
+                <div className="w-20 h-2 bg-white/5 rounded-full"></div>
              </div>
           </div>
 
           {/* Mockup Body */}
-          <div className="p-6 grid grid-cols-12 gap-6 bg-dark-950/80 backdrop-blur-sm relative">
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5 pointer-events-none"></div>
+          <div className="p-8 grid grid-cols-12 gap-8 bg-dark-950 relative min-h-[500px]">
+             {/* Grid Pattern Overlay */}
+             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none"></div>
              
              {/* Sidebar Mock */}
-             <div className="col-span-2 hidden md:flex flex-col gap-3 border-r border-dark-800 pr-6">
-                <div className="h-8 w-full bg-dark-800 rounded animate-pulse"></div>
-                <div className="h-4 w-3/4 bg-dark-800/50 rounded"></div>
-                <div className="h-4 w-1/2 bg-dark-800/50 rounded"></div>
-                <div className="h-4 w-2/3 bg-dark-800/50 rounded"></div>
+             <div className="col-span-2 hidden md:flex flex-col gap-4 border-r border-white/5 pr-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-brand-500/20 border border-brand-500/30 flex items-center justify-center">
+                        <LayoutTemplate size={16} className="text-brand-400"/>
+                    </div>
+                    <div className="h-3 w-20 bg-white/10 rounded"></div>
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-white/5 transition-colors">
+                        <div className="w-4 h-4 rounded bg-white/10"></div>
+                        <div className="h-2 w-16 bg-white/10 rounded"></div>
+                    </div>
+                ))}
              </div>
 
              {/* Content Mock */}
-             <div className="col-span-12 md:col-span-10 flex flex-col gap-6">
-                {/* Stats Row */}
-                <div className="flex gap-4">
-                   <div className="flex-1 h-24 bg-dark-800/30 border border-dark-700 rounded-xl p-4 relative overflow-hidden group hover:border-brand-500/30 transition-colors">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-brand-500/10 rounded-full blur-xl -mr-8 -mt-8"></div>
-                      <div className="w-8 h-8 bg-brand-500/20 rounded mb-2"></div>
-                      <div className="h-4 w-12 bg-dark-700 rounded mb-1"></div>
-                      <div className="h-6 w-20 bg-white/10 rounded"></div>
-                   </div>
-                   <div className="flex-1 h-24 bg-dark-800/30 border border-dark-700 rounded-xl p-4 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-full blur-xl -mr-8 -mt-8"></div>
-                      <div className="w-8 h-8 bg-purple-500/20 rounded mb-2"></div>
-                      <div className="h-4 w-12 bg-dark-700 rounded mb-1"></div>
-                      <div className="h-6 w-20 bg-white/10 rounded"></div>
-                   </div>
-                   <div className="flex-1 h-24 bg-dark-800/30 border border-dark-700 rounded-xl p-4 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl -mr-8 -mt-8"></div>
-                      <div className="w-8 h-8 bg-blue-500/20 rounded mb-2"></div>
-                      <div className="h-4 w-12 bg-dark-700 rounded mb-1"></div>
-                      <div className="h-6 w-20 bg-white/10 rounded"></div>
-                   </div>
+             <div className="col-span-12 md:col-span-10 flex flex-col gap-8">
+                
+                {/* Header Section */}
+                <div className="flex justify-between items-end">
+                    <div>
+                        <div className="h-8 w-48 bg-white/10 rounded mb-2 animate-pulse"></div>
+                        <div className="h-4 w-32 bg-white/5 rounded"></div>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="h-8 w-24 bg-brand-500/20 border border-brand-500/30 rounded"></div>
+                        <div className="h-8 w-8 bg-white/5 border border-white/10 rounded"></div>
+                    </div>
                 </div>
 
-                {/* Main Chart Area */}
-                <div className="h-64 bg-dark-800/20 border border-dark-700 rounded-xl p-4 relative overflow-hidden">
-                   <div className="absolute inset-0 flex items-end justify-around px-6 pb-0 pt-10 gap-2">
-                      {[40, 60, 45, 70, 50, 80, 65, 90, 75].map((h, i) => (
-                         <div 
-                            key={i} 
-                            className="w-full bg-gradient-to-t from-brand-500/20 to-brand-500/50 rounded-t-md transition-all duration-1000 ease-in-out"
-                            style={{ height: `${h}%`, animationDelay: `${i * 100}ms` }}
-                         ></div>
-                      ))}
-                   </div>
-                   {/* Scan Line */}
-                   <div className="absolute top-0 bottom-0 w-px bg-brand-400/50 shadow-[0_0_10px_rgba(45,212,191,0.5)] animate-scan-line opacity-50"></div>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-3 gap-4">
+                   {[
+                       { color: 'brand', val: '$1.2M', label: 'Pipeline' },
+                       { color: 'purple', val: '14', label: 'Pending Review' },
+                       { color: 'blue', val: '98%', label: 'Compliance' }
+                   ].map((stat, i) => (
+                       <div key={i} className={`h-28 bg-white/[0.02] border border-white/5 rounded-xl p-5 relative overflow-hidden group/card hover:border-white/10 transition-colors`}>
+                          <div className={`absolute top-0 right-0 w-20 h-20 bg-${stat.color}-500/5 rounded-full blur-xl -mr-5 -mt-5 transition-all group-hover/card:bg-${stat.color}-500/10`}></div>
+                          <div className="relative z-10">
+                              <div className="text-xs text-slate-500 font-bold uppercase mb-2">{stat.label}</div>
+                              <div className="text-2xl font-bold text-white">{stat.val}</div>
+                              <div className="mt-4 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                  <div className={`h-full w-2/3 bg-${stat.color}-500/50 rounded-full`}></div>
+                              </div>
+                          </div>
+                       </div>
+                   ))}
                 </div>
-             </div>
-          </div>
 
-          {/* AI Notification Pop-up */}
-          <div className="absolute bottom-8 right-8 max-w-xs w-full bg-dark-900/90 backdrop-blur-xl border border-dark-600 shadow-2xl rounded-xl p-4 animate-bounce-subtle z-20">
-             <div className="flex items-start gap-3">
-                <div className="p-2 bg-brand-500/20 rounded-lg text-brand-400 shrink-0">
-                   <Sparkles size={16} />
-                </div>
-                <div>
-                   <h4 className="text-xs font-bold text-white mb-1">Risk Detected</h4>
-                   <p className="text-[10px] text-slate-300 leading-relaxed">
-                      The "Indemnity" clause in <strong>TechFlow MSA</strong> exceeds your standard risk threshold.
-                   </p>
-                   <div className="flex gap-2 mt-2">
-                      <button className="px-3 py-1 bg-brand-600 hover:bg-brand-500 text-white text-[10px] font-bold rounded transition-colors">Auto-Remediate</button>
-                      <button className="px-3 py-1 bg-dark-800 hover:bg-dark-700 text-slate-400 text-[10px] font-bold rounded transition-colors">Ignore</button>
+                {/* Main Workspace / Graph */}
+                <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-xl p-1 relative overflow-hidden flex flex-col">
+                   <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                   
+                   <div className="flex-1 relative p-6">
+                       {/* Fake Graph Lines */}
+                       <div className="absolute inset-0 flex items-end justify-between px-8 pb-0 pt-16 gap-4 opacity-50">
+                          {[30, 50, 45, 60, 80, 70, 90, 65, 85, 95].map((h, i) => (
+                             <div 
+                                key={i} 
+                                className="w-full bg-gradient-to-t from-brand-500/10 to-brand-500/40 rounded-t-sm transition-all duration-1000 ease-in-out hover:to-brand-400"
+                                style={{ height: `${h}%`, transitionDelay: `${i * 50}ms` }}
+                             ></div>
+                          ))}
+                       </div>
+                       
+                       {/* Floating UI Elements */}
+                       <div className="absolute top-8 right-8 bg-dark-900/90 backdrop-blur border border-brand-500/30 p-4 rounded-lg shadow-2xl transform rotate-2 hover:rotate-0 transition-transform duration-300 z-20">
+                           <div className="flex items-center gap-3 mb-2">
+                               <Bot size={16} className="text-brand-400"/>
+                               <span className="text-xs font-bold text-white">AI Risk Alert</span>
+                           </div>
+                           <div className="h-1 w-full bg-brand-500/20 rounded mb-2"></div>
+                           <div className="h-1 w-2/3 bg-brand-500/20 rounded"></div>
+                       </div>
+
+                       <div className="absolute bottom-8 left-8 bg-dark-900/90 backdrop-blur border border-white/10 p-3 rounded-lg shadow-2xl transform -rotate-1 hover:rotate-0 transition-transform duration-300 z-20 flex gap-3 items-center">
+                           <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
+                               <Zap size={14}/>
+                           </div>
+                           <div>
+                               <div className="h-2 w-20 bg-white/20 rounded mb-1"></div>
+                               <div className="h-2 w-12 bg-white/10 rounded"></div>
+                           </div>
+                       </div>
                    </div>
                 </div>
              </div>
@@ -146,10 +212,9 @@ const Landing: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-brand-500/30 overflow-x-hidden">
       
-      {/* Global Grid Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20"></div>
-      </div>
+      <GridBackground />
+      <GlowingOrb color="purple" size="large" position="top-right" />
+      <GlowingOrb color="brand" size="medium" position="bottom-left" delay={2} />
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-dark-950/70 backdrop-blur-lg border-b border-white/5 transition-all duration-300">
@@ -207,13 +272,6 @@ const Landing: React.FC = () => {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-         {/* Dynamic Blobs */}
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none">
-            <div className="absolute top-[-10%] left-[20%] w-[600px] h-[600px] bg-brand-500/10 rounded-full blur-[120px] animate-blob mix-blend-screen"></div>
-            <div className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px] animate-blob animation-delay-2000 mix-blend-screen"></div>
-            <div className="absolute top-[40%] left-[10%] w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[120px] animate-blob animation-delay-4000 mix-blend-screen"></div>
-         </div>
-
          <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-brand-300 mb-8 animate-in slide-in-from-bottom-4 fade-in duration-700 hover:bg-white/10 transition-colors cursor-default shadow-[0_0_15px_rgba(45,212,191,0.1)]">
                <span className="relative flex h-2 w-2">
@@ -255,68 +313,103 @@ const Landing: React.FC = () => {
       {/* Infinite Logos */}
       <section className="py-10 border-y border-white/5 bg-dark-900/30 overflow-hidden relative">
          <div className="absolute inset-0 bg-gradient-to-r from-[#020617] via-transparent to-[#020617] z-10 pointer-events-none"></div>
-         <div className="flex gap-12 animate-marquee whitespace-nowrap min-w-full items-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+         <div className="flex gap-16 animate-marquee whitespace-nowrap min-w-full items-center opacity-50 hover:opacity-80 transition-opacity duration-500">
             {[...Array(2)].map((_, i) => (
                <React.Fragment key={i}>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><Globe size={24}/> Global Inc</div>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><Zap size={24}/> TechFlow</div>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><Shield size={24}/> SecureNet</div>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><BoxIcon /> Stratos</div>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><CreditCard size={24}/> FinCorp</div>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><Users size={24}/> TeamWorks</div>
-                  <div className="flex items-center gap-2 text-xl font-bold text-white"><Server size={24}/> CloudSys</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><Globe size={24} className="text-brand-500"/> Global Inc</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><Zap size={24} className="text-yellow-500"/> TechFlow</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><Shield size={24} className="text-green-500"/> SecureNet</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><Box size={24} className="text-purple-500"/> Stratos</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><CreditCard size={24} className="text-blue-500"/> FinCorp</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><Users size={24} className="text-pink-500"/> TeamWorks</div>
+                  <div className="flex items-center gap-2 text-xl font-bold text-slate-300"><Server size={24} className="text-orange-500"/> CloudSys</div>
                </React.Fragment>
             ))}
          </div>
       </section>
 
-      {/* Features Grid */}
+      {/* Features Bento Grid */}
       <section id="features" className="py-32 relative">
          <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-20">
-               <Badge color="brand" className="mb-4">Capabilities</Badge>
-               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Everything you need to manage contracts</h2>
-               <p className="text-slate-400 max-w-2xl mx-auto text-lg">From generation to negotiation to signature, Agreemetrix unifies your entire legal workflow into one intelligent platform.</p>
+               <Badge color="brand" className="mb-4">Powerhouse Features</Badge>
+               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Intelligent Contract Operations</h2>
+               <p className="text-slate-400 max-w-2xl mx-auto text-lg">
+                  A complete suite of tools designed to replace fragmentation with flow.
+               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-               {[
-                  { 
-                     icon: Bot, color: 'text-brand-400', bg: 'bg-brand-500/10', border: 'hover:border-brand-500/50',
-                     title: 'AI Risk Detection', desc: 'Automatically scan third-party paper for deviations from your playbook. Identify risky clauses in seconds.'
-                  },
-                  { 
-                     icon: Workflow, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'hover:border-purple-500/50',
-                     title: 'Visual Workflow Builder', desc: 'Design complex approval routing with a drag-and-drop interface. Automate handoffs between Legal, Sales, and Finance.'
-                  },
-                  { 
-                     icon: BarChart2, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'hover:border-blue-500/50',
-                     title: 'Intelligence & Analytics', desc: 'Turn static documents into structured data. Track renewal dates, obligations, and cycle times in real-time.'
-                  },
-                  { 
-                     icon: Search, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'hover:border-yellow-500/50',
-                     title: 'Smart Repository', desc: 'Find any contract instantly with semantic search. Filter by counterparty, value, region, or clause type.'
-                  },
-                  { 
-                     icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-500/10', border: 'hover:border-green-500/50',
-                     title: 'Compliance Tracking', desc: 'Stay compliant with GDPR, CCPA, and other regulations. Track obligations and receive alerts before breaches occur.'
-                  },
-                  { 
-                     icon: Lock, color: 'text-red-400', bg: 'bg-red-500/10', border: 'hover:border-red-500/50',
-                     title: 'Enterprise Security', desc: 'Bank-grade encryption, SSO, and granular role-based access control (RBAC) to keep your sensitive data safe.'
-                  }
-               ].map((feat, i) => (
-                  <div key={i} className={`p-8 rounded-2xl bg-dark-900/50 border border-dark-800 ${feat.border} transition-all duration-300 group hover:bg-dark-900 hover:-translate-y-1 hover:shadow-2xl relative overflow-hidden`}>
-                     <div className={`absolute inset-0 opacity-0 group-hover:opacity-5 bg-gradient-to-br ${feat.color.replace('text', 'from')} to-transparent transition-opacity duration-500`}></div>
-                     <div className={`w-14 h-14 ${feat.bg} rounded-2xl flex items-center justify-center ${feat.color} mb-6 group-hover:scale-110 transition-transform duration-300 shadow-inner`}>
-                        <feat.icon size={28} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               {/* Large Feature 1 */}
+               <div className="md:col-span-2 p-8 rounded-3xl bg-dark-900/50 border border-white/10 hover:border-brand-500/30 transition-all group relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-brand-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="relative z-10 flex flex-col h-full justify-between">
+                     <div className="mb-8">
+                        <div className="w-12 h-12 bg-brand-500/10 rounded-xl flex items-center justify-center mb-4 text-brand-400">
+                           <Bot size={24}/>
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-2">AI Risk Agent</h3>
+                        <p className="text-slate-400">Instantly scans third-party paper against your playbook. Detects deviations in liability caps, indemnity, and governing law with 99% accuracy.</p>
                      </div>
-                     <h3 className="text-xl font-bold text-white mb-3 group-hover:text-white transition-colors">{feat.title}</h3>
-                     <p className="text-slate-400 text-sm leading-relaxed">
-                        {feat.desc}
-                     </p>
+                     <div className="bg-dark-950/50 rounded-xl p-4 border border-white/5 backdrop-blur-sm transform group-hover:scale-[1.02] transition-transform duration-500">
+                        <div className="flex items-center gap-3 text-sm text-slate-300 mb-2">
+                           <AlertTriangle size={14} className="text-red-400"/>
+                           <span>Risk Detected: <strong>Unlimited Liability</strong></span>
+                        </div>
+                        <div className="h-1.5 w-full bg-dark-800 rounded-full overflow-hidden">
+                           <div className="h-full bg-red-500 w-[85%] animate-pulse"></div>
+                        </div>
+                     </div>
                   </div>
-               ))}
+               </div>
+
+               {/* Feature 2 */}
+               <div className="p-8 rounded-3xl bg-dark-900/50 border border-white/10 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="relative z-10">
+                     <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 text-purple-400">
+                        <Workflow size={24}/>
+                     </div>
+                     <h3 className="text-xl font-bold text-white mb-2">Visual Workflows</h3>
+                     <p className="text-slate-400 text-sm">Drag-and-drop builder for complex approvals. Route based on value, region, or risk score.</p>
+                  </div>
+               </div>
+
+               {/* Feature 3 */}
+               <div className="p-8 rounded-3xl bg-dark-900/50 border border-white/10 hover:border-blue-500/30 transition-all group relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="relative z-10">
+                     <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 text-blue-400">
+                        <BarChart2 size={24}/>
+                     </div>
+                     <h3 className="text-xl font-bold text-white mb-2">Deep Analytics</h3>
+                     <p className="text-slate-400 text-sm">Uncover bottlenecks and revenue leakage. Track cycle times and obligation fulfillment rates.</p>
+                  </div>
+               </div>
+
+               {/* Large Feature 4 */}
+               <div className="md:col-span-2 p-8 rounded-3xl bg-dark-900/50 border border-white/10 hover:border-green-500/30 transition-all group relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
+                     <div className="flex-1">
+                        <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center mb-4 text-green-400">
+                           <CheckCircle2 size={24}/>
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-2">Smart Compliance</h3>
+                        <p className="text-slate-400">Never miss a renewal or obligation. The system auto-extracts dates and deliverables, notifying owners before it's too late.</p>
+                     </div>
+                     <div className="w-full md:w-64 bg-dark-950/50 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
+                        {[1,2,3].map(i => (
+                           <div key={i} className="flex items-center gap-3 mb-3 last:mb-0">
+                              <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-[10px]">
+                                 <Check size={10}/>
+                              </div>
+                              <div className="h-2 w-32 bg-white/10 rounded"></div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               </div>
             </div>
          </div>
       </section>
@@ -539,13 +632,5 @@ const Landing: React.FC = () => {
     </div>
   );
 };
-
-const BoxIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-    <line x1="12" y1="22.08" x2="12" y2="12"></line>
-  </svg>
-);
 
 export default Landing;

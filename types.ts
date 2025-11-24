@@ -241,7 +241,7 @@ export interface FieldDefinition {
   key: string;
   type: FieldDataType | string;
   source: 'system' | 'custom' | 'integration';
-  isLocked?: boolean; // If true, field cannot be deleted or key changed
+  isLocked?: boolean; 
   description?: string;
   required: boolean;
   unique?: boolean;
@@ -263,6 +263,11 @@ export interface FieldDefinition {
   usageCount?: number;
   lastModified?: string;
   modifiedBy?: string;
+  // UI Config
+  placeholder?: string;
+  helpText?: string;
+  sectionId?: string;
+  width?: 'full' | 'half' | 'third';
 }
 
 export interface FieldTable { 
@@ -271,6 +276,118 @@ export interface FieldTable {
   description: string; 
   icon: string; 
   fields: FieldDefinition[]; 
+}
+
+// --- APPLICATION TYPE DEFINITIONS (NEW) ---
+
+export interface AppTypeTemplateRule {
+  id: string;
+  templateId: string;
+  conditionExpression: string; 
+  priority: number;
+  fallback?: boolean;
+}
+
+export interface AppTypeActionConfig {
+  actionKey: string; 
+  label: string;
+  enabled: boolean;
+  allowedRoles: string[]; 
+  stage: string;
+  type: 'workflow' | 'webhook' | 'form';
+  config?: any;
+}
+
+export interface AppTypeNotification {
+  id: string;
+  name: string;
+  trigger: 'create' | 'stage_change' | 'sla_breach' | 'signed';
+  channels: ('email' | 'slack' | 'teams')[];
+  recipientType: 'role' | 'user' | 'dynamic';
+  recipientValue: string;
+  templateId: string;
+  active: boolean;
+}
+
+// --- ATTACHMENTS & STORAGE ---
+export interface AttachmentRule {
+  id: string;
+  label: string;
+  key: string;
+  required: boolean;
+  acceptedTypes: string[]; // e.g. ['.pdf', '.docx', 'image/*']
+  maxSizeMB: number;
+  filenamePattern?: string; // Regex
+  description?: string;
+}
+
+export interface StorageConfig {
+  provider: 'SharePoint' | 'S3' | 'GoogleDrive' | 'AzureBlob' | 'Local';
+  basePath: string; // e.g. /sites/legal/contracts/
+  pathPattern: string; // e.g. {{year}}/{{department}}/{{counterparty}}/
+  namingConvention: string; // e.g. {{key}}_{{version}}
+  autoArchive: boolean;
+  retentionPeriodDays?: number;
+}
+
+// --- PERMISSIONS ---
+export interface AppTypePermissionConfig {
+  initiation: {
+    accessLevel: 'public' | 'internal' | 'restricted'; // Public (External), Internal (All Users), Restricted (Specific Roles)
+    allowedRoleIds: string[];
+    allowedGroupIds: string[];
+  };
+  visibility: {
+    defaultScope: 'requester' | 'department' | 'global'; // Requester+Approvers, Department, Everyone
+    additionalRoleIds: string[]; // E.g. Auditors
+  };
+  managers: string[]; // User IDs
+}
+
+export interface FormSection {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  collapsed?: boolean;
+}
+
+export interface AppVersion {
+  version: string;
+  timestamp: string;
+  author: string;
+  changeNote: string;
+  snapshot: any; // The full config snapshot
+}
+
+export interface ApplicationType {
+  id: string;
+  name: string;
+  key: string;
+  description: string;
+  status: 'Published' | 'Draft' | 'Archived' | 'Staged';
+  owner: string;
+  lastModified: string;
+  usageCount: number;
+  
+  // Configuration
+  workflowId: string;
+  intakeForm: {
+    layout: 'single' | 'wizard' | 'tabbed';
+    sections: FormSection[];
+    fields: FieldDefinition[];
+  };
+  templateRules: AppTypeTemplateRule[];
+  actions: AppTypeActionConfig[];
+  notifications: AppTypeNotification[];
+  attachmentRules: AttachmentRule[];
+  storageConfig: StorageConfig;
+  permissions: AppTypePermissionConfig;
+  
+  // Meta
+  versions: AppVersion[];
+  industry?: string;
+  sensitivity?: 'Public' | 'Confidential' | 'Restricted';
 }
 
 export interface AIMessage {

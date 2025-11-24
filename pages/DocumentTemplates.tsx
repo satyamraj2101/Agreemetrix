@@ -139,12 +139,8 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
 
   // Data State
   const [comments, setComments] = useState(INITIAL_COMMENTS);
-  const [changes, setChanges] = useState(MOCK_CHANGES); // Now mutable state
+  const [changes] = useState(MOCK_CHANGES);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
-  const [complianceScore, setComplianceScore] = useState(85); // Real-time score
-  
-  // Logic State
-  const [logicRules, setLogicRules] = useState(template.conditions || []);
   
   // Modals
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -203,14 +199,13 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
     content: template?.content || '',
     editable: mode !== 'viewing',
     onUpdate: ({ editor }) => {
-        // Debounce heavy outline calculation and compliance check
+        // Debounce heavy outline calculation
         if (outlineTimeoutRef.current) {
             clearTimeout(outlineTimeoutRef.current);
         }
         
         outlineTimeoutRef.current = window.setTimeout(() => {
             try {
-                // 1. Outline
                 const headers: OutlineItem[] = [];
                 editor.state.doc.forEach((node, pos) => {
                     if (node.type.name === 'heading') {
@@ -222,18 +217,8 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                     }
                 });
                 setOutline(headers);
-
-                // 2. Compliance Scanning
-                const text = editor.getText().toLowerCase();
-                let score = 100;
-                if (text.includes('unlimited liability')) score -= 20;
-                if (text.includes('indemnify')) score -= 5; // Just monitoring usage
-                if (!text.includes('governing law')) score -= 10;
-                if (!text.includes('termination')) score -= 10;
-                setComplianceScore(Math.max(0, score));
-
             } catch (e) {
-                console.warn('Analysis failed', e);
+                console.warn('Outline parsing failed', e);
             }
         }, 500); // 500ms debounce
     }
@@ -259,10 +244,18 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           setComments([newComment, ...comments]);
           setRightTab('review');
       },
+      acceptChange: (id: string) => {
+          // Placeholder logic for accepting change
+          console.log(`Accepted change ${id}`);
+      },
+      rejectChange: (id: string) => {
+          // Placeholder logic for rejecting change
+          console.log(`Rejected change ${id}`);
+      },
       runGovernance: () => {
           setRightTab('governance');
       },
-      exportDoc: () => alert('Exporting document to PDF...'),
+      exportDoc: () => alert('Exporting...'),
       onAction: (action: string) => {
           if (action === 'margins') setActiveModal('margins');
           if (action === 'watermark') setActiveModal('watermark');
@@ -292,25 +285,6 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
   const baseWidth = 816; // A4 width in px at 96 DPI
   const scaledWidth = viewMode === 'web' ? '100%' : baseWidth * scale;
   const scaledHeight = contentHeight * scale;
-
-  const handleAcceptChange = (id: string) => {
-      setChanges(prev => prev.filter(c => c.id !== id));
-  };
-
-  const handleRejectChange = (id: string) => {
-      setChanges(prev => prev.filter(c => c.id !== id));
-  };
-
-  // Enhanced Save Handler to include Logic Rules
-  const handleSave = () => {
-      const updatedTemplate = {
-          ...template,
-          conditions: logicRules,
-          content: editor?.getHTML() || template.content,
-          lastModified: 'Just now'
-      };
-      onSave(updatedTemplate);
-  };
 
   if (!template) return null;
 
@@ -368,7 +342,7 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                  </button>
              </div>
              <Button variant="secondary" className="h-8 text-xs"><Printer size={14} className="mr-2"/> Print</Button>
-             <Button variant="primary" className="h-8 text-xs shadow-lg shadow-brand-500/20" onClick={handleSave}>
+             <Button variant="primary" className="h-8 text-xs shadow-lg shadow-brand-500/20" onClick={() => onSave(template)}>
                 <Save size={14} className="mr-2"/> Publish
              </Button>
              <button onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title={isRightSidebarOpen ? "Collapse Right Panel" : "Expand Right Panel"}>
@@ -503,10 +477,16 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                 </div>
 
                 <div className="flex-1 overflow-hidden relative bg-dark-950">
-                    {rightTab === 'review' && <ReviewPanel comments={comments} changes={changes} onAddComment={editorActions.addComment} onAcceptChange={handleAcceptChange} onRejectChange={handleRejectChange} />}
-                    {rightTab === 'logic' && <LogicPanel rules={logicRules} onUpdateRules={setLogicRules} />}
-                    {rightTab === 'compliance' && <CompliancePanel score={complianceScore} />}
-                    {rightTab === 'ai' && <AIPanel editor={editor} />}
+                    {rightTab === 'review' && <ReviewPanel 
+                      comments={comments} 
+                      changes={changes} 
+                      onAddComment={editorActions.addComment} 
+                      onAcceptChange={editorActions.acceptChange} 
+                      onRejectChange={editorActions.rejectChange} 
+                    />}
+                    {rightTab === 'logic' && <LogicPanel />}
+                    {rightTab === 'compliance' && <CompliancePanel />}
+                    {rightTab === 'ai' && <AIPanel />}
                     {rightTab === 'governance' && <GovernancePanel />}
                 </div>
              </div>

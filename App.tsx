@@ -23,7 +23,10 @@ import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
-import ContractCreationWizard from './pages/ContractCreationWizard'; // New Import
+import ContractCreationWizard from './pages/ContractCreationWizard';
+import AppTypeManager from './pages/admin/AppTypeManager';
+import AppTypeDetail from './pages/admin/AppTypeDetail';
+import AppTypeWizard from './pages/admin/AppTypeWizard'; // New Import
 
 const App: React.FC = () => {
   return (
@@ -51,7 +54,7 @@ const App: React.FC = () => {
           <Route path="/templates" element={<DocumentTemplates />} />
           <Route path="/repository" element={<Repository />} />
           <Route path="/fields" element={<FieldDatabase />} />
-          <Route path="/contract/new" element={<ContractCreationWizard />} /> {/* New Route */}
+          <Route path="/contract/new" element={<ContractCreationWizard />} /> 
           <Route path="/contract/:id" element={<ContractViewer />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/legacy-migration" element={<LegacyMigration />} />
@@ -61,6 +64,11 @@ const App: React.FC = () => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/masters" element={<Masters />} />
           <Route path="/users" element={<UserManagement />} />
+          
+          {/* Admin - Application Types */}
+          <Route path="/admin/application-types" element={<AppTypeManager />} />
+          <Route path="/admin/application-types/new" element={<AppTypeWizard />} />
+          <Route path="/admin/application-types/:id" element={<AppTypeDetail />} />
         </Route>
         
         {/* Fallback */}

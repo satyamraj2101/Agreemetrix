@@ -8,7 +8,7 @@ import {
   PieChart, ChevronLeft, ChevronRight, Menu, AlertTriangle, Info, CheckSquare,
   ArchiveRestore, LogOut, Key, Plus, Zap, BrainCircuit, BookOpen, Layers,
   ChevronDown, ChevronUp, BarChart3, Loader2, File, Sliders, ListChecks, Workflow,
-  Globe, Shield, Briefcase
+  Globe, Shield, Briefcase, Box
 } from 'lucide-react';
 import { Button, Input, Select, Badge, Logo, Avatar } from './UIComponents';
 
@@ -67,7 +67,8 @@ const NAV_SECTIONS: NavGroup[] = [
     roleReq: ['Admin', 'Legal'],
     items: [
       { to: '/masters', icon: GitBranch, label: 'Master Records' },
-      { to: '/fields', icon: TableProperties, label: 'Field Database' }
+      { to: '/fields', icon: TableProperties, label: 'Field Database' },
+      { to: '/admin/application-types', icon: Box, label: 'App Types', badge: 'Admin', badgeColor: 'brand' } // New Link
     ]
   },
   {
