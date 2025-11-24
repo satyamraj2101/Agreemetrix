@@ -4,6 +4,9 @@ import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import WorkflowBuilder from './pages/WorkflowBuilder';
+import WorkflowManager from './pages/WorkflowManager';
+import WorkflowSettings from './pages/WorkflowSettings';
+import ManualWorkflowEditor from './pages/ManualWorkflowEditor';
 import Repository from './pages/Repository';
 import ContractViewer from './pages/ContractViewer';
 import Integrations from './pages/Integrations';
@@ -36,7 +39,15 @@ const App: React.FC = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/bi" element={<BusinessIntelligence />} />
+          
+          {/* Workflow Routes */}
+          <Route path="/workflows/manage" element={<WorkflowManager />} />
           <Route path="/workflow-ai" element={<WorkflowBuilder />} />
+          <Route path="/workflow-ai/:id" element={<WorkflowBuilder />} /> {/* Parameterized Route */}
+          <Route path="/workflows/manual" element={<ManualWorkflowEditor />} />
+          <Route path="/workflows/manual/:id" element={<ManualWorkflowEditor />} />
+          <Route path="/workflows/settings" element={<WorkflowSettings />} />
+
           <Route path="/templates" element={<DocumentTemplates />} />
           <Route path="/repository" element={<Repository />} />
           <Route path="/fields" element={<FieldDatabase />} />

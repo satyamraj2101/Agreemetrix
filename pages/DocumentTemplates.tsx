@@ -66,15 +66,6 @@ interface TrackedChange {
   status: 'pending' | 'accepted' | 'rejected';
 }
 
-interface VariableDefinition {
-  key: string;
-  label: string;
-  type: 'text' | 'number' | 'date' | 'currency' | 'select';
-  required: boolean;
-  options?: string[];
-  defaultValue?: string;
-}
-
 // --- UTILS ---
 
 interface ErrorBoundaryProps {
@@ -148,8 +139,12 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
 
   // Data State
   const [comments, setComments] = useState(INITIAL_COMMENTS);
-  const [changes] = useState(MOCK_CHANGES);
+  const [changes, setChanges] = useState(MOCK_CHANGES); // Now mutable state
   const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [complianceScore, setComplianceScore] = useState(85); // Real-time score
+  
+  // Logic State
+  const [logicRules, setLogicRules] = useState(template.conditions || []);
   
   // Modals
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -157,27 +152,29 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
   // Optimization: Refs for debouncing
   const outlineTimeoutRef = useRef<number | null>(null);
 
-  // Resize Observer for Page Scaling
+  // --- RESIZE OBSERVER FOR SCALING ---
   const pageRef = useRef<HTMLDivElement>(null);
-  const [pageDimensions, setPageDimensions] = useState({ width: 816, height: 1056 });
+  const [contentHeight, setContentHeight] = useState(1056); // Start with A4 min-height
 
   useEffect(() => {
     if (!pageRef.current) return;
     
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        // We use scrollHeight to capture the full height including content that might not be visible if overflow happened
-        const newHeight = entry.target.scrollHeight;
-        // Only update if significant change to avoid loops, though usually scrollHeight is stable
-        if (Math.abs(newHeight - pageDimensions.height) > 1) {
-            setPageDimensions(prev => ({ ...prev, height: Math.max(1056, newHeight) }));
+        // We use getBoundingClientRect for precise sub-pixel measurement
+        const height = entry.target.getBoundingClientRect().height / (zoom / 100);
+        
+        // Update if height changed significantly (>1px) to avoid jitter loops
+        if (Math.abs(height - contentHeight) > 1) {
+            // Ensure we don't shrink below A4 minimum
+            setContentHeight(Math.max(1056, height));
         }
       }
     });
     
     observer.observe(pageRef.current);
     return () => observer.disconnect();
-  }, [pageDimensions.height]); // Dependency on height to keep stable
+  }, [contentHeight, zoom]);
 
   // Editor Init
   const editor = useEditor({
@@ -206,13 +203,14 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
     content: template?.content || '',
     editable: mode !== 'viewing',
     onUpdate: ({ editor }) => {
-        // Debounce heavy outline calculation
+        // Debounce heavy outline calculation and compliance check
         if (outlineTimeoutRef.current) {
             clearTimeout(outlineTimeoutRef.current);
         }
         
         outlineTimeoutRef.current = window.setTimeout(() => {
             try {
+                // 1. Outline
                 const headers: OutlineItem[] = [];
                 editor.state.doc.forEach((node, pos) => {
                     if (node.type.name === 'heading') {
@@ -224,8 +222,18 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                     }
                 });
                 setOutline(headers);
+
+                // 2. Compliance Scanning
+                const text = editor.getText().toLowerCase();
+                let score = 100;
+                if (text.includes('unlimited liability')) score -= 20;
+                if (text.includes('indemnify')) score -= 5; // Just monitoring usage
+                if (!text.includes('governing law')) score -= 10;
+                if (!text.includes('termination')) score -= 10;
+                setComplianceScore(Math.max(0, score));
+
             } catch (e) {
-                console.warn('Outline parsing failed', e);
+                console.warn('Analysis failed', e);
             }
         }, 500); // 500ms debounce
     }
@@ -254,7 +262,7 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
       runGovernance: () => {
           setRightTab('governance');
       },
-      exportDoc: () => alert('Exporting...'),
+      exportDoc: () => alert('Exporting document to PDF...'),
       onAction: (action: string) => {
           if (action === 'margins') setActiveModal('margins');
           if (action === 'watermark') setActiveModal('watermark');
@@ -278,6 +286,31 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
       if (ribbonTab === 'review') setRightTab('review');
       if (ribbonTab === 'governance') setRightTab('governance');
   }, [ribbonTab]);
+
+  // Calculate Scaled Dimensions for the Wrapper "Sizer"
+  const scale = zoom / 100;
+  const baseWidth = 816; // A4 width in px at 96 DPI
+  const scaledWidth = viewMode === 'web' ? '100%' : baseWidth * scale;
+  const scaledHeight = contentHeight * scale;
+
+  const handleAcceptChange = (id: string) => {
+      setChanges(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleRejectChange = (id: string) => {
+      setChanges(prev => prev.filter(c => c.id !== id));
+  };
+
+  // Enhanced Save Handler to include Logic Rules
+  const handleSave = () => {
+      const updatedTemplate = {
+          ...template,
+          conditions: logicRules,
+          content: editor?.getHTML() || template.content,
+          lastModified: 'Just now'
+      };
+      onSave(updatedTemplate);
+  };
 
   if (!template) return null;
 
@@ -335,7 +368,7 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                  </button>
              </div>
              <Button variant="secondary" className="h-8 text-xs"><Printer size={14} className="mr-2"/> Print</Button>
-             <Button variant="primary" className="h-8 text-xs shadow-lg shadow-brand-500/20" onClick={() => onSave(template)}>
+             <Button variant="primary" className="h-8 text-xs shadow-lg shadow-brand-500/20" onClick={handleSave}>
                 <Save size={14} className="mr-2"/> Publish
              </Button>
              <button onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title={isRightSidebarOpen ? "Collapse Right Panel" : "Expand Right Panel"}>
@@ -344,7 +377,7 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           </div>
        </div>
 
-       {/* 2. RIBBON TOOLBAR - REPLACED WITH COMPONENT */}
+       {/* 2. RIBBON TOOLBAR */}
        <EditorToolbar 
           editor={editor} 
           activeTab={ribbonTab} 
@@ -377,38 +410,53 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
           {/* CENTER: Editor Canvas */}
           <div className="flex-1 bg-dark-900/30 relative flex flex-col overflow-hidden">
              
-             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex justify-center relative" onClick={() => editor?.commands.focus()}>
+             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex justify-center items-start relative" onClick={() => editor?.commands.focus()}>
                 <EditorErrorBoundary>
-                    <div 
-                       className={`bg-white text-black shadow-2xl transition-transform duration-200 ease-out origin-top mb-20 relative 
-                         ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
-                         ${redactionMode ? 'redaction-active' : ''}
-                         ${darkMode ? 'invert hue-rotate-180' : ''}
-                       `}
-                       style={{ 
-                           width: viewMode === 'web' ? '100%' : '816px', 
-                           minHeight: '1056px', 
-                           paddingTop: `${margins.top}px`,
-                           paddingBottom: `${margins.bottom}px`,
-                           paddingLeft: `${margins.left}px`,
-                           paddingRight: `${margins.right}px`,
-                           transform: `scale(${zoom / 100})`,
-                           marginTop: viewMode === 'focus' ? '0' : undefined
+                    {/* Sizer Wrapper: This div reserves the correct Scroll Area Size */}
+                    <div
+                       style={{
+                           width: typeof scaledWidth === 'number' ? `${scaledWidth}px` : scaledWidth,
+                           height: `${scaledHeight}px`, // This grows as contentHeight grows
+                           position: 'relative',
+                           marginTop: viewMode === 'focus' ? '0' : undefined,
+                           flexShrink: 0, // Prevent flexbox from squashing it
+                           transition: 'width 0.2s ease, height 0.2s ease' // Smooth zoom/resize
                        }}
                     >
-                       {/* Watermark */}
-                       {watermark && (
-                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                               <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
-                                   {watermark}
+                        {/* The Actual Page Content - Scaled and Positioned */}
+                        <div 
+                           ref={pageRef}
+                           className={`bg-white text-black shadow-2xl absolute top-0 left-0 origin-top-left
+                             ${mode === 'suggesting' ? 'ring-4 ring-green-500/20' : ''}
+                             ${redactionMode ? 'redaction-active' : ''}
+                             ${darkMode ? 'invert hue-rotate-180' : ''}
+                           `}
+                           style={{ 
+                               width: viewMode === 'web' ? '100%' : '816px', 
+                               minHeight: '1056px', 
+                               paddingTop: `${margins.top}px`,
+                               paddingBottom: `${margins.bottom}px`,
+                               paddingLeft: `${margins.left}px`,
+                               paddingRight: `${margins.right}px`,
+                               transform: `scale(${scale})`,
+                               // Critical: Align origin to the sizer's top-left so coordinates match
+                               transformOrigin: 'top left', 
+                           }}
+                        >
+                           {/* Watermark */}
+                           {watermark && (
+                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                                   <div className="text-9xl font-black text-slate-200 opacity-50 -rotate-45 select-none uppercase whitespace-nowrap transform scale-150">
+                                       {watermark}
+                                   </div>
                                </div>
-                           </div>
-                       )}
+                           )}
 
-                       {/* Tiptap Editor */}
-                       <div className="relative z-10 h-full">
-                           <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full min-h-[800px]" />
-                       </div>
+                           {/* Tiptap Editor */}
+                           <div className="relative z-10 h-full">
+                               <EditorContent editor={editor} className="prose prose-slate max-w-none focus:outline-none h-full min-h-[800px]" />
+                           </div>
+                        </div>
                     </div>
                 </EditorErrorBoundary>
              </div>
@@ -455,10 +503,10 @@ const TemplateEditor: React.FC<{ template: DocumentTemplate; onSave: (t: Documen
                 </div>
 
                 <div className="flex-1 overflow-hidden relative bg-dark-950">
-                    {rightTab === 'review' && <ReviewPanel comments={comments} changes={changes} onAddComment={editorActions.addComment} />}
-                    {rightTab === 'logic' && <LogicPanel />}
-                    {rightTab === 'compliance' && <CompliancePanel />}
-                    {rightTab === 'ai' && <AIPanel />}
+                    {rightTab === 'review' && <ReviewPanel comments={comments} changes={changes} onAddComment={editorActions.addComment} onAcceptChange={handleAcceptChange} onRejectChange={handleRejectChange} />}
+                    {rightTab === 'logic' && <LogicPanel rules={logicRules} onUpdateRules={setLogicRules} />}
+                    {rightTab === 'compliance' && <CompliancePanel score={complianceScore} />}
+                    {rightTab === 'ai' && <AIPanel editor={editor} />}
                     {rightTab === 'governance' && <GovernancePanel />}
                 </div>
              </div>

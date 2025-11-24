@@ -20,11 +20,16 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
   );
 };
 
-export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode; noPadding?: boolean } & React.HTMLAttributes<HTMLDivElement>> = ({ children, className = '', title, action, noPadding = false, ...props }) => (
+export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; icon?: React.ElementType; action?: React.ReactNode; noPadding?: boolean } & React.HTMLAttributes<HTMLDivElement>> = ({ children, className = '', title, icon: Icon, action, noPadding = false, ...props }) => (
   <div className={`bg-dark-900/60 border border-dark-700 rounded-xl shadow-xl backdrop-blur-md flex flex-col transition-all duration-300 hover:border-brand-500/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:-translate-y-1 ${className}`} {...props}>
-    {(title || action) && (
+    {(title || action || Icon) && (
       <div className="px-5 py-4 border-b border-dark-700 flex justify-between items-center shrink-0 bg-white/[0.02]">
-        {title && <h3 className="text-sm font-bold text-slate-100 tracking-wide uppercase flex items-center gap-2">{title}</h3>}
+        {title && (
+            <h3 className="text-sm font-bold text-slate-100 tracking-wide uppercase flex items-center gap-2">
+                {Icon && <Icon size={16} className="text-brand-400"/>}
+                {title}
+            </h3>
+        )}
         {action && <div>{action}</div>}
       </div>
     )}

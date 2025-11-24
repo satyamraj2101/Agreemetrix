@@ -1,21 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { WorkflowNode, WorkflowConnection, WorkflowCategory, WorkflowStageDefinition, WorkflowTemplate, UserPresence } from '../types';
 import { WorkflowNodeCard } from '../components/workflow/WorkflowNode';
 import { WorkflowToolbar } from '../components/workflow/WorkflowToolbar';
 import { PropertiesPanel } from '../components/workflow/PropertiesPanel';
 import { WorkflowAICore } from '../components/workflow/WorkflowAICore'; // Import New Component
 import { Button, Badge } from '../components/UIComponents';
-import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo, MousePointer, Download, Upload, ChevronRight, Pause, SkipForward, RotateCcw, Grid, MonitorPlay, Users, HelpCircle, Zap, Sparkles } from 'lucide-react';
-import { INITIAL_TEMPLATES } from '../mock/data';
+import { Play, Save, ZoomIn, ZoomOut, Maximize, AlertTriangle, Loader2, MessageSquare, Plus, Trash2, Layers, LayoutTemplate, X, CheckCircle2, Undo, Redo, MousePointer, Download, Upload, ChevronRight, Pause, SkipForward, RotateCcw, Grid, MonitorPlay, Users, HelpCircle, Zap, Sparkles, Wand2, Move } from 'lucide-react';
+import { INITIAL_TEMPLATES, INITIAL_STAGES as MOCK_STAGES } from '../mock/data';
 
-const INITIAL_STAGES: WorkflowStageDefinition[] = [
-  { id: 'stg_draft', name: 'Drafting', color: '#94a3b8', order: 0 },
-  { id: 'stg_review', name: 'Review', color: '#3b82f6', order: 1 },
-  { id: 'stg_approval', name: 'Approval', color: '#eab308', order: 2 },
-  { id: 'stg_sign', name: 'Signature', color: '#a855f7', order: 3 },
-  { id: 'stg_active', name: 'Active', color: '#22c55e', order: 4 },
-];
+const INITIAL_STAGES: WorkflowStageDefinition[] = MOCK_STAGES;
 
 interface HistoryState {
   nodes: WorkflowNode[];
@@ -42,15 +37,15 @@ const MiniMap: React.FC<{ nodes: WorkflowNode[], viewport: {x: number, y: number
                     <div 
                         key={n.id} 
                         className="absolute w-1.5 h-1.5 rounded-sm bg-slate-500"
-                        style={{ left: (n.x / 3000) * 100 + '%', top: (n.y / 3000) * 100 + '%' }} 
+                        style={{ left: (n.x / 6000) * 100 + '%', top: (n.y / 4000) * 100 + '%' }} 
                     />
                 ))}
                 {/* Viewport Indicator */}
                 <div 
                     className="absolute border-2 border-brand-500/50 bg-brand-500/10"
                     style={{
-                        left: (viewport.x / -3000) * 100 + '%',
-                        top: (viewport.y / -3000) * 100 + '%',
+                        left: (viewport.x / -6000) * 100 + '%',
+                        top: (viewport.y / -4000) * 100 + '%',
                         width: (100 / viewport.zoom) + '%',
                         height: (100 / viewport.zoom) + '%'
                     }}
@@ -92,7 +87,7 @@ const WorkflowGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
                     <h4 className="font-bold text-white flex items-center gap-2"><MousePointer size={16} className="text-brand-400"/> Canvas Basics</h4>
                     <ul className="text-sm text-slate-400 space-y-2 list-disc pl-4">
                         <li>Drag nodes from the <strong>Left Palette</strong>.</li>
-                        <li>Click & Drag on empty space to <strong>Pan</strong>.</li>
+                        <li>Click & Drag on empty space or use <strong>Trackpad</strong> to Pan.</li>
                         <li>Drag background to <strong>Lasso Select</strong> multiple nodes.</li>
                         <li>Hold <strong>Shift</strong> + Click to toggle selection.</li>
                     </ul>
@@ -118,7 +113,7 @@ const WorkflowGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
                     <ul className="text-sm text-slate-400 space-y-2 list-disc pl-4">
                         <li><code>Delete</code> to remove selected items.</li>
                         <li><code>Ctrl + Z</code> for Undo.</li>
-                        <li><code>Ctrl + A</code> to Select All.</li>
+                        <li><code>Ctrl + Scroll</code> to Zoom.</li>
                         <li>Arrow keys to Nudge nodes.</li>
                     </ul>
                 </div>
@@ -131,12 +126,16 @@ const WorkflowGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 );
 
 const WorkflowBuilder: React.FC = () => {
+  const { id } = useParams();
+  
   // Canvas State
   const [nodes, setNodes] = useState<WorkflowNode[]>([
     { id: 'start', category: 'trigger', type: 'manual_request', label: 'Manual Request', x: 100, y: 300, config: { stageId: 'stg_draft' } }
   ]);
   const [connections, setConnections] = useState<WorkflowConnection[]>([]);
   const [stages, setStages] = useState<WorkflowStageDefinition[]>(INITIAL_STAGES);
+  const [workflowName, setWorkflowName] = useState('New Workflow');
+  const [workflowVersion, setWorkflowVersion] = useState('Draft');
   
   // Selection State
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -179,6 +178,27 @@ const WorkflowBuilder: React.FC = () => {
   const [isHistoryAction, setIsHistoryAction] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // --- HYDRATE FROM TEMPLATE ---
+  useEffect(() => {
+    if (id) {
+        const template = INITIAL_TEMPLATES.find(t => t.id === id);
+        if (template) {
+            setNodes(template.schema.nodes);
+            setConnections(template.schema.connections);
+            setStages(template.schema.stages);
+            setWorkflowName(template.name);
+            setWorkflowVersion(template.status === 'Published' ? 'Live' : 'Draft');
+            
+            // Initial fit view
+            if (template.schema.nodes.length > 0) {
+                // Simple heuristic to center somewhat
+                setPan({ x: 100, y: 100 });
+                setZoom(0.6); // Start zoomed out for large graphs
+            }
+        }
+    }
+  }, [id]);
 
   // -- HISTORY MANAGEMENT --
   useEffect(() => {
@@ -251,7 +271,91 @@ const WorkflowBuilder: React.FC = () => {
 
   const snapToGrid = (val: number) => Math.round(val / 20) * 20;
 
+  const handleAutoLayout = () => {
+    const newNodes = [...nodes];
+    const edges = connections;
+    
+    // Store levels
+    const levels: Record<string, number> = {};
+    const incomingCount: Record<string, number> = {};
+    
+    newNodes.forEach(n => {
+        levels[n.id] = 0;
+        incomingCount[n.id] = 0;
+    });
+    
+    edges.forEach(e => {
+        if (incomingCount[e.target] !== undefined) incomingCount[e.target]++;
+    });
+    
+    // Start with roots
+    const queue = newNodes.filter(n => incomingCount[n.id] === 0).map(n => n.id);
+    
+    // BFS for leveling
+    const visited = new Set<string>();
+    while(queue.length > 0) {
+        const nodeId = queue.shift()!;
+        if(visited.has(nodeId)) continue;
+        visited.add(nodeId);
+        
+        const level = levels[nodeId];
+        
+        // Find outgoing connections
+        const outgoing = edges.filter(e => e.source === nodeId);
+        outgoing.forEach(edge => {
+            levels[edge.target] = Math.max(levels[edge.target], level + 1);
+            // Naive check: only add if not visited, handles cycles poorly but OK for MVP
+            queue.push(edge.target);
+        });
+    }
+    
+    // Group by level
+    const nodesByLevel: Record<number, WorkflowNode[]> = {};
+    Object.entries(levels).forEach(([id, lvl]) => {
+        if(!nodesByLevel[lvl]) nodesByLevel[lvl] = [];
+        const n = newNodes.find(x => x.id === id);
+        if(n) nodesByLevel[lvl].push(n);
+    });
+    
+    // Assign positions
+    const LEVEL_WIDTH = 400; // Increased spacing
+    const NODE_HEIGHT = 200;
+    
+    Object.entries(nodesByLevel).forEach(([lvlStr, levelNodes]) => {
+        const lvl = parseInt(lvlStr);
+        levelNodes.forEach((n, idx) => {
+            // Center vertically relative to cluster
+            n.x = 100 + (lvl * LEVEL_WIDTH);
+            n.y = 100 + (idx * NODE_HEIGHT) + (lvl % 2 === 0 ? 0 : 50); // Stagger slightly
+        });
+    });
+    
+    setNodes([...newNodes]);
+    setPan({x: 50, y: 50});
+    setZoom(0.6); // Zoom out to fit
+  };
+
   // -- HANDLERS --
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(z => Math.min(2, Math.max(0.1, z + delta))); // Allow wider zoom range
+    } else {
+      // Pan - Enhanced Horizontal Scroll Support
+      let dx = e.deltaX;
+      let dy = e.deltaY;
+
+      if (e.shiftKey && dy !== 0 && dx === 0) {
+          dx = dy;
+          dy = 0;
+      }
+
+      setPan(p => ({ x: p.x - dx, y: p.y - dy }));
+    }
+  };
 
   const handleDragStart = (e: React.DragEvent, category: WorkflowCategory, type: string, label: string) => {
     e.dataTransfer.setData('category', category);
@@ -407,23 +511,41 @@ const WorkflowBuilder: React.FC = () => {
   const runSimulation = () => {
      setSimState('running');
      setSimLog(['Initializing simulation environment...', 'Validating schema... OK', 'Starting execution from trigger node.']);
-     setActiveSimNode('start'); 
+     setActiveSimNode(nodes[0]?.id || null); 
      // Mock step loop
      let step = 0;
      simTimerRef.current = window.setInterval(() => {
          step++;
-         if (step > 5) {
+         if (step > nodes.length + 5) { // Allow longer runs for complex flows
              setSimLog(prev => [...prev, 'Simulation completed successfully.', 'Workflow ended.']);
              setSimState('completed');
              setActiveSimNode(null);
              if (simTimerRef.current) clearInterval(simTimerRef.current);
              return;
          }
-         // Randomly jump to next node for demo visual
-         const nextNode = nodes[step % nodes.length];
-         setActiveSimNode(nextNode?.id);
-         setSimLog(prev => [...prev, `Transitioned to Step ${step}: ${nextNode?.label || 'Unknown'}`]);
-     }, 1500);
+         // Jump based on connections if possible
+         if (activeSimNode) {
+             // Simple simulation logic: prefer true path or first connection
+             const nextConns = connections.filter(c => c.source === activeSimNode);
+             let nextConn = nextConns.find(c => c.handleId === 'true_out') || nextConns[0];
+             
+             if (nextConn) {
+                 setActiveSimNode(nextConn.target);
+                 const targetNode = nodes.find(n => n.id === nextConn.target);
+                 setSimLog(prev => [...prev, `Transitioned to: ${targetNode?.label || 'Unknown Step'}`]);
+             } else {
+                 // End of path
+                 if (step < nodes.length) {
+                     // Just jump to another unconnected node for demo purposes if flow is broken
+                     // In a real simulation, this would end or follow specific logic
+                 }
+             }
+         } else {
+             // Fallback start if lost
+             const nextNode = nodes[0];
+             setActiveSimNode(nextNode?.id);
+         }
+     }, 800); // Faster simulation
   };
 
   const stopSimulation = () => {
@@ -493,11 +615,11 @@ const WorkflowBuilder: React.FC = () => {
          <div className="h-16 bg-dark-950/80 backdrop-blur border-b border-dark-800 flex justify-between items-center px-6 z-30 shrink-0 shadow-sm">
             <div className="flex items-center gap-4">
                <h1 className="font-bold text-white flex items-center gap-2 text-lg">
-                  <MessageSquare size={20} className="text-brand-400"/> Workflow Studio
+                  <MessageSquare size={20} className="text-brand-400"/> {workflowName}
                </h1>
                
                <div className="flex bg-dark-900 rounded-lg p-1 border border-dark-700">
-                   <button className="px-3 py-1 text-xs font-bold text-white bg-dark-800 rounded shadow-sm">v2.4 (Draft)</button>
+                   <button className="px-3 py-1 text-xs font-bold text-white bg-dark-800 rounded shadow-sm">{workflowVersion}</button>
                    <button className="px-3 py-1 text-xs font-medium text-slate-500 hover:text-white transition-colors">Live</button>
                    <button className="px-3 py-1 text-xs font-medium text-slate-500 hover:text-white transition-colors">History</button>
                </div>
@@ -556,6 +678,7 @@ const WorkflowBuilder: React.FC = () => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseDown={handleCanvasMouseDown}
+            onWheel={handleWheel}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
          >
@@ -630,11 +753,19 @@ const WorkflowBuilder: React.FC = () => {
 
             {/* Canvas Controls Overlay */}
             <div className="absolute bottom-8 left-8 flex flex-col gap-2 z-30">
-               <div className="bg-dark-900/90 backdrop-blur border border-dark-700 rounded-lg shadow-xl p-1 flex flex-col">
+               <div className="bg-dark-900/90 backdrop-blur border border-dark-700 rounded-lg shadow-xl p-1 flex flex-col gap-1">
+                  <button 
+                    onClick={handleAutoLayout} 
+                    className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-brand-400" 
+                    title="Auto Arrange"
+                  >
+                    <Wand2 size={18}/>
+                  </button>
+                  <div className="h-px bg-dark-700"></div>
                   <button onClick={() => setZoom(z => z + 0.1)} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><ZoomIn size={18}/></button>
-                  <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><ZoomOut size={18}/></button>
-                  <button onClick={() => { setZoom(1); setPan({x:0, y:0}); }} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><Maximize size={18}/></button>
-                  <div className="h-px bg-dark-700 my-1"></div>
+                  <button onClick={() => setZoom(z => Math.max(0.1, z - 0.1))} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><ZoomOut size={18}/></button>
+                  <button onClick={() => { setZoom(0.6); setPan({x:100, y:100}); }} className="p-2 hover:bg-white/10 rounded text-slate-400 hover:text-white"><Maximize size={18}/></button>
+                  <div className="h-px bg-dark-700"></div>
                   <button onClick={() => setShowGrid(!showGrid)} className={`p-2 rounded ${showGrid ? 'text-brand-400 bg-brand-500/10' : 'text-slate-400 hover:text-white'}`}><Grid size={18}/></button>
                </div>
             </div>

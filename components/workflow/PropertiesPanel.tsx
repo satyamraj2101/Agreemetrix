@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { WorkflowNode, ConditionRule, WorkflowStageDefinition } from '../../types';
 import { Input, Select, Button, Badge, Switch, Avatar } from '../UIComponents';
 import { 
@@ -7,7 +8,7 @@ import {
   Play, Shield, Activity, History, AlertTriangle, Code, 
   Zap, Split, Filter, ListFilter, ChevronDown, ChevronRight, CheckCircle2, Terminal
 } from 'lucide-react';
-import { MOCK_TEMPLATES, MOCK_USERS, MOCK_ROLES, MOCK_FORMS, MOCK_EMAIL_TEMPLATES, MOCK_CLAUSES } from '../../mock/data';
+import { MOCK_TEMPLATES, MOCK_USERS, MOCK_ROLES, MOCK_FORMS, MOCK_EMAIL_TEMPLATES, MOCK_CLAUSES, MOCK_TABLES } from '../../mock/data';
 
 interface PropertiesPanelProps {
   node: WorkflowNode | null;
@@ -19,33 +20,10 @@ interface PropertiesPanelProps {
 
 // --- CONSTANTS FOR LOGIC BUILDER ---
 
-const SCHEMA_TREE = {
-    Contract: [
-        { label: 'Total Value', value: 'contract.value', type: 'number' },
-        { label: 'Risk Score', value: 'contract.riskScore', type: 'number' },
-        { label: 'Status', value: 'contract.status', type: 'string' },
-        { label: 'Effective Date', value: 'contract.startDate', type: 'date' },
-        { label: 'Jurisdiction', value: 'contract.jurisdiction', type: 'string' },
-    ],
-    Counterparty: [
-        { label: 'Name', value: 'counterparty.name', type: 'string' },
-        { label: 'Credit Rating', value: 'counterparty.creditRating', type: 'number' },
-        { label: 'Region', value: 'counterparty.region', type: 'string' },
-        { label: 'Is Strategic', value: 'counterparty.isStrategic', type: 'boolean' },
-    ],
-    User: [
-        { label: 'Role', value: 'user.role', type: 'string' },
-        { label: 'Department', value: 'user.department', type: 'string' },
-    ],
-    System: [
-        { label: 'Current Date', value: 'system.date', type: 'date' },
-        { label: 'Environment', value: 'system.env', type: 'string' },
-    ]
-};
-
 const GET_OPERATORS = (type: string = 'string') => {
     switch (type) {
         case 'number':
+        case 'currency':
             return [
                 { label: 'Equals (=)', value: 'eq' },
                 { label: 'Not Equals (!=)', value: 'neq' },
@@ -66,7 +44,7 @@ const GET_OPERATORS = (type: string = 'string') => {
                 { label: 'On Date', value: 'on' },
                 { label: 'Is Today', value: 'is_today' },
             ];
-        default: // string
+        default: // string, select, user
             return [
                 { label: 'Equals', value: 'eq' },
                 { label: 'Contains', value: 'contains' },
@@ -88,7 +66,8 @@ const SmartInput: React.FC<{
     placeholder?: string;
     rows?: number;
     className?: string;
-}> = ({ label, value, onChange, multiline, placeholder, rows = 3, className = '' }) => {
+    schemaTree: Record<string, {label: string, value: string, type: string}[]>;
+}> = ({ label, value, onChange, multiline, placeholder, rows = 3, className = '', schemaTree }) => {
     const [showVars, setShowVars] = useState(false);
     
     const insertVar = (v: string) => {
@@ -112,10 +91,10 @@ const SmartInput: React.FC<{
             {showVars && (
                 <div className="absolute right-0 top-6 z-50 w-48 bg-dark-800 border border-dark-600 rounded-lg shadow-xl p-1 max-h-40 overflow-y-auto animate-in fade-in zoom-in-95 custom-scrollbar">
                     <div className="text-[9px] text-slate-500 px-2 py-1 uppercase font-bold">Schema Variables</div>
-                    {Object.entries(SCHEMA_TREE).map(([category, fields]) => (
+                    {Object.entries(schemaTree).map(([category, fields]) => (
                         <div key={category}>
                             <div className="px-2 py-1 text-[9px] font-bold text-slate-600 bg-dark-900">{category}</div>
-                            {fields.map(f => (
+                            {(fields as {label: string, value: string, type: string}[]).map(f => (
                                 <button 
                                     key={f.value}
                                     onClick={() => insertVar(`{{${f.value}}}`)}
@@ -203,6 +182,33 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
   const [conditionMode, setConditionMode] = useState<'visual' | 'code'>('visual');
   const [expandedSchema, setExpandedSchema] = useState<Record<string, boolean>>({ 'Contract': true });
   const [validationStatus, setValidationStatus] = useState<'valid' | 'invalid' | null>(null);
+
+  // Dynamic Schema Tree Generation from Mock Tables
+  const schemaTree = useMemo(() => {
+      const tree: Record<string, {label: string, value: string, type: string}[]> = {};
+      
+      MOCK_TABLES.forEach(table => {
+          tree[table.name] = table.fields.map(field => ({
+              label: field.name,
+              value: field.key,
+              type: field.type as string
+          }));
+      });
+      
+      // Add System Globals
+      tree['System'] = [
+          { label: 'Current Date', value: 'system.date', type: 'date' },
+          { label: 'Environment', value: 'system.env', type: 'string' },
+          { label: 'User Role', value: 'user.role', type: 'string' }
+      ];
+
+      return tree;
+  }, []);
+
+  // Flattened list for mappings
+  const allFields = useMemo(() => {
+      return (Object.values(schemaTree) as {label: string, value: string, type: string}[][]).flat().map(f => f.value);
+  }, [schemaTree]);
 
   if (!node) return null;
 
@@ -311,6 +317,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
                 onChange={(val) => updateConfig('aiPrompt', val)}
                 multiline
                 rows={6}
+                schemaTree={schemaTree}
             />
             {node.type === 'risk_scorer' && (
                <div>
@@ -373,7 +380,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
                 ))}
              </div>
              {node.config.approverType === 'role' && (
-                <Select label="Select Role" options={MOCK_ROLES.map(r => ({label: r.name, value: r.name}))} value={node.config.approverId || ''} onChange={(e) => updateConfig('approverId', e.target.value)} />
+                <Select label="Select Role" options={MOCK_ROLES.map(r => ({label: r.name, value: r.id}))} value={node.config.approverId || ''} onChange={(e) => updateConfig('approverId', e.target.value)} />
              )}
              {node.config.approverType === 'user' && (
                 <Select label="Select User" options={MOCK_USERS.map(u => ({label: u.name, value: u.id}))} value={node.config.approverId || ''} onChange={(e) => updateConfig('approverId', e.target.value)} />
@@ -456,7 +463,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
                <FieldMapper 
                   mappings={node.config.fieldMappings || { 'StageName': 'contract.status' }} 
                   onChange={(m) => updateConfig('fieldMappings', m)}
-                  sourceOptions={['contract.status', 'contract.value', 'contract.signedDate', 'contract.link']}
+                  sourceOptions={allFields}
                />
                <Switch checked={node.config.upsert} onChange={c => updateConfig('upsert', c)} /> <span className="text-xs ml-2 text-slate-300">Upsert (Update if exists)</span>
             </div>
@@ -464,8 +471,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
       case 'send_email':
          return (
             <div className="space-y-4">
-               <SmartInput label="To (Recipient)" value={node.config.emailRecipient || ''} onChange={v => updateConfig('emailRecipient', v)} placeholder="{{contract.owner_email}}" />
-               <SmartInput label="Subject Line" value={node.config.emailSubject || ''} onChange={v => updateConfig('emailSubject', v)} placeholder="Action Required: {{contract.title}}" />
+               <SmartInput label="To (Recipient)" value={node.config.emailRecipient || ''} onChange={v => updateConfig('emailRecipient', v)} placeholder="{{contract.owner_email}}" schemaTree={schemaTree} />
+               <SmartInput label="Subject Line" value={node.config.emailSubject || ''} onChange={v => updateConfig('emailSubject', v)} placeholder="Action Required: {{contract.title}}" schemaTree={schemaTree} />
                <Select label="Email Template" options={MOCK_EMAIL_TEMPLATES.map(t => ({label: t.name, value: t.id}))} value={node.config.emailTemplateId || ''} onChange={e => updateConfig('emailTemplateId', e.target.value)} />
             </div>
          );
@@ -473,7 +480,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
          return (
             <div className="space-y-4">
                <Input label="Channel / User ID" value={node.config.slackChannel || ''} onChange={e => updateConfig('slackChannel', e.target.value)} placeholder="#legal-alerts" />
-               <SmartInput label="Message Body" value={node.config.description || ''} onChange={v => updateConfig('description', v)} multiline placeholder="New contract {{contract.title}} has been approved." />
+               <SmartInput label="Message Body" value={node.config.description || ''} onChange={v => updateConfig('description', v)} multiline placeholder="New contract {{contract.title}} has been approved." schemaTree={schemaTree} />
                <Switch checked={node.config.slackButtons} onChange={c => updateConfig('slackButtons', c)} /> <span className="text-xs ml-2 text-slate-300">Include Action Buttons</span>
             </div>
          );
@@ -487,7 +494,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
                      <Select label="Auth Type" options={[{label: 'None', value: 'none'}, {label: 'Bearer Token', value: 'bearer'}, {label: 'Basic', value: 'basic'}]} value={node.config.authType || 'none'} onChange={e => updateConfig('authType', e.target.value)} />
                   </div>
                </div>
-               <SmartInput label="JSON Payload" value={node.config.payload || ''} onChange={v => updateConfig('payload', v)} multiline placeholder='{"id": "{{contract.id}}"}' className="font-mono" />
+               <SmartInput label="JSON Payload" value={node.config.payload || ''} onChange={v => updateConfig('payload', v)} multiline placeholder='{"id": "{{contract.id}}"}' className="font-mono" schemaTree={schemaTree} />
             </div>
          );
       
@@ -543,7 +550,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
                         {(node.config.rules || []).map((rule, i) => {
                             // Determine field type to filter operators
                             let fieldType = 'string';
-                            Object.values(SCHEMA_TREE).forEach(group => {
+                            (Object.values(schemaTree) as {label: string, value: string, type: string}[][]).forEach(group => {
                                 const found = group.find(f => f.value === rule.field);
                                 if (found) fieldType = found.type;
                             });
@@ -568,9 +575,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, stages, 
                                                     onChange={(e) => updateRule(i, 'field', e.target.value)}
                                                 >
                                                     <option value="">Select Variable...</option>
-                                                    {Object.entries(SCHEMA_TREE).map(([category, fields]) => (
+                                                    {Object.entries(schemaTree).map(([category, fields]) => (
                                                         <optgroup key={category} label={category} className="bg-dark-950 text-slate-400">
-                                                            {fields.map(f => (
+                                                            {(fields as {label: string, value: string, type: string}[]).map(f => (
                                                                 <option key={f.value} value={f.value} className="text-white">{f.label}</option>
                                                             ))}
                                                         </optgroup>
@@ -665,7 +672,7 @@ contract.value > 50000 &&
                             <Database size={10}/> Schema
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
-                            {Object.entries(SCHEMA_TREE).map(([category, fields]) => (
+                            {Object.entries(schemaTree).map(([category, fields]) => (
                                 <div key={category} className="mb-1">
                                     <button 
                                         onClick={() => setExpandedSchema(prev => ({...prev, [category]: !prev[category]}))}
@@ -677,7 +684,7 @@ contract.value > 50000 &&
                                     
                                     {expandedSchema[category] && (
                                         <div className="pl-3 space-y-0.5 border-l border-dark-800 ml-2 mt-0.5">
-                                            {fields.map(f => (
+                                            {(fields as {label: string, value: string, type: string}[]).map(f => (
                                                 <button 
                                                     key={f.value} 
                                                     onClick={() => updateConfig('conditionExpression', (node.config.conditionExpression || '') + f.value)}
@@ -718,6 +725,7 @@ contract.value > 50000 &&
                 multiline 
                 rows={2}
                 placeholder="Purpose of this step..."
+                schemaTree={schemaTree}
             />
         </div>
 

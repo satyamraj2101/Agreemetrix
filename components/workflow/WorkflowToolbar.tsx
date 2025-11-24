@@ -6,7 +6,7 @@ import {
   FileText, PenTool, MessageSquare, Mail, UploadCloud, 
   Database, Bell, ChevronDown, ChevronRight, UserCheck, Layers,
   Clock, CheckSquare, Calendar, BrainCircuit, Search, Star, History,
-  AlertTriangle, FileCode, Share2, Workflow
+  AlertTriangle, FileCode, Share2, Workflow, ChevronLeft, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { SimpleTooltip } from '../UIComponents';
 import { NODE_DESCRIPTIONS } from '../../mock/data';
@@ -22,6 +22,7 @@ interface ToolGroup {
 }
 
 export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
+  const [isOpen, setIsOpen] = useState(true);
   const [openGroups, setOpenGroups] = useState<string[]>(['Favorites', 'Triggers', 'AI Agents']);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -117,64 +118,96 @@ export const WorkflowToolbar: React.FC<ToolbarProps> = ({ onDragStart }) => {
   })).filter(group => group.items.length > 0);
 
   return (
-    <div className="w-72 bg-dark-950 border-r border-dark-800 flex flex-col z-20 h-full">
-      <div className="p-4 border-b border-dark-800 shrink-0 space-y-4">
-        <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-          <GripVertical size={16} className="text-brand-400"/> Node Palette
+    <div 
+      className={`bg-dark-950 border-r border-dark-800 flex flex-col z-20 h-full transition-all duration-300 ease-in-out relative ${isOpen ? 'w-72' : 'w-12'}`}
+    >
+      {/* Collapse Toggle */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="absolute -right-3 top-4 z-50 bg-dark-800 border border-dark-600 text-slate-400 hover:text-white rounded-full p-1 shadow-md hover:bg-brand-500 hover:border-brand-500 transition-colors"
+      >
+        {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+      </button>
+
+      {/* Header */}
+      <div className={`p-4 border-b border-dark-800 shrink-0 space-y-4 ${!isOpen && 'px-2 items-center flex flex-col'}`}>
+        <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 whitespace-nowrap overflow-hidden">
+          <GripVertical size={16} className="text-brand-400 shrink-0"/> 
+          <span className={`transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 hidden'}`}>Node Palette</span>
         </h2>
-        <div className="relative">
-           <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-           <input 
-              type="text" 
-              placeholder="Search nodes..." 
-              className="w-full bg-dark-900 border border-dark-700 rounded-lg pl-8 pr-2 py-1.5 text-xs text-white focus:border-brand-500 outline-none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-           />
-        </div>
+        
+        {isOpen && (
+          <div className="relative animate-in fade-in slide-in-from-top-2">
+             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+             <input 
+                type="text" 
+                placeholder="Search nodes..." 
+                className="w-full bg-dark-900 border border-dark-700 rounded-lg pl-8 pr-2 py-1.5 text-xs text-white focus:border-brand-500 outline-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+             />
+          </div>
+        )}
+        {!isOpen && (
+           <button onClick={() => setIsOpen(true)} className="p-2 rounded-lg hover:bg-white/5 text-slate-400">
+              <Search size={16}/>
+           </button>
+        )}
       </div>
       
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+      {/* Groups */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-2 overflow-x-hidden">
          {filteredGroups.map(group => (
            <div key={group.title} className="mb-2">
-             <button 
-               onClick={() => toggleGroup(group.title)}
-               className="w-full flex items-center justify-between p-2 text-xs font-bold text-slate-500 uppercase tracking-wide hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-             >
-               <div className="flex items-center gap-2">
-                 <group.icon size={14} />
-                 {group.title}
-               </div>
-               {openGroups.includes(group.title) ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
-             </button>
+             {isOpen ? (
+               <button 
+                 onClick={() => toggleGroup(group.title)}
+                 className="w-full flex items-center justify-between p-2 text-xs font-bold text-slate-500 uppercase tracking-wide hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+               >
+                 <div className="flex items-center gap-2">
+                   <group.icon size={14} />
+                   {group.title}
+                 </div>
+                 {openGroups.includes(group.title) ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+               </button>
+             ) : (
+               <SimpleTooltip content={group.title}>
+                 <div className="flex justify-center p-2 mb-2 text-slate-500 hover:text-white cursor-default">
+                    <group.icon size={16} />
+                 </div>
+               </SimpleTooltip>
+             )}
              
-             {openGroups.includes(group.title) && (
-               <div className="mt-1 space-y-1 pl-2 animate-in slide-in-from-top-2">
+             {((isOpen && openGroups.includes(group.title)) || !isOpen) && (
+               <div className={`mt-1 space-y-1 ${isOpen ? 'pl-2' : 'flex flex-col items-center'} animate-in slide-in-from-top-2`}>
                  {group.items.map((item, idx) => (
-                   <SimpleTooltip key={idx} content={NODE_DESCRIPTIONS[item.type] || "Drag to add to workflow"}>
+                   <SimpleTooltip key={idx} content={!isOpen ? item.label : NODE_DESCRIPTIONS[item.type] || "Drag to add to workflow"}>
                      <div 
                        draggable
                        onDragStart={(e) => onDragStart(e, item.category, item.type, item.label)}
-                       className={`flex items-center gap-3 p-2 rounded-lg border border-transparent hover:border-dark-700 hover:bg-dark-900 cursor-grab active:cursor-grabbing group transition-all`}
+                       className={`flex items-center gap-3 p-2 rounded-lg border border-transparent hover:border-dark-700 hover:bg-dark-900 cursor-grab active:cursor-grabbing group transition-all ${!isOpen ? 'justify-center w-8 h-8 p-0' : ''}`}
                      >
-                       <div className={`w-7 h-7 rounded flex items-center justify-center bg-dark-800 border border-dark-700 group-hover:bg-dark-950 ${item.color}`}>
+                       <div className={`w-7 h-7 rounded flex items-center justify-center bg-dark-800 border border-dark-700 group-hover:bg-dark-950 shrink-0 ${item.color}`}>
                           <item.icon size={14} />
                        </div>
-                       <div>
-                          <span className="block text-sm font-medium text-slate-300 group-hover:text-white">{item.label}</span>
-                       </div>
+                       {isOpen && (
+                         <div>
+                            <span className="block text-sm font-medium text-slate-300 group-hover:text-white whitespace-nowrap">{item.label}</span>
+                         </div>
+                       )}
                      </div>
                    </SimpleTooltip>
                  ))}
                </div>
              )}
+             {!isOpen && <div className="h-px bg-dark-800 w-full my-2"></div>}
            </div>
          ))}
       </div>
       
-      <div className="p-4 border-t border-dark-800 bg-dark-900/50 shrink-0">
-        <div className="text-xs text-slate-500 text-center flex items-center justify-center gap-2">
-          <History size={12}/> Drag nodes to canvas
+      <div className="p-4 border-t border-dark-800 bg-dark-900/50 shrink-0 overflow-hidden">
+        <div className={`text-xs text-slate-500 flex items-center gap-2 ${isOpen ? 'justify-center' : 'justify-center'}`}>
+          <History size={12}/> {isOpen && <span>Drag nodes to canvas</span>}
         </div>
       </div>
     </div>

@@ -191,6 +191,7 @@ export interface WorkflowTemplate {
   category: string;
   tags: string[];
   updated: string;
+  status?: string;
   schema: {
     stages: WorkflowStageDefinition[];
     nodes: WorkflowNode[];
@@ -240,6 +241,7 @@ export interface FieldDefinition {
   key: string;
   type: FieldDataType | string;
   source: 'system' | 'custom' | 'integration';
+  isLocked?: boolean; // If true, field cannot be deleted or key changed
   description?: string;
   required: boolean;
   unique?: boolean;

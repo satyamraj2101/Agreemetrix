@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, Badge, Avatar, Input, Select, Card } from '../components/UIComponents';
-import { MOCK_CONTRACTS, MOCK_VERSIONS, MOCK_OBLIGATIONS } from '../mock/data';
+import { MOCK_CONTRACTS, MOCK_VERSIONS, MOCK_OBLIGATIONS, MOCK_RISKS, MOCK_CLAUSES } from '../mock/data';
 import { Contract, ContractStatus, Obligation } from '../types';
 import { 
   ChevronLeft, Save, Share2, FileText, MoreVertical,
@@ -12,8 +12,14 @@ import {
   User, Globe, Activity, Clock, Shield, ArrowRight,
   FileClock, Lock, Globe2, ExternalLink, Users, RefreshCw,
   Minimize2, Maximize2, BookOpen, LayoutTemplate, Scale,
-  Printer, Mail, Flag, Bell, CreditCard, CheckSquare, Type, Briefcase
+  Printer, Mail, Flag, Bell, CreditCard, CheckSquare, Type, Briefcase,
+  PieChart, AlignLeft, List, Link as LinkIcon, Building,
+  Hash, Edit3, ShieldAlert
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, PieChart as RePieChart, Pie, Cell, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid 
+} from 'recharts';
 
 // Imports for Editor
 import { EditorToolbar } from '../components/editor/EditorToolbar';
@@ -98,6 +104,230 @@ const AuditLogPanel: React.FC<{ contract: Contract }> = ({ contract }) => (
         </div>
     </div>
 );
+
+// --- DETAILS PAGE COMPONENT (ContractOverview) ---
+
+const ContractOverview: React.FC<{ contract: Contract }> = ({ contract }) => {
+    const RISK_DATA = [
+        { name: 'Low', value: 60, color: '#10b981' },
+        { name: 'Medium', value: 30, color: '#eab308' },
+        { name: 'High', value: 10, color: '#ef4444' },
+    ];
+
+    return (
+        <div className="flex-1 overflow-y-auto bg-dark-950 p-8 custom-scrollbar animate-in fade-in">
+            <div className="max-w-7xl mx-auto space-y-8">
+                
+                {/* 1. Header Card */}
+                <div className="bg-dark-900 border border-dark-700 rounded-2xl p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-24 bg-brand-500/5 blur-3xl rounded-full -mr-12 -mt-12"></div>
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div>
+                            <div className="flex items-center gap-3 mb-2">
+                                <h1 className="text-3xl font-bold text-white">{contract.title}</h1>
+                                <Badge color={contract.status === 'Active' ? 'green' : contract.status === 'Draft' ? 'gray' : 'purple'}>{contract.status}</Badge>
+                            </div>
+                            <div className="flex items-center gap-6 text-sm text-slate-400">
+                                <span className="flex items-center gap-2"><FileText size={16}/> {contract.type} Agreement</span>
+                                <span className="flex items-center gap-2 font-mono"><Hash size={16}/> {contract.id}</span>
+                                <span className="flex items-center gap-2"><Clock size={16}/> Last updated: Today</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <Button variant="secondary" className="shadow-sm"><Share2 size={16} className="mr-2"/> Share</Button>
+                            <Button variant="secondary" className="shadow-sm"><Printer size={16} className="mr-2"/> Export PDF</Button>
+                            <Button variant="primary" className="shadow-lg shadow-brand-500/20"><Edit3 size={16} className="mr-2"/> Edit Contract</Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    {/* LEFT COLUMN - Key Info */}
+                    <div className="space-y-6 lg:col-span-2">
+                        
+                        {/* Executive Summary */}
+                        <Card title="Executive Summary" icon={Sparkles} action={<Badge color="brand">AI Generated</Badge>}>
+                            <p className="text-sm text-slate-300 leading-relaxed mb-4">
+                                This <strong>{contract.type}</strong> establishes a strategic partnership with <strong>{contract.counterparty}</strong> for software services. 
+                                Key focus areas include a <span className="text-white font-bold">$150k annual commitment</span> and rigorous data privacy compliance.
+                                The agreement includes a standard <strong>Net 45</strong> payment term and mutual indemnification clauses.
+                            </p>
+                            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-dark-800">
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Effective Date</p>
+                                    <p className="text-white font-medium flex items-center gap-2"><Calendar size={14} className="text-brand-400"/> {contract.startDate}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Renewal Date</p>
+                                    <p className="text-white font-medium flex items-center gap-2"><RefreshCw size={14} className="text-brand-400"/> {contract.renewalDate}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Jurisdiction</p>
+                                    <p className="text-white font-medium flex items-center gap-2"><Scale size={14} className="text-brand-400"/> New York</p>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Financials & Obligations */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card title="Financial Terms" icon={DollarSign}>
+                                <div className="flex flex-col items-center justify-center py-6">
+                                    <span className="text-4xl font-bold text-white mb-2">${contract.value.toLocaleString()}</span>
+                                    <span className="text-xs text-slate-500 bg-dark-950 px-3 py-1 rounded-full border border-dark-800">Total Contract Value</span>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between text-sm border-b border-dark-800 pb-2">
+                                        <span className="text-slate-400">Payment Terms</span>
+                                        <span className="text-white">Net 45 Days</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm border-b border-dark-800 pb-2">
+                                        <span className="text-slate-400">Billing Cycle</span>
+                                        <span className="text-white">Quarterly</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-400">Renewal Cap</span>
+                                        <span className="text-white">5% Increase</span>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card title="Active Obligations" icon={CheckSquare}>
+                                <div className="space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                                    {(contract.obligations || []).map((ob, i) => (
+                                        <div key={i} className="flex items-start gap-3 p-2 rounded hover:bg-white/5 transition-colors">
+                                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${ob.status === 'Completed' ? 'bg-green-500 border-green-500' : 'border-slate-600'}`}>
+                                                {ob.status === 'Completed' && <Check size={10} className="text-white"/>}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className={`text-sm font-medium ${ob.status === 'Completed' ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{ob.title}</p>
+                                                <p className="text-xs text-slate-500">Due: {ob.dueDate}</p>
+                                            </div>
+                                            <Badge color={ob.priority === 'High' ? 'red' : 'gray'}>{ob.priority}</Badge>
+                                        </div>
+                                    ))}
+                                    {(!contract.obligations || contract.obligations.length === 0) && (
+                                        <p className="text-center text-slate-500 text-xs py-4">No active obligations.</p>
+                                    )}
+                                </div>
+                                <Button variant="secondary" className="w-full mt-4 text-xs">View All Tasks</Button>
+                            </Card>
+                        </div>
+
+                        {/* Clause Analysis */}
+                        <Card title="Critical Clause Analysis" icon={BookOpen}>
+                            <div className="space-y-4">
+                                {MOCK_CLAUSES.slice(0,3).map((clause, i) => (
+                                    <div key={i} className="p-3 bg-dark-950 border border-dark-800 rounded-xl hover:border-brand-500/30 transition-colors">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h5 className="text-sm font-bold text-white">{clause.name}</h5>
+                                            <Badge color={clause.riskLevel === 'High' ? 'red' : clause.riskLevel === 'Medium' ? 'yellow' : 'green'}>{clause.riskLevel} Risk</Badge>
+                                        </div>
+                                        <p className="text-xs text-slate-400 line-clamp-2 italic border-l-2 border-dark-700 pl-3">"{clause.content}"</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* RIGHT COLUMN - Risks & Parties */}
+                    <div className="space-y-6">
+                        
+                        {/* Risk Score */}
+                        <Card title="Risk Assessment" icon={ShieldAlert} className="overflow-hidden relative">
+                            <div className="flex flex-col items-center relative z-10">
+                                <div className="relative w-40 h-40">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RePieChart>
+                                            <Pie
+                                                data={RISK_DATA}
+                                                innerRadius={60}
+                                                outerRadius={75}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                                startAngle={90}
+                                                endAngle={-270}
+                                            >
+                                                {RISK_DATA.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                        </RePieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className={`text-3xl font-bold ${contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}`}>{contract.riskScore}</span>
+                                        <span className="text-[10px] text-slate-500 uppercase font-bold">Risk Score</span>
+                                    </div>
+                                </div>
+                                <div className="w-full space-y-2 mt-4">
+                                    {(MOCK_RISKS.filter(r => r.contractId === contract.id).length > 0 ? MOCK_RISKS.filter(r => r.contractId === contract.id) : [{description: 'No critical risks detected', severity: 'Low', id: '0'}]).map((risk, i) => (
+                                        <div key={i} className="flex items-center gap-2 text-xs p-2 bg-dark-950 rounded border border-dark-800">
+                                            <AlertTriangle size={12} className={risk.severity === 'High' || risk.severity === 'Critical' ? 'text-red-400' : 'text-green-400'}/>
+                                            <span className="text-slate-300 flex-1 truncate">{risk.description}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Stakeholders */}
+                        <Card title="Stakeholders" icon={Users}>
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Internal Owner</p>
+                                    <div className="flex items-center gap-3 p-2 bg-dark-950 rounded-lg border border-dark-800">
+                                        <Avatar name={contract.owner} size="md"/>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{contract.owner}</p>
+                                            <p className="text-xs text-slate-500">Legal Counsel</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Counterparty Contact</p>
+                                    <div className="flex items-center gap-3 p-2 bg-dark-950 rounded-lg border border-dark-800">
+                                        <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold border border-purple-500/30">JD</div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">John Doe</p>
+                                            <p className="text-xs text-slate-500">General Counsel, {contract.counterparty}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Counterparty Card */}
+                        <Card title="Counterparty Info" icon={Building}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center text-black font-bold text-xl">
+                                    {contract.counterparty.substring(0,2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h4 className="text-lg font-bold text-white">{contract.counterparty}</h4>
+                                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                                        <Globe size={10}/> HQ: San Francisco, CA
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 bg-dark-950 rounded border border-dark-800 text-center">
+                                    <p className="text-[10px] text-slate-500">Active Contracts</p>
+                                    <p className="text-lg font-bold text-white">3</p>
+                                </div>
+                                <div className="p-2 bg-dark-950 rounded border border-dark-800 text-center">
+                                    <p className="text-[10px] text-slate-500">Total Spend</p>
+                                    <p className="text-lg font-bold text-white">$450k</p>
+                                </div>
+                            </div>
+                            <Button variant="secondary" className="w-full mt-4 text-xs">View Vendor Profile</Button>
+                        </Card>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // --- SIGNATURE MODE COMPONENTS ---
 
@@ -355,7 +585,7 @@ const ContractViewer: React.FC = () => {
   useEffect(() => {
       if (lifecycleStage === 'Sign') setActiveView('signature');
       else if (lifecycleStage === 'Active') {
-          setActiveView('document');
+          setActiveView('overview'); // Default to Overview for Active
           setRightPanel('obligations');
       } else {
           setActiveView('document');
@@ -440,6 +670,7 @@ const ContractViewer: React.FC = () => {
             {/* LEFT: Navigation & Structure */}
             <div className="w-16 border-r border-dark-800 bg-dark-900 flex flex-col items-center py-4 gap-4 z-20 shrink-0">
                 {[
+                    { id: 'overview', icon: LayoutTemplate, label: 'Overview', disabled: false },
                     { id: 'document', icon: FileText, label: 'Editor', disabled: false },
                     { id: 'signature', icon: PenTool, label: 'Sign', disabled: lifecycleStage !== 'Sign' && lifecycleStage !== 'Active' },
                     { id: 'audit', icon: Shield, label: 'Audit', disabled: false },
@@ -465,6 +696,8 @@ const ContractViewer: React.FC = () => {
 
             {/* CENTER: Canvas */}
             <div className="flex-1 bg-dark-950 flex flex-col overflow-hidden relative">
+                {activeView === 'overview' && <ContractOverview contract={contract} />}
+
                 {activeView === 'document' && (
                     <>
                         {/* Ribbon only if Internal & Editing */}
@@ -478,8 +711,8 @@ const ContractViewer: React.FC = () => {
                             />
                         )}
                         
-                        {/* Active Dashboard Header */}
-                        {lifecycleStage === 'Active' && <ActiveContractDashboard contract={contract} />}
+                        {/* Active Dashboard Header - Only show if in active stage AND not already in overview tab */}
+                        {lifecycleStage === 'Active' && activeView === 'document' && <ActiveContractDashboard contract={contract} />}
 
                         <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-dark-900/50" onClick={() => editor?.commands.focus()}>
                             <div className={`bg-white text-black shadow-2xl min-h-[1056px] w-[816px] transition-transform origin-top relative ${viewerMode === 'Guest_Portal' ? 'ring-8 ring-orange-500/20' : ''}`}>
@@ -503,17 +736,19 @@ const ContractViewer: React.FC = () => {
                     </>
                 )}
                 
-                {activeView === 'signature' && <SignatureSetup onComplete={() => { setLifecycleStage('Active'); setRightPanel('obligations'); }} />}
+                {activeView === 'signature' && <SignatureSetup onComplete={() => { setLifecycleStage('Active'); setRightPanel('obligations'); setActiveView('overview'); }} />}
             </div>
 
-            {/* RIGHT: Panels */}
-            <div className="w-80 border-l border-dark-800 bg-dark-900 flex flex-col z-20 shrink-0 shadow-xl transition-all">
-                {rightPanel === 'review' && <ReviewPanel comments={viewerMode === 'Internal' ? [] : []} changes={[]} onAddComment={()=>{}} />}
-                {rightPanel === 'audit' && <AuditLogPanel contract={contract} />}
-                {rightPanel === 'history' && <HistoryPanel />}
-                {rightPanel === 'governance' && viewerMode === 'Internal' && <GovernancePanel />}
-                {rightPanel === 'obligations' && <ObligationsPanel obligations={MOCK_OBLIGATIONS} />}
-            </div>
+            {/* RIGHT: Panels - Only show if NOT in overview (overview covers full width) */}
+            {activeView !== 'overview' && (
+                <div className="w-80 border-l border-dark-800 bg-dark-900 flex flex-col z-20 shrink-0 shadow-xl transition-all">
+                    {rightPanel === 'review' && <ReviewPanel comments={viewerMode === 'Internal' ? [] : []} changes={[]} onAddComment={()=>{}} onAcceptChange={()=>{}} onRejectChange={()=>{}} />}
+                    {rightPanel === 'audit' && <AuditLogPanel contract={contract} />}
+                    {rightPanel === 'history' && <HistoryPanel />}
+                    {rightPanel === 'governance' && viewerMode === 'Internal' && <GovernancePanel />}
+                    {rightPanel === 'obligations' && <ObligationsPanel obligations={MOCK_OBLIGATIONS} />}
+                </div>
+            )}
 
         </div>
     </div>

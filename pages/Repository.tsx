@@ -10,7 +10,7 @@ import {
   CheckCircle, XCircle, Clock, Activity, Share2, Eye, 
   AlertTriangle, FileCheck, Zap, X, ChevronRight,
   LayoutGrid, List as ListIcon, Sliders, CheckSquare,
-  Bell, Maximize2, Sparkles, Printer, ZoomIn, ZoomOut, ArrowRight
+  Bell, Maximize2, Sparkles, Printer, ZoomIn, ZoomOut, ArrowRight, LayoutTemplate, ChevronLeft
 } from 'lucide-react';
 
 const getStatusColor = (status: ContractStatus) => {
@@ -215,8 +215,13 @@ const ContractQuickViewModal: React.FC<{ contract: Contract; onClose: () => void
                 <div className="flex gap-3">
                     <Button variant="ghost" onClick={onClose} className="text-xs">Close Preview</Button>
                     <Link to={`/contract/${contract.id}`}>
+                        <Button variant="secondary" className="text-xs">
+                            <LayoutTemplate size={14} className="mr-2"/> Contract Details
+                        </Button>
+                    </Link>
+                    <Link to={`/contract/${contract.id}`}>
                         <Button variant="primary" className="text-xs shadow-lg shadow-brand-500/20">
-                            Open Full Contract <ArrowRight size={14} className="ml-2"/>
+                            Open Full Workspace <ArrowRight size={14} className="ml-2"/>
                         </Button>
                     </Link>
                 </div>
@@ -225,62 +230,64 @@ const ContractQuickViewModal: React.FC<{ contract: Contract; onClose: () => void
     </div>
 );
 
-const FacetedSearchSidebar: React.FC<{ filters: any; setFilters: (f: any) => void }> = ({ filters, setFilters }) => {
+const FacetedSearchSidebar: React.FC<{ filters: any; setFilters: (f: any) => void; isOpen: boolean }> = ({ filters, setFilters, isOpen }) => {
     return (
-        <div className="w-64 shrink-0 border-r border-dark-700 bg-dark-900/50 p-4 space-y-6 hidden lg:block custom-scrollbar overflow-y-auto h-full">
-            <div className="flex items-center gap-2 font-bold text-white text-sm mb-2">
-                <Filter size={16} className="text-brand-400"/> Filters
-            </div>
-            
-            {/* Status */}
-            <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Status</label>
-                <div className="space-y-1">
-                    {Object.values(ContractStatus).map(s => (
-                        <label key={s} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white">
-                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500 focus:ring-offset-dark-900"/>
-                            {s}
+        <div className={`shrink-0 border-r border-dark-700 bg-dark-900/50 h-full transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? 'w-64' : 'w-0 border-none'}`}>
+            <div className="w-64 p-4 space-y-6 custom-scrollbar overflow-y-auto h-full">
+                <div className="flex items-center gap-2 font-bold text-white text-sm mb-2">
+                    <Filter size={16} className="text-brand-400"/> Filters
+                </div>
+                
+                {/* Status */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Status</label>
+                    <div className="space-y-1">
+                        {Object.values(ContractStatus).map(s => (
+                            <label key={s} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white">
+                                <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500 focus:ring-offset-dark-900"/>
+                                {s}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Type */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Contract Type</label>
+                    <div className="space-y-1">
+                        {['MSA', 'NDA', 'SOW', 'Vendor', 'License'].map(t => (
+                            <label key={t} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white">
+                                <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500 focus:ring-offset-dark-900"/>
+                                {t}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Value Range */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Value Range</label>
+                    <div className="flex items-center gap-2">
+                        <Input placeholder="Min" className="h-8 text-xs bg-dark-950"/>
+                        <span className="text-slate-500">-</span>
+                        <Input placeholder="Max" className="h-8 text-xs bg-dark-950"/>
+                    </div>
+                </div>
+
+                {/* Risk */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Risk Score</label>
+                    <div className="space-y-1">
+                        <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> High ({'>'}75)
                         </label>
-                    ))}
-                </div>
-            </div>
-
-            {/* Type */}
-            <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Contract Type</label>
-                <div className="space-y-1">
-                    {['MSA', 'NDA', 'SOW', 'Vendor', 'License'].map(t => (
-                        <label key={t} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white">
-                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500 focus:ring-offset-dark-900"/>
-                            {t}
+                        <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> Medium (50-75)
                         </label>
-                    ))}
-                </div>
-            </div>
-
-            {/* Value Range */}
-            <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Value Range</label>
-                <div className="flex items-center gap-2">
-                    <Input placeholder="Min" className="h-8 text-xs bg-dark-950"/>
-                    <span className="text-slate-500">-</span>
-                    <Input placeholder="Max" className="h-8 text-xs bg-dark-950"/>
-                </div>
-            </div>
-
-            {/* Risk */}
-            <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Risk Score</label>
-                <div className="space-y-1">
-                    <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                        <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> High ({'>'}75)
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                        <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> Medium (50-75)
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                        <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> Low ({'<'}50)
-                    </label>
+                        <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" className="rounded border-dark-600 bg-dark-800 text-brand-500"/> Low ({'<'}50)
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -328,6 +335,7 @@ const Repository: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'contracts' | 'obligations'>('contracts');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [filters, setFilters] = useState({});
+  const [isFiltersOpen, setIsFiltersOpen] = useState(true);
 
   // Quick Stats
   const totalValue = MOCK_CONTRACTS.reduce((acc, curr) => acc + curr.value, 0);
@@ -360,7 +368,7 @@ const Repository: React.FC = () => {
       <div className="flex flex-1 overflow-hidden bg-dark-950 border border-dark-700 rounded-2xl shadow-2xl relative">
           
           {/* Sidebar Filters */}
-          <FacetedSearchSidebar filters={filters} setFilters={setFilters} />
+          <FacetedSearchSidebar filters={filters} setFilters={setFilters} isOpen={isFiltersOpen} />
 
           {/* Results Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -368,6 +376,13 @@ const Repository: React.FC = () => {
               {/* Toolbar */}
               <div className="p-4 border-b border-dark-700 bg-dark-900/80 backdrop-blur-md flex flex-col md:flex-row gap-4 justify-between items-center z-10">
                  <div className="flex gap-4 items-center w-full md:w-auto">
+                    <button 
+                        onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                        className={`p-2 rounded-lg transition-colors ${isFiltersOpen ? 'bg-brand-500/10 text-brand-400' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                        title={isFiltersOpen ? "Collapse Filters" : "Expand Filters"}
+                    >
+                        <Filter size={18} />
+                    </button>
                     <div className="flex bg-dark-950 rounded-lg p-1 border border-dark-800">
                         <button 
                             onClick={() => setActiveTab('contracts')}
@@ -448,6 +463,9 @@ const Repository: React.FC = () => {
                                           >
                                               <Maximize2 size={14}/>
                                           </button>
+                                          <Link to={`/contract/${contract.id}`} title="Details" className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <LayoutTemplate size={14}/>
+                                          </Link>
                                       </div>
                                   </div>
                               ))}
@@ -476,13 +494,22 @@ const Repository: React.FC = () => {
                                               <p className={`text-sm font-bold ${contract.riskScore > 50 ? 'text-red-400' : 'text-green-400'}`}>{contract.riskScore}</p>
                                           </div>
                                       </div>
-                                      <button 
-                                        onClick={(e) => { e.preventDefault(); setQuickViewContract(contract); }}
-                                        className="absolute top-4 right-20 p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Quick View"
-                                      >
-                                          <Maximize2 size={16}/>
-                                      </button>
+                                      <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button 
+                                            onClick={(e) => { e.preventDefault(); setQuickViewContract(contract); }}
+                                            className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded"
+                                            title="Quick View"
+                                          >
+                                              <Maximize2 size={16}/>
+                                          </button>
+                                          <Link 
+                                            to={`/contract/${contract.id}`}
+                                            className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-white/10 rounded"
+                                            title="Details"
+                                          >
+                                              <LayoutTemplate size={16}/>
+                                          </Link>
+                                      </div>
                                   </div>
                               ))}
                           </div>

@@ -8,7 +8,7 @@ import {
   ArrowRight, Trash2, Lock, Edit3, Shield, X, CheckSquare, Type, Hash, Calendar, 
   DollarSign, Globe, AtSign, AlignLeft, Phone, ArrowLeftRight, ArrowLeft, 
   Layers, Eye, Code, Binary, Fingerprint, List, DatabaseZap, Check, Key, MoreHorizontal,
-  Save, AlertTriangle, FunctionSquare, EyeOff, ShieldCheck, Play, RefreshCw, UploadCloud, Download
+  Save, AlertTriangle, FunctionSquare, EyeOff, ShieldCheck, Play, RefreshCw, UploadCloud, Download, ClipboardList
 } from 'lucide-react';
 
 const CONTRACT_TYPES = ['NDA', 'MSA', 'SOW', 'Licensing Agreement', 'Vendor Agreement', 'Offer Letter', 'Partnership Deed'];
@@ -33,6 +33,8 @@ const FieldDatabase: React.FC = () => {
   const [fieldForm, setFieldForm] = useState<Partial<FieldDefinition>>({});
   
   const handleEditField = (field: FieldDefinition | null) => {
+    if (field?.isLocked) return; // Prevent editing locked fields
+    
     setSelectedField(field);
     setFieldForm(field ? { ...field } : {
       name: '',
@@ -82,6 +84,7 @@ const FieldDatabase: React.FC = () => {
       case 'FileText': return FileText;
       case 'Users': return Users;
       case 'Briefcase': return Briefcase;
+      case 'ClipboardList': return ClipboardList;
       default: return Box;
     }
   };
@@ -107,6 +110,7 @@ const FieldDatabase: React.FC = () => {
   const renderFieldRow = (field: FieldDefinition) => {
     const TypeIcon = getTypeIcon(field.type as string);
     const isSystem = field.source === 'system';
+    const isLocked = field.isLocked;
     
     // Masking Preview Logic
     const isMasked = previewRole !== 'Admin' && field.visibilityRules?.some(r => r.roleId === `role_${previewRole.toLowerCase()}` && (r.access === 'masked' || r.access === 'hidden'));
@@ -127,6 +131,7 @@ const FieldDatabase: React.FC = () => {
                       {isMasked ? '••••••••' : field.name}
                    </span>
                    {field.isPII && <span title="PII / Sensitive"><Lock size={12} className="text-red-400" /></span>}
+                   {isLocked && <span title="System Locked"><Lock size={12} className="text-slate-500" /></span>}
                 </div>
                 <div className="text-[10px] font-mono text-slate-500 mt-0.5">{field.key}</div>
              </div>
@@ -163,13 +168,16 @@ const FieldDatabase: React.FC = () => {
            </div>
         </td>
         <td className="px-6 py-3 align-top text-right">
-           {!isSystem && (
+           {!isLocked ? (
               <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button onClick={() => handleEditField(field)} className="p-1.5 hover:bg-brand-500/20 rounded text-slate-400 hover:text-brand-400"><Edit3 size={14}/></button>
                  <button className="p-1.5 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-400"><Trash2 size={14}/></button>
               </div>
+           ) : (
+              <div className="flex justify-end opacity-50 cursor-not-allowed" title="System Locked (Read Only)">
+                 <Lock size={14} className="text-slate-600 mt-1.5" />
+              </div>
            )}
-           {isSystem && <span title="System Locked"><Lock size={14} className="text-slate-600 inline-block mt-1.5" /></span>}
         </td>
       </tr>
     );
@@ -351,7 +359,7 @@ const FieldDatabase: React.FC = () => {
                            onChange={(e) => setFieldForm({...fieldForm, key: e.target.value})}
                            className="font-mono text-xs"
                            placeholder="renewal_notice_days"
-                           disabled={!!selectedField}
+                           disabled={!!selectedField || !!selectedField?.isLocked}
                         />
                         <div>
                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Description</label>
@@ -399,7 +407,8 @@ const FieldDatabase: React.FC = () => {
                                     <button
                                        key={t}
                                        onClick={() => setFieldForm({...fieldForm, type: t})}
-                                       className={`flex flex-col items-center p-2 rounded border transition-all ${fieldForm.type === t ? 'bg-brand-500/20 border-brand-500 text-brand-400' : 'bg-dark-900 border-dark-700 text-slate-400 hover:border-slate-500'}`}
+                                       disabled={selectedField?.isLocked}
+                                       className={`flex flex-col items-center p-2 rounded border transition-all ${fieldForm.type === t ? 'bg-brand-500/20 border-brand-500 text-brand-400' : 'bg-dark-900 border-dark-700 text-slate-400 hover:border-slate-500'} ${selectedField?.isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                        <Icon size={16} className="mb-1"/>
                                        <span className="text-[10px] font-bold uppercase">{t}</span>

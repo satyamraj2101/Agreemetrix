@@ -7,7 +7,8 @@ import {
   Copy, X, UploadCloud, DollarSign, Calendar, CheckCircle2, ArrowRight, Clock,
   PieChart, ChevronLeft, ChevronRight, Menu, AlertTriangle, Info, CheckSquare,
   ArchiveRestore, LogOut, Key, Plus, Zap, BrainCircuit, BookOpen, Layers,
-  ChevronDown, ChevronUp, BarChart3, Loader2, File
+  ChevronDown, ChevronUp, BarChart3, Loader2, File, Sliders, ListChecks, Workflow,
+  Globe, Shield, Briefcase
 } from 'lucide-react';
 import { Button, Input, Select, Badge, Logo, Avatar } from './UIComponents';
 
@@ -46,7 +47,10 @@ const NAV_SECTIONS: NavGroup[] = [
     title: 'Workflows',
     roleReq: ['Admin', 'Legal'],
     items: [
-      { to: '/workflow-ai', icon: Bot, label: 'Workflow Builder' }
+      { to: '/workflows/manage', icon: ListChecks, label: 'Workflow Manager' },
+      { to: '/workflow-ai', icon: Bot, label: 'Visual Builder' },
+      { to: '/workflows/manual', icon: FileText, label: 'Manual Editor' },
+      { to: '/workflows/settings', icon: Sliders, label: 'Workflow Settings' }
     ]
   },
   {
@@ -123,6 +127,7 @@ const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string; co
 const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [step, setStep] = useState<'form' | 'processing' | 'triage'>('form');
   const [files, setFiles] = useState<{name: string, size: string, progress: number}[]>([]);
+  const [activeTab, setActiveTab] = useState<'general' | 'commercial' | 'compliance'>('general');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -216,7 +221,7 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-dark-900 border border-dark-700 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
+        <div className="bg-dark-900 border border-dark-700 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
             {/* Header */}
             <div className="p-6 border-b border-dark-700 flex justify-between items-center bg-dark-950/50">
                 <div className="flex items-center gap-4">
@@ -227,7 +232,7 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             {step === 'processing' ? 'Analyzing Request...' : 'New Legal Request'}
                         </h2>
-                        <p className="text-sm text-slate-400">Submit a contract request, review, or legal query.</p>
+                        <p className="text-sm text-slate-400">Submit a request. AI will determine the optimal workflow.</p>
                     </div>
                 </div>
                 <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5 text-slate-500 hover:text-white transition-colors">
@@ -236,9 +241,9 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+            <div className="flex-1 overflow-hidden flex flex-col">
                 {step === 'processing' ? (
-                    <div className="h-full flex flex-col items-center justify-center space-y-8 py-12">
+                    <div className="h-full flex flex-col items-center justify-center space-y-8 py-12 overflow-y-auto">
                         <div className="relative w-24 h-24">
                             <div className="absolute inset-0 border-4 border-dark-800 rounded-full"></div>
                             <div className="absolute inset-0 border-4 border-brand-500 rounded-full border-t-transparent animate-spin"></div>
@@ -264,86 +269,167 @@ const NewRequestModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-12 gap-8">
-                        {/* Left Column */}
-                        <div className="col-span-7 space-y-8">
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><FileText size={14}/> Request Information</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Select label="Request Type" options={[
-                                        {label: 'NDA (Non-Disclosure Agreement)', value: 'nda'},
-                                        {label: 'MSA (Master Services Agreement)', value: 'msa'},
-                                        {label: 'SOW (Statement of Work)', value: 'sow'},
-                                        {label: 'Vendor Agreement', value: 'vendor'},
-                                    ]} />
-                                    <Select label="Priority Level" options={[
-                                        {label: 'Standard (5-7 Days)', value: 'standard'},
-                                        {label: 'High (2-3 Days)', value: 'high'},
-                                        {label: 'Urgent (24 Hours)', value: 'urgent'}
-                                    ]} />
-                                </div>
-                                <Input label="Counterparty Name" placeholder="e.g. Acme Corp, TechFlow Inc" />
-                                <Input label="Counterparty Contact Email" placeholder="legal@counterparty.com" />
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><DollarSign size={14}/> Commercial Terms</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-[33px] text-slate-500 font-sans text-sm">$</span>
-                                        <Input label="Contract Value (USD)" placeholder="0.00" className="pl-7 font-mono" />
-                                    </div>
-                                    <Select label="Payment Terms" options={[{label:'Net 30', value:'30'}, {label:'Net 45', value:'45'}, {label:'Net 60', value:'60'}]} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Start Date" type="date" />
-                                    <Input label="End Date" type="date" />
-                                </div>
-                            </div>
+                    <div className="flex h-full">
+                        {/* Side Nav */}
+                        <div className="w-64 bg-dark-950 border-r border-dark-700 p-4 flex flex-col gap-2">
+                            <button 
+                                onClick={() => setActiveTab('general')}
+                                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-3 transition-colors ${activeTab === 'general' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <FileText size={16}/> General Info
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('commercial')}
+                                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-3 transition-colors ${activeTab === 'commercial' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <DollarSign size={16}/> Commercials
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('compliance')}
+                                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-3 transition-colors ${activeTab === 'compliance' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Shield size={16}/> Compliance
+                            </button>
                         </div>
-                        
-                        {/* Right Column */}
-                        <div className="col-span-5 space-y-8">
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><Info size={14}/> Description & Context</h3>
-                                <textarea className="w-full rounded-lg bg-dark-950/50 border border-dark-700 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/50 transition-all h-32 resize-none" placeholder="Describe the scope of work, key deliverables, or specific legal concerns..."></textarea>
-                            </div>
 
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2 flex items-center gap-2"><UploadCloud size={14}/> Attachments</h3>
-                                <div 
-                                    className="border-2 border-dashed border-dark-700 rounded-xl p-6 flex flex-col items-center justify-center text-slate-500 hover:border-brand-500/50 hover:bg-brand-500/5 transition-all cursor-pointer group relative"
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload}/>
-                                    <div className="w-10 h-10 bg-dark-800 rounded-full flex items-center justify-center mb-2 group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
-                                        <UploadCloud size={20}/>
+                        {/* Form Content */}
+                        <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+                            {activeTab === 'general' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2">Basic Information</h3>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <Select label="Request Type" options={[
+                                                {label: 'NDA (Non-Disclosure Agreement)', value: 'nda'},
+                                                {label: 'MSA (Master Services Agreement)', value: 'msa'},
+                                                {label: 'SOW (Statement of Work)', value: 'sow'},
+                                                {label: 'Software License', value: 'license'},
+                                                {label: 'Vendor Agreement', value: 'vendor'},
+                                            ]} />
+                                            <Select label="Priority Level" options={[
+                                                {label: 'Standard (5-7 Days)', value: 'standard'},
+                                                {label: 'High (2-3 Days)', value: 'high'},
+                                                {label: 'Urgent (24 Hours)', value: 'urgent'}
+                                            ]} />
+                                        </div>
+                                        <Input label="Counterparty Name" placeholder="e.g. Acme Corp, TechFlow Inc" />
+                                        <Input label="Counterparty Contact" placeholder="Email address of primary contact" />
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <Select label="Business Unit" options={[
+                                                {label: 'Marketing', value: 'Marketing'},
+                                                {label: 'Engineering', value: 'Engineering'},
+                                                {label: 'HR', value: 'HR'},
+                                                {label: 'Sales', value: 'Sales'},
+                                                {label: 'IT', value: 'IT'},
+                                                {label: 'Operations', value: 'Operations'}
+                                            ]} />
+                                            <Select label="Project Region" options={[
+                                                {label: 'Global', value: 'Global'},
+                                                {label: 'North America', value: 'NA'},
+                                                {label: 'EMEA', value: 'EMEA'},
+                                                {label: 'APAC', value: 'APAC'}
+                                            ]} />
+                                        </div>
                                     </div>
-                                    <p className="text-sm font-medium text-slate-300">Click to upload files</p>
-                                    <p className="text-xs opacity-60 mt-1">Drafts, Third-party paper, Email threads</p>
+
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2">Context</h3>
+                                        <textarea className="w-full rounded-lg bg-dark-950/50 border border-dark-700 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/50 transition-all h-32 resize-none" placeholder="Describe the scope of work, key deliverables, or specific legal concerns..."></textarea>
+                                    </div>
                                 </div>
+                            )}
 
-                                {/* File List */}
-                                {files.length > 0 && (
-                                    <div className="space-y-2">
-                                        {files.map((file, i) => (
-                                            <div key={i} className="bg-dark-950 border border-dark-700 rounded-lg p-2 flex items-center gap-3">
-                                                <File size={16} className="text-brand-400"/>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span className="text-white truncate">{file.name}</span>
-                                                        <span className="text-slate-500">{file.size}</span>
-                                                    </div>
-                                                    <div className="w-full bg-dark-800 h-1 rounded-full overflow-hidden">
-                                                        <div className="bg-brand-500 h-full transition-all duration-300" style={{width: `${file.progress}%`}}></div>
-                                                    </div>
-                                                </div>
-                                                <button className="text-slate-500 hover:text-red-400"><X size={14}/></button>
+                            {activeTab === 'commercial' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2">Financial Terms</h3>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-[33px] text-slate-500 font-sans text-sm">$</span>
+                                                <Input label="Total Contract Value" placeholder="0.00" className="pl-7 font-mono" />
                                             </div>
-                                        ))}
+                                            <Select label="Currency" options={[{label:'USD', value:'USD'}, {label:'EUR', value:'EUR'}, {label:'GBP', value:'GBP'}]} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <Select label="Spend Type" options={[{label:'OpEx (Operational)', value:'OpEx'}, {label:'CapEx (Capital)', value:'CapEx'}]} />
+                                            <Select label="Payment Terms" options={[{label:'Net 30', value:'30'}, {label:'Net 45', value:'45'}, {label:'Net 60', value:'60'}, {label:'Immediate', value:'0'}]} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <Input label="Start Date" type="date" />
+                                            <Input label="End Date" type="date" />
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'compliance' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2">Data & Security</h3>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <Select label="Data Classification" options={[
+                                                {label: 'Public', value: 'Public'},
+                                                {label: 'Internal', value: 'Internal'},
+                                                {label: 'Confidential', value: 'Confidential'},
+                                                {label: 'Restricted (PII/PHI)', value: 'Restricted'}
+                                            ]} />
+                                            <Select label="Vendor Tier" options={[
+                                                {label: 'Strategic', value: 'Strategic'},
+                                                {label: 'Preferred', value: 'Preferred'},
+                                                {label: 'Transactional', value: 'Transactional'},
+                                                {label: 'Probationary', value: 'Probationary'}
+                                            ]} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <Select label="Software Type" options={[
+                                                {label: 'N/A', value: ''},
+                                                {label: 'SaaS (Cloud)', value: 'SaaS'},
+                                                {label: 'On-Premise', value: 'On-Prem'},
+                                                {label: 'Professional Services', value: 'Services'}
+                                            ]} />
+                                            <Select label="Cross-Border Transfer?" options={[
+                                                {label: 'No', value: 'no'},
+                                                {label: 'Yes', value: 'yes'}
+                                            ]} />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 pb-2">Attachments</h3>
+                                        <div 
+                                            className="border-2 border-dashed border-dark-700 rounded-xl p-6 flex flex-col items-center justify-center text-slate-500 hover:border-brand-500/50 hover:bg-brand-500/5 transition-all cursor-pointer group relative"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload}/>
+                                            <div className="w-10 h-10 bg-dark-800 rounded-full flex items-center justify-center mb-2 group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+                                                <UploadCloud size={20}/>
+                                            </div>
+                                            <p className="text-sm font-medium text-slate-300">Click to upload files</p>
+                                            <p className="text-xs opacity-60 mt-1">Drafts, Third-party paper, Email threads</p>
+                                        </div>
+
+                                        {files.length > 0 && (
+                                            <div className="space-y-2">
+                                                {files.map((file, i) => (
+                                                    <div key={i} className="bg-dark-950 border border-dark-700 rounded-lg p-2 flex items-center gap-3">
+                                                        <File size={16} className="text-brand-400"/>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between text-xs mb-1">
+                                                                <span className="text-white truncate">{file.name}</span>
+                                                                <span className="text-slate-500">{file.size}</span>
+                                                            </div>
+                                                            <div className="w-full bg-dark-800 h-1 rounded-full overflow-hidden">
+                                                                <div className="bg-brand-500 h-full transition-all duration-300" style={{width: `${file.progress}%`}}></div>
+                                                            </div>
+                                                        </div>
+                                                        <button className="text-slate-500 hover:text-red-400"><X size={14}/></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
