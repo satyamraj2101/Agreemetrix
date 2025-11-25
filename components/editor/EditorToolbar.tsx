@@ -393,8 +393,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                  <RibbonGroup label="Tracking">
                    <RibbonButton icon={GitBranch} label="Track Changes" active={state.trackChanges} onClick={actions.toggleTrackChanges} color={state.trackChanges ? 'text-green-400' : ''} />
                    <RibbonActionGroup>
-                     <RibbonIconButton icon={Check} title="Accept" onClick={() => alert('All changes accepted')} />
-                     <RibbonIconButton icon={X} title="Reject" onClick={() => alert('All changes rejected')} />
+                     <RibbonIconButton icon={Check} title="Accept" onClick={() => alert('Accept Change')} />
+                     <RibbonIconButton icon={X} title="Reject" onClick={() => alert('Reject Change')} />
                    </RibbonActionGroup>
                  </RibbonGroup>
                  <RibbonGroup label="Protection">

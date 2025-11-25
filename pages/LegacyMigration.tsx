@@ -1,34 +1,59 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input, Select, Badge, Switch } from '../components/UIComponents';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, Button, Input, Select, Badge, Switch, Avatar } from '../components/UIComponents';
 import { 
   ArchiveRestore, UploadCloud, FileText, CheckCircle2, 
   AlertTriangle, Folder, ArrowRight, Loader2, Play,
   LayoutTemplate, Wand2, Cloud, RefreshCw, Database, Eye, Edit3,
   Shield, ChevronRight, Check, Workflow, Sparkles, ArrowLeft, Search,
   GitMerge, Layers, FileCode, AlertCircle, Server, HardDrive, Calendar,
-  DollarSign, Link as LinkIcon, Download, Filter, Trash2, MoreHorizontal
+  DollarSign, Link as LinkIcon, Download, Filter, Trash2, MoreHorizontal,
+  ThumbsUp, ThumbsDown, Split, Flag, Lock, History, ChevronDown, X, Scale,
+  MessageSquare, Zap, RotateCcw, CheckSquare, Clock, Plus
 } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from 'recharts';
 
-// --- TYPES & MOCKS ---
+// --- TYPES ---
 
 type MigrationStage = 'connect' | 'dedupe' | 'analyze' | 'review' | 'mapping' | 'complete';
 
-interface DetectedIssue {
+interface ActivityLog {
   id: string;
-  type: 'Critical' | 'High' | 'Medium' | 'Low';
-  category: 'Metadata' | 'Risk' | 'Clause' | 'Obligation';
-  message: string;
-  suggestion?: string;
+  user: string;
+  action: string;
+  target: string;
+  timestamp: string;
+  type: 'info' | 'success' | 'warning';
 }
 
-interface ExtractedObligation {
+interface Comment {
   id: string;
-  description: string;
-  dueDate: string;
-  type: 'Payment' | 'Deliverable' | 'Notice' | 'Renewal';
-  riskLevel: 'High' | 'Low';
+  user: string;
+  text: string;
+  date: string;
+}
+
+interface ExtractionField {
+  key: string;
+  label: string;
+  value: string;
+  aiSuggestion?: string;
+  confidence: number; // 0-100
+  source?: string; // e.g. "Header", "Page 1"
+  reasoning?: string; // e.g. "Pattern matched YYYY-MM-DD"
+  isPII?: boolean;
+  status: 'pending' | 'accepted' | 'rejected' | 'edited' | 'flagged';
+  rect?: { x: number, y: number, w: number, h: number }; 
+  comments?: Comment[];
+}
+
+interface DetectedClause {
+  id: string;
+  name: string;
+  text: string;
+  standardText?: string;
+  riskLevel: 'Low' | 'Medium' | 'High';
+  confidence: number;
+  status: 'pending' | 'accepted' | 'rejected';
 }
 
 interface MigrationFile {
@@ -37,689 +62,624 @@ interface MigrationFile {
   size: string;
   source: string;
   uploadDate: string;
-  status: 'scanned' | 'processing' | 'review_needed' | 'ready' | 'duplicate';
-  confidence: number;
-  duplicateGroupId?: string; // If grouped with others
-  isMaster?: boolean; // If it's the chosen version
-  metadata: {
-    type?: string;
-    counterparty?: string;
-    effectiveDate?: string;
-    value?: string;
-    jurisdiction?: string;
-    autoRenewal?: boolean;
-  };
-  issues: DetectedIssue[];
-  obligations: ExtractedObligation[];
-  clauses: { name: string; deviation: 'Standard' | 'Modified' | 'High Risk'; text: string }[];
+  author?: string;
+  pageCount?: number;
+  status: 'scanned' | 'processing' | 'review_needed' | 'ready' | 'duplicate' | 'archived';
+  confidenceScore: number;
+  fields: ExtractionField[];
+  clauses: DetectedClause[];
 }
 
-const MOCK_FILES_DATA: MigrationFile[] = [
+interface DuplicateGroup {
+  id: string;
+  name: string;
+  files: MigrationFile[];
+  masterFileId?: string;
+  matchScore: number;
+}
+
+interface MappingRule {
+  id: string;
+  field: string;
+  operator: string;
+  value: string;
+  targetWorkflow: string;
+}
+
+// --- MOCK DATA ---
+
+const INITIAL_FILES: MigrationFile[] = [
   {
-    id: '1',
-    name: 'TechFlow_MSA_2023_Final_Signed.pdf',
+    id: 'f1',
+    name: 'TechFlow_MSA_2023_Signed.pdf',
     size: '2.4 MB',
-    source: 'SharePoint / Legal / TechFlow',
+    source: 'SharePoint',
     uploadDate: '2024-03-10',
+    author: 'Mike Ross',
+    pageCount: 12,
     status: 'ready',
-    confidence: 98,
-    metadata: {
-      type: 'MSA',
-      counterparty: 'TechFlow Inc',
-      effectiveDate: '2023-05-15',
-      value: '150000',
-      jurisdiction: 'New York',
-      autoRenewal: true
-    },
-    issues: [],
-    obligations: [
-      { id: 'ob1', description: 'Annual License Payment', dueDate: '2024-05-15', type: 'Payment', riskLevel: 'Low' }
+    confidenceScore: 98,
+    fields: [
+      { key: 'type', label: 'Contract Type', value: 'MSA', confidence: 99, status: 'accepted', source: 'Header', reasoning: 'Explicit title match' },
+      { key: 'party', label: 'Counterparty', value: 'TechFlow Inc', confidence: 98, status: 'accepted', source: 'Intro', reasoning: 'Named entity recognition' },
+      { key: 'value', label: 'Total Value', value: '150,000', confidence: 95, status: 'accepted', source: 'Section 4', reasoning: 'Currency format found' },
+      { key: 'date', label: 'Effective Date', value: '2023-05-15', confidence: 99, status: 'accepted', source: 'Footer', reasoning: 'Date pattern in footer' },
     ],
-    clauses: [
-      { name: 'Indemnification', deviation: 'Standard', text: '...' },
-      { name: 'Liability Cap', deviation: 'Standard', text: '...' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'TechFlow_MSA_v3.docx',
-    size: '1.1 MB',
-    source: 'SharePoint / Legal / TechFlow',
-    uploadDate: '2024-03-09',
-    status: 'duplicate',
-    confidence: 100,
-    duplicateGroupId: 'group_1',
-    isMaster: false,
-    metadata: {},
-    issues: [],
-    obligations: [],
     clauses: []
   },
   {
-    id: '3',
-    name: 'Acme_Supply_Agreement_Draft.pdf',
+    id: 'f2',
+    name: 'Acme_Supply_Agmt_Draft_v2.pdf',
     size: '450 KB',
-    source: 'Local Upload',
+    source: 'Upload',
     uploadDate: '2024-03-11',
+    author: 'Harvey Specter',
+    pageCount: 5,
     status: 'review_needed',
-    confidence: 65,
-    metadata: {
-      type: 'Vendor Agreement',
-      counterparty: 'Acme Corp',
-      effectiveDate: '', // Missing
-      value: '25000',
-      jurisdiction: 'California',
-      autoRenewal: false
-    },
-    issues: [
-      { id: 'i1', type: 'Critical', category: 'Metadata', message: 'Effective Date missing', suggestion: '2024-01-01 (Found in footer)' },
-      { id: 'i2', type: 'High', category: 'Risk', message: 'Missing GDPR Addendum', suggestion: 'Flag for DPA' },
-      { id: 'i3', type: 'Medium', category: 'Clause', message: 'Unclear Termination Clause', suggestion: 'Review Section 12.3' }
+    confidenceScore: 65,
+    fields: [
+      { key: 'type', label: 'Contract Type', value: 'Vendor Agreement', aiSuggestion: 'Supply Agreement', confidence: 70, status: 'pending', source: 'Header', reasoning: 'Ambiguous title' },
+      { key: 'party', label: 'Counterparty', value: 'Acme Corp', confidence: 95, status: 'accepted', source: 'Intro', reasoning: 'Named entity recognition' },
+      { key: 'value', label: 'Total Value', value: '25,000', confidence: 88, status: 'accepted', source: 'Section 3.1', reasoning: 'Currency format found' },
+      { key: 'date', label: 'Effective Date', value: '', aiSuggestion: '2024-01-01', confidence: 45, status: 'pending', source: 'Inferred', reasoning: 'No explicit date found, inferred from file creation' },
+      { key: 'email', label: 'Contact Email', value: 'admin@acme.com', confidence: 90, isPII: true, status: 'accepted', source: 'Signature Page', reasoning: 'Email regex match' }
     ],
-    obligations: [],
     clauses: [
-      { name: 'Termination', deviation: 'High Risk', text: 'Client may terminate only for cause...' }
+      { id: 'c1', name: 'Limitation of Liability', text: 'Vendor liability shall not exceed $5,000.', standardText: 'Liability capped at 12 months fees.', riskLevel: 'High', confidence: 85, status: 'pending' },
+      { id: 'c2', name: 'Termination', text: '30 days notice for convenience.', riskLevel: 'Low', confidence: 92, status: 'accepted' }
     ]
   },
   {
-    id: '4',
-    name: 'Stratos_SOW_05.pdf',
-    size: '890 KB',
+    id: 'f3',
+    name: 'Stratos_Consulting_SOW.pdf',
+    size: '1.1 MB',
     source: 'Google Drive',
-    uploadDate: '2024-03-11',
+    uploadDate: '2024-03-12',
+    author: 'Jessica Pearson',
+    pageCount: 8,
     status: 'review_needed',
-    confidence: 72,
-    metadata: {
-      type: 'SOW',
-      counterparty: 'Stratos Consulting',
-      effectiveDate: '2023-09-10',
-      value: '12000',
-      jurisdiction: 'Unknown',
-      autoRenewal: false
-    },
-    issues: [
-      { id: 'i4', type: 'Medium', category: 'Metadata', message: 'Jurisdiction ambiguous', suggestion: 'Delaware (Inferred)' }
-    ],
-    obligations: [
-      { id: 'ob2', description: 'Project Milestone 1', dueDate: '2023-12-01', type: 'Deliverable', riskLevel: 'High' }
+    confidenceScore: 72,
+    fields: [
+      { key: 'type', label: 'Contract Type', value: 'SOW', confidence: 95, status: 'accepted', source: 'Header', reasoning: 'Explicit title match' },
+      { key: 'party', label: 'Counterparty', value: 'Stratos', confidence: 92, status: 'accepted', source: 'Intro', reasoning: 'Named entity recognition' },
+      { key: 'jurisdiction', label: 'Jurisdiction', value: 'Unknown', aiSuggestion: 'Delaware', confidence: 60, status: 'pending', source: 'Inferred', reasoning: 'Address block analysis' }
     ],
     clauses: []
   }
 ];
 
+const INITIAL_DUPLICATES: DuplicateGroup[] = [
+  {
+    id: 'g1',
+    name: 'TechFlow MSA Series',
+    matchScore: 98,
+    files: [
+      { ...INITIAL_FILES[0], id: 'd1', name: 'TechFlow_MSA_2023_Final.pdf', uploadDate: '2024-03-10 10:00', size: '2.4 MB' },
+      { ...INITIAL_FILES[0], id: 'd2', name: 'TechFlow_MSA_v3_Clean.docx', uploadDate: '2024-03-09 14:30', size: '2.1 MB', status: 'duplicate', confidenceScore: 100 },
+      { ...INITIAL_FILES[0], id: 'd3', name: 'MSA_TechFlow_Signed.pdf', uploadDate: '2024-03-10 10:05', size: '2.4 MB', status: 'duplicate' },
+    ]
+  }
+];
+
 // --- COMPONENTS ---
 
-const StageBadge: React.FC<{ current: MigrationStage; stage: MigrationStage; label: string; icon: any }> = ({ current, stage, label, icon: Icon }) => {
+const StageBadge: React.FC<{ 
+    id: string; 
+    current: MigrationStage; 
+    label: string; 
+    icon: any; 
+    count?: number;
+    onClick: () => void;
+}> = ({ id, current, label, icon: Icon, count, onClick }) => {
   const stages = ['connect', 'dedupe', 'analyze', 'review', 'mapping', 'complete'];
   const currentIndex = stages.indexOf(current);
-  const stageIndex = stages.indexOf(stage);
+  const stageIndex = stages.indexOf(id);
   
-  let statusColor = 'bg-dark-800 text-slate-500 border-dark-700';
-  if (stageIndex < currentIndex) statusColor = 'bg-brand-500/20 text-brand-400 border-brand-500/50'; // Completed
-  if (stageIndex === currentIndex) statusColor = 'bg-brand-500 text-white border-brand-500 shadow-[0_0_15px_rgba(var(--color-brand-500),0.4)]'; // Active
+  const isActive = stageIndex === currentIndex;
+  const isCompleted = stageIndex < currentIndex;
 
   return (
-    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-300 ${statusColor}`}>
-      <Icon size={14} />
-      <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
-      {stageIndex < currentIndex && <CheckCircle2 size={14} className="ml-1" />}
-    </div>
+    <button 
+        onClick={onClick}
+        disabled={stageIndex > currentIndex}
+        className={`w-full flex items-center justify-between p-3 rounded-lg transition-all mb-2 group ${
+            isActive ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20' : 
+            isCompleted ? 'text-slate-300 hover:bg-white/5' : 
+            'text-slate-500 opacity-60 cursor-not-allowed'
+        }`}
+    >
+      <div className="flex items-center gap-3">
+          <div className={`p-1.5 rounded-md ${isActive ? 'bg-white/20' : 'bg-dark-800 border border-dark-700'}`}>
+            <Icon size={16} className={isActive ? 'text-white' : isCompleted ? 'text-brand-400' : 'text-slate-500'} />
+          </div>
+          <span className="text-sm font-bold">{label}</span>
+      </div>
+      {isCompleted ? <CheckCircle2 size={16} className="text-brand-400"/> : count !== undefined && (
+          <Badge color={isActive ? 'brand' : 'gray'} className="text-[10px]">{count}</Badge>
+      )}
+    </button>
   );
 };
 
-const LegacyMigration: React.FC = () => {
-  const [step, setStep] = useState<MigrationStage>('connect');
-  const [files, setFiles] = useState<MigrationFile[]>([]);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [reviewTab, setReviewTab] = useState<'metadata' | 'clauses' | 'obligations' | 'preview'>('metadata');
-  
-  // Source Config
-  const [sourceType, setSourceType] = useState<string | null>(null);
-  const [preserveFolders, setPreserveFolders] = useState(true);
+// --- STAGE: REVIEW CONSOLE ---
 
-  // Computed
-  const selectedFile = files.find(f => f.id === selectedFileId);
-  const readyCount = files.filter(f => f.status === 'ready').length;
-  const reviewCount = files.filter(f => f.status === 'review_needed').length;
-  const duplicateCount = files.filter(f => f.status === 'duplicate').length;
+const ReviewConsole: React.FC<{ files: MigrationFile[], onComplete: () => void }> = ({ files: initialFiles, onComplete }) => {
+    const [files, setFiles] = useState<MigrationFile[]>(initialFiles);
+    const [selectedFileId, setSelectedFileId] = useState<string>(files[1].id);
+    const [activeTab, setActiveTab] = useState<'metadata' | 'clauses' | 'activity'>('metadata');
+    const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
+    const [showAutoFix, setShowAutoFix] = useState(false);
 
-  // --- HANDLERS ---
+    const selectedFile = files.find(f => f.id === selectedFileId)!;
 
-  const handleConnectSource = (type: string) => {
-    setSourceType(type);
-    // Simulate connection delay
-    setTimeout(() => {
-        setStep('dedupe');
-        // Load initial raw list including duplicates
-        setFiles(MOCK_FILES_DATA);
-    }, 1000);
-  };
+    const logActivity = (action: string, target: string) => {
+        const newLog: ActivityLog = {
+            id: `log_${Date.now()}`,
+            user: 'You',
+            action,
+            target,
+            timestamp: new Date().toLocaleTimeString(),
+            type: 'success'
+        };
+        setActivityLog([newLog, ...activityLog]);
+    };
 
-  const handleDedupeComplete = () => {
-    setStep('analyze');
-    // Simulate AI Processing
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 5;
-      setAnalysisProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setStep('review');
-        if(MOCK_FILES_DATA.find(f => f.status === 'review_needed')) {
-            setSelectedFileId(MOCK_FILES_DATA.find(f => f.status === 'review_needed')!.id);
-        }
-      }
-    }, 150);
-  };
-
-  const handleApplySuggestion = (issueId: string) => {
-    if (!selectedFile) return;
-    const issue = selectedFile.issues.find(i => i.id === issueId);
-    if (!issue || !issue.suggestion) return;
-
-    // Apply logic (mock)
-    const newFiles = files.map(f => {
-        if (f.id === selectedFile.id) {
-            const updatedMeta = { ...f.metadata };
-            if (issue.message.includes('Effective Date')) updatedMeta.effectiveDate = issue.suggestion;
-            if (issue.message.includes('Jurisdiction')) updatedMeta.jurisdiction = issue.suggestion;
+    const updateFieldStatus = (fileId: string, key: string, status: 'accepted' | 'rejected' | 'flagged') => {
+        setFiles(prev => prev.map(f => {
+            if (f.id !== fileId) return f;
+            const fieldName = f.fields.find(fi => fi.key === key)?.label || key;
+            logActivity(status === 'accepted' ? 'Verified' : status === 'rejected' ? 'Rejected' : 'Flagged', fieldName);
             
-            const remainingIssues = f.issues.filter(i => i.id !== issueId);
-            const newStatus = remainingIssues.length === 0 ? 'ready' : 'review_needed';
-            
-            return { ...f, metadata: updatedMeta, issues: remainingIssues, status: newStatus as any };
+            return {
+                ...f,
+                fields: f.fields.map(field => field.key === key ? { ...field, status } : field),
+                status: f.fields.every(fi => fi.status !== 'pending') ? 'ready' : 'review_needed'
+            };
+        }));
+    };
+
+    const handleBulkAction = (action: string) => {
+        if (action === 'accept_high_confidence') {
+            let count = 0;
+            setFiles(prev => prev.map(f => {
+                const newFields = f.fields.map(field => {
+                    if (field.status === 'pending' && field.confidence > 80) {
+                        count++;
+                        return { ...field, status: 'accepted' as const };
+                    }
+                    return field;
+                });
+                return { ...f, fields: newFields };
+            }));
+            logActivity('Bulk Accept', `${count} high confidence fields`);
         }
-        return f;
-    });
-    setFiles(newFiles);
-  };
+    };
 
-  const handleMarkReady = () => {
-      if(!selectedFile) return;
-      setFiles(prev => prev.map(f => f.id === selectedFile.id ? { ...f, status: 'ready', issues: [] } : f));
-      
-      // Auto select next review item
-      const next = files.find(f => f.status === 'review_needed' && f.id !== selectedFile.id);
-      if(next) setSelectedFileId(next.id);
-      else setSelectedFileId(null);
-  };
-
-  // --- RENDERERS ---
-
-  const renderConnect = () => (
-    <div className="flex flex-col items-center justify-center py-12 animate-in fade-in zoom-in-95 max-w-5xl mx-auto">
-        <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Connect Legacy Repository</h2>
-            <p className="text-slate-400 max-w-lg mx-auto">
-                Select a source to begin ingestion. We support bulk imports from cloud storage, local drives, and existing CLMs.
-            </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-10">
-            {[
-                { id: 'local', label: 'Local Upload', icon: UploadCloud, desc: 'Drag & drop folders or PDFs' },
-                { id: 'sharepoint', label: 'SharePoint', icon: FileCode, desc: 'Connect Document Library' },
-                { id: 's3', label: 'Amazon S3', icon: Server, desc: 'Import from Bucket' },
-                { id: 'drive', label: 'Google Drive', icon: Cloud, desc: 'Sync Shared Drives' },
-                { id: 'email', label: 'Email Ingestion', icon: Layers, desc: 'Poll legal@ inbox' },
-                { id: 'sftp', label: 'SFTP Server', icon: HardDrive, desc: 'Secure File Transfer' }
-            ].map(src => (
-                <button 
-                    key={src.id}
-                    onClick={() => handleConnectSource(src.id)}
-                    className="group p-6 bg-dark-900 border border-dark-700 hover:border-brand-500/50 rounded-2xl text-left transition-all hover:bg-brand-500/5 hover:-translate-y-1"
-                >
-                    <div className="w-12 h-12 bg-dark-800 rounded-xl flex items-center justify-center mb-4 group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors text-slate-400">
-                        <src.icon size={24}/>
+    return (
+        <div className="flex h-full gap-0 animate-in fade-in">
+            {/* Left: File Queue */}
+            <div className="w-72 flex flex-col border-r border-dark-700 bg-dark-900/30">
+                <div className="p-4 border-b border-dark-700">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-white text-sm">Review Queue</h3>
+                        <Badge color="yellow">{files.filter(f => f.status === 'review_needed').length}</Badge>
                     </div>
-                    <h4 className="font-bold text-white mb-1">{src.label}</h4>
-                    <p className="text-xs text-slate-500">{src.desc}</p>
-                </button>
-            ))}
-        </div>
-
-        <div className="w-full max-w-2xl bg-dark-900 border border-dark-700 rounded-xl p-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <div className="p-2 bg-dark-800 rounded-lg text-slate-400"><Folder size={20}/></div>
-                <div>
-                    <h5 className="text-sm font-bold text-white">Ingestion Settings</h5>
-                    <p className="text-xs text-slate-500">Configure how files are processed initially.</p>
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" size={14}/>
+                        <Input placeholder="Filter files..." className="h-8 text-xs pl-8 bg-dark-950" />
+                    </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                    {files.map(file => (
+                        <div 
+                            key={file.id}
+                            onClick={() => setSelectedFileId(file.id)}
+                            className={`p-3 rounded-lg cursor-pointer border transition-all group ${selectedFileId === file.id ? 'bg-brand-500/10 border-brand-500/50 ring-1 ring-brand-500/20' : 'bg-transparent border-transparent hover:bg-dark-800'}`}
+                        >
+                            <div className="flex justify-between items-start mb-1">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    {file.status === 'ready' ? <CheckCircle2 size={14} className="text-green-500 shrink-0"/> : <AlertCircle size={14} className="text-yellow-500 shrink-0"/>}
+                                    <span className={`text-xs font-bold truncate ${selectedFileId === file.id ? 'text-white' : 'text-slate-300'}`}>{file.name}</span>
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-slate-500 pl-6">
+                                <span>{file.confidenceScore}% Match</span>
+                                {file.fields.filter(f => f.status === 'pending').length > 0 && <span className="text-yellow-500 font-bold">{file.fields.filter(f => f.status === 'pending').length} Issues</span>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                
+                <div className="p-3 border-t border-dark-700 bg-dark-900/50">
+                    <Button variant="secondary" className="w-full text-xs" onClick={() => handleBulkAction('accept_high_confidence')}>
+                        <CheckCircle2 size={14} className="mr-2"/> Auto-Accept High Conf.
+                    </Button>
                 </div>
             </div>
-            <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <Switch checked={preserveFolders} onChange={setPreserveFolders} />
-                    <span className="text-xs text-slate-300">Preserve Folder Structure</span>
-                </label>
-            </div>
-        </div>
-    </div>
-  );
 
-  const renderDedupe = () => (
-      <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
-          <div className="flex justify-between items-center mb-6">
-              <div>
-                  <h2 className="text-2xl font-bold text-white">Pre-Processing & Deduplication</h2>
-                  <p className="text-slate-400 text-sm">We found <span className="text-brand-400 font-bold">45 potential duplicates</span> and grouped <span className="text-brand-400 font-bold">12 version sets</span>.</p>
-              </div>
-              <Button variant="primary" onClick={handleDedupeComplete}>Confirm & Start Analysis <ArrowRight size={16} className="ml-2"/></Button>
-          </div>
-
-          <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
-              <div className="col-span-8 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-2">
-                  {/* Dedupe Group Example */}
-                  <Card noPadding className="border-l-4 border-l-yellow-500">
-                      <div className="p-4 bg-dark-900/50 border-b border-dark-800 flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                              <GitMerge size={16} className="text-yellow-500"/>
-                              <span className="text-sm font-bold text-white">Duplicate Group: TechFlow MSA</span>
-                              <Badge color="yellow">98% Match</Badge>
-                          </div>
-                          <div className="text-xs text-slate-500">2 Files Found</div>
-                      </div>
-                      <div className="p-4 space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-dark-950 border border-green-500/30 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                  <FileText size={20} className="text-slate-400"/>
-                                  <div>
-                                      <p className="text-sm font-bold text-white">TechFlow_MSA_2023_Final_Signed.pdf</p>
-                                      <p className="text-xs text-slate-500">2.4 MB • Modified 10 Mar 2024</p>
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                  <Badge color="green">Keep (Master)</Badge>
-                                  <input type="radio" checked readOnly className="accent-brand-500"/>
-                              </div>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-dark-950 border border-dark-700 rounded-lg opacity-60">
-                              <div className="flex items-center gap-3">
-                                  <FileText size={20} className="text-slate-400"/>
-                                  <div>
-                                      <p className="text-sm font-bold text-white">TechFlow_MSA_v3.docx</p>
-                                      <p className="text-xs text-slate-500">1.1 MB • Modified 09 Mar 2024</p>
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                  <Badge color="gray">Archive</Badge>
-                                  <input type="radio" checked={false} readOnly className="accent-brand-500"/>
-                              </div>
-                          </div>
-                      </div>
-                  </Card>
-
-                  {/* Another Group */}
-                  <Card noPadding className="border-l-4 border-l-blue-500">
-                      <div className="p-4 bg-dark-900/50 border-b border-dark-800 flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                              <Layers size={16} className="text-blue-500"/>
-                              <span className="text-sm font-bold text-white">Version Set: Stratos SOW</span>
-                              <Badge color="blue">Sequential</Badge>
-                          </div>
-                          <div className="text-xs text-slate-500">3 Versions</div>
-                      </div>
-                      <div className="p-4 space-y-2">
-                          {['v1_draft', 'v2_legal_review', 'v3_final'].map((v, i) => (
-                              <div key={v} className="flex items-center justify-between p-2">
-                                  <span className="text-sm text-slate-300">Stratos_SOW_{v}.docx</span>
-                                  <span className="text-xs text-slate-500">{i === 2 ? 'Latest' : 'History'}</span>
-                              </div>
-                          ))}
-                      </div>
-                  </Card>
-              </div>
-
-              <div className="col-span-4 space-y-6">
-                  <div className="p-6 bg-dark-900 border border-dark-700 rounded-xl">
-                      <h4 className="text-sm font-bold text-white mb-4">Processing Stats</h4>
-                      <div className="space-y-4">
-                          <div className="flex justify-between text-sm">
-                              <span className="text-slate-400">Total Files Scanned</span>
-                              <span className="text-white font-mono">1,204</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                              <span className="text-slate-400">Exact Duplicates</span>
-                              <span className="text-red-400 font-mono">45</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                              <span className="text-slate-400">Version Sets</span>
-                              <span className="text-blue-400 font-mono">12</span>
-                          </div>
-                          <div className="h-px bg-dark-700 my-2"></div>
-                          <div className="flex justify-between text-sm font-bold">
-                              <span className="text-white">Unique Contracts</span>
-                              <span className="text-green-400 font-mono">1,147</span>
-                          </div>
-                      </div>
-                  </div>
-                  
-                  <div className="p-4 bg-brand-500/10 border border-brand-500/20 rounded-xl flex gap-3">
-                      <Sparkles size={20} className="text-brand-400 shrink-0"/>
-                      <p className="text-xs text-brand-200/80">
-                          AI suggests merging 12 sets based on filename patterns (e.g. "v1", "final") and content similarity > 95%.
-                      </p>
-                  </div>
-              </div>
-          </div>
-      </div>
-  );
-
-  const renderAnalyze = () => (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto text-center space-y-8 animate-in zoom-in-95">
-        <div className="relative w-64 h-64">
-            <div className="absolute inset-0 border-4 border-dark-800 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-brand-500 rounded-full border-t-transparent animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center flex-col">
-                <span className="text-4xl font-bold text-white">{analysisProgress}%</span>
-                <span className="text-xs text-brand-400 uppercase tracking-widest mt-2">Processing</span>
-            </div>
-        </div>
-        
-        <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-white">AI Extraction Pipeline Active</h2>
-            <p className="text-slate-400">Classifying document types, extracting entities, and identifying risks.</p>
-        </div>
-
-        <div className="grid grid-cols-4 gap-4 w-full">
-            {[
-                { l: 'OCR', s: 'Completed', c: 'text-green-500' },
-                { l: 'Classification', s: 'Completed', c: 'text-green-500' },
-                { l: 'Metadata', s: analysisProgress > 50 ? 'Processing...' : 'Pending', c: 'text-brand-400' },
-                { l: 'Risk Analysis', s: 'Pending', c: 'text-slate-500' }
-            ].map((st, i) => (
-                <div key={i} className="bg-dark-900 border border-dark-700 p-4 rounded-xl">
-                    <div className={`text-sm font-bold ${st.c} mb-1`}>{st.l}</div>
-                    <div className="text-xs text-slate-500">{st.s}</div>
+            {/* Center: Document Preview */}
+            <div className="flex-1 flex flex-col bg-dark-950 relative overflow-hidden">
+                <div className="absolute inset-0 flex justify-center overflow-y-auto p-8 custom-scrollbar">
+                    <div className="bg-white w-[700px] min-h-[900px] shadow-2xl text-slate-800 text-xs font-serif leading-relaxed p-12 opacity-90">
+                        {/* PDF Mock Content */}
+                        <h1 className="text-xl font-bold text-center mb-8 text-black uppercase">{selectedFile.name.split('.')[0].replace(/_/g, ' ')}</h1>
+                        <div className="space-y-4">
+                            <p>This <strong>Master Services Agreement</strong> ("Agreement") is made effective as of [DATE] by and between <strong>{selectedFile.fields.find(f=>f.key==='party')?.value || 'Counterparty'}</strong> ("Client") and Agreemetrix Inc.</p>
+                            <p className="text-justify">WHEREAS, Client desires to engage Provider for certain services as defined in the Statement of Work...</p>
+                            <div className="h-8 bg-yellow-200/30 border-b border-yellow-400/50 w-full"></div>
+                            <p>1. <strong>Term.</strong> This Agreement shall commence on the Effective Date and continue for a period of one (1) year.</p>
+                            <p>2. <strong>Fees.</strong> Client shall pay fees of <strong>{selectedFile.fields.find(f=>f.key==='value')?.value || '$0'}</strong> as set forth in Exhibit A.</p>
+                            {/* Visual noise for mock */}
+                            {Array.from({length: 10}).map((_, i) => (
+                                <div key={i} className="w-full h-3 bg-slate-100 rounded"></div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            ))}
+                
+                {/* Toolbar Overlay */}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 bg-dark-900/90 backdrop-blur border border-dark-700 rounded-full p-1 shadow-xl z-10">
+                    <button className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowLeft size={16}/></button>
+                    <span className="text-xs font-mono text-slate-300 py-2 px-2">Page 1 / {selectedFile.pageCount || 1}</span>
+                    <button className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"><ArrowRight size={16}/></button>
+                </div>
+            </div>
+
+            {/* Right: Inspector */}
+            <div className="w-96 bg-dark-900 border-l border-dark-700 flex flex-col">
+                <div className="flex border-b border-dark-700 bg-dark-950">
+                    {[
+                        {id: 'metadata', label: 'Fields', icon: Database},
+                        {id: 'clauses', label: 'Clauses', icon: Scale},
+                        {id: 'activity', label: 'History', icon: History},
+                    ].map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === tab.id ? 'border-brand-500 text-brand-400 bg-brand-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <tab.icon size={14}/> {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                    {activeTab === 'metadata' && (
+                        <>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase">Extracted Data</h4>
+                                <button onClick={() => setShowAutoFix(!showAutoFix)} className="text-xs text-brand-400 hover:underline flex items-center gap-1">
+                                    <Zap size={12}/> Auto-Fix Rules
+                                </button>
+                            </div>
+
+                            {showAutoFix && (
+                                <div className="bg-brand-500/10 border border-brand-500/20 rounded-lg p-3 mb-4 animate-in slide-in-from-top-2">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold text-brand-200">Quick Actions</span>
+                                        <button onClick={() => setShowAutoFix(false)}><X size={12} className="text-brand-400"/></button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <button className="w-full text-left text-[10px] text-slate-300 hover:text-white hover:bg-brand-500/20 p-1.5 rounded transition-colors flex items-center gap-2">
+                                            <Zap size={10}/> Format dates to ISO-8601
+                                        </button>
+                                        <button className="w-full text-left text-[10px] text-slate-300 hover:text-white hover:bg-brand-500/20 p-1.5 rounded transition-colors flex items-center gap-2">
+                                            <Zap size={10}/> Normalize currency to USD
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedFile.fields.map((field, idx) => (
+                                <div 
+                                    key={idx} 
+                                    className={`p-3 rounded-lg border transition-all group relative ${field.status === 'pending' ? 'bg-dark-800 border-brand-500/30' : 'bg-dark-950 border-dark-700 opacity-75'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-xs font-bold text-slate-300">{field.label}</span>
+                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${field.confidence > 90 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
+                                            {field.confidence}%
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mb-2 group-focus-within:ring-1 ring-brand-500/50 rounded">
+                                        <input 
+                                            className={`w-full bg-transparent border-none text-sm font-medium outline-none ${field.status === 'pending' && field.aiSuggestion ? 'text-brand-200' : 'text-white'}`}
+                                            defaultValue={field.value || field.aiSuggestion}
+                                        />
+                                    </div>
+
+                                    {field.reasoning && (
+                                        <div className="flex items-start gap-1.5 mb-3">
+                                            <Sparkles size={10} className="text-brand-500 mt-0.5 shrink-0"/>
+                                            <p className="text-[10px] text-slate-500 leading-tight italic">
+                                                {field.reasoning} <span className="text-slate-600">• Found in {field.source}</span>
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {field.isPII && (
+                                        <div className="flex items-center gap-1 text-[10px] text-red-400 mb-2 bg-red-500/5 px-2 py-1 rounded w-fit">
+                                            <Lock size={10}/> PII Detected
+                                        </div>
+                                    )}
+
+                                    {field.status === 'pending' && (
+                                        <div className="flex gap-1 pt-2 border-t border-white/5">
+                                            <button onClick={() => updateFieldStatus(selectedFile.id, field.key, 'accepted')} className="flex-1 py-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded text-[10px] font-bold transition-colors flex items-center justify-center gap-1">
+                                                <Check size={12}/> Accept
+                                            </button>
+                                            <button onClick={() => updateFieldStatus(selectedFile.id, field.key, 'rejected')} className="flex-1 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded text-[10px] font-bold transition-colors flex items-center justify-center gap-1">
+                                                <X size={12}/> Reject
+                                            </button>
+                                            <button className="p-1 hover:bg-dark-700 rounded text-slate-400 hover:text-white" title="Add Comment">
+                                                <MessageSquare size={12}/>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </>
+                    )}
+
+                    {activeTab === 'activity' && (
+                        <div className="space-y-4">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase">Session Log</h4>
+                            <div className="relative border-l border-dark-700 ml-2 space-y-4">
+                                {activityLog.map((log) => (
+                                    <div key={log.id} className="relative pl-4">
+                                        <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-brand-500 border-2 border-dark-900"></div>
+                                        <div className="text-xs text-slate-300">
+                                            <span className="font-bold text-white">{log.user}</span> {log.action} <span className="text-brand-400">{log.target}</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-600 mt-0.5">{log.timestamp}</div>
+                                    </div>
+                                ))}
+                                {activityLog.length === 0 && <div className="text-[10px] text-slate-600 pl-4 italic">No actions taken yet.</div>}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="p-4 border-t border-dark-800 bg-dark-950/50">
+                    <div className="flex gap-2">
+                        <Button variant="ghost" className="flex-1 text-xs">Skip File</Button>
+                        <Button variant="primary" className="flex-[2] text-xs shadow-lg shadow-green-500/20" onClick={onComplete} disabled={selectedFile.fields.some(f => f.status === 'pending')}>
+                            Mark Verified <Check size={14} className="ml-2"/>
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-  );
+    );
+};
 
-  const renderReview = () => (
-      <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4">
-          {/* Top Bar */}
-          <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
-              <div className="flex gap-6 items-center">
-                  <div className="flex flex-col">
-                      <span className="text-xs text-slate-500 uppercase font-bold">Total Files</span>
-                      <span className="text-xl font-bold text-white">{files.length}</span>
-                  </div>
-                  <div className="w-px h-8 bg-dark-700"></div>
-                  <div className="flex flex-col">
-                      <span className="text-xs text-slate-500 uppercase font-bold">Action Required</span>
-                      <span className="text-xl font-bold text-yellow-500">{reviewCount}</span>
-                  </div>
-                  <div className="w-px h-8 bg-dark-700"></div>
-                  <div className="flex flex-col">
-                      <span className="text-xs text-slate-500 uppercase font-bold">Ready</span>
-                      <span className="text-xl font-bold text-green-500">{readyCount}</span>
-                  </div>
-              </div>
-              <div className="flex gap-3">
-                  <Button variant="secondary" className="text-xs"><Filter size={14} className="mr-2"/> Filter Issues</Button>
-                  <Button variant="primary" className="text-xs shadow-lg shadow-brand-500/20" onClick={() => setStep('mapping')} disabled={reviewCount > 0}>
-                      Next: Map Workflow <ArrowRight size={14} className="ml-2"/>
-                  </Button>
-              </div>
-          </div>
+// --- MAIN COMPONENT ---
 
-          {/* Workspace */}
-          <div className="flex gap-6 flex-1 overflow-hidden">
-              {/* Left List */}
-              <div className="w-1/3 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2">
-                  {files.map(f => (
-                      <div 
-                        key={f.id} 
-                        onClick={() => setSelectedFileId(f.id)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all group ${selectedFileId === f.id ? 'bg-brand-500/10 border-brand-500 ring-1 ring-brand-500/50' : 'bg-dark-900 border-dark-700 hover:border-dark-500'}`}
-                      >
-                          <div className="flex justify-between items-start mb-2">
-                              <div className="flex items-center gap-3">
-                                  <div className={`p-1.5 rounded ${f.status === 'ready' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                      <FileText size={16}/>
-                                  </div>
-                                  <div className="overflow-hidden">
-                                      <p className={`text-sm font-bold truncate w-48 ${selectedFileId === f.id ? 'text-brand-400' : 'text-white'}`}>{f.name}</p>
-                                      <p className="text-[10px] text-slate-500 flex items-center gap-2">
-                                          {f.confidence}% Confidence
-                                          {f.status === 'review_needed' && <span className="text-yellow-500 font-bold flex items-center gap-1">• {f.issues.length} Issues</span>}
-                                      </p>
-                                  </div>
-                              </div>
-                              {f.status === 'ready' ? <CheckCircle2 size={16} className="text-green-500"/> : <AlertTriangle size={16} className="text-yellow-500"/>}
-                          </div>
-                      </div>
-                  ))}
-              </div>
-
-              {/* Right Remediation Panel */}
-              <div className="flex-1 bg-dark-900 border border-dark-700 rounded-xl flex flex-col overflow-hidden shadow-2xl relative">
-                  {selectedFile ? (
-                      <>
-                          <div className="p-4 border-b border-dark-700 bg-dark-950 flex justify-between items-center">
-                              <div>
-                                  <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                                      <Edit3 size={14} className="text-brand-400"/> Remediation Console
-                                  </h3>
-                                  <p className="text-xs text-slate-500 truncate w-96">{selectedFile.name}</p>
-                              </div>
-                              <div className="flex bg-dark-900 rounded-lg p-1 border border-dark-800">
-                                  {['metadata', 'clauses', 'obligations', 'preview'].map(tab => (
-                                      <button 
-                                        key={tab}
-                                        onClick={() => setReviewTab(tab as any)}
-                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${reviewTab === tab ? 'bg-dark-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                      >
-                                          {tab}
-                                      </button>
-                                  ))}
-                              </div>
-                          </div>
-
-                          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-dark-950/50 relative">
-                              
-                              {/* AI Suggestions Floating */}
-                              {selectedFile.issues.length > 0 && reviewTab !== 'preview' && (
-                                  <div className="mb-6 p-4 bg-brand-500/10 border border-brand-500/20 rounded-xl animate-in slide-in-from-top-2">
-                                      <div className="flex items-center gap-2 mb-3">
-                                          <Sparkles size={16} className="text-brand-400"/>
-                                          <span className="text-sm font-bold text-white">AI Detected {selectedFile.issues.length} Issues</span>
-                                      </div>
-                                      <div className="space-y-2">
-                                          {selectedFile.issues.map(issue => (
-                                              <div key={issue.id} className="flex items-center justify-between p-2 bg-dark-900/80 rounded border border-brand-500/10">
-                                                  <div className="flex items-center gap-2">
-                                                      <AlertCircle size={14} className={issue.type === 'Critical' ? 'text-red-400' : 'text-yellow-400'}/>
-                                                      <span className="text-xs text-slate-300">{issue.message}</span>
-                                                      {issue.suggestion && <span className="text-xs text-brand-400 font-mono bg-brand-500/10 px-1.5 rounded">Suggestion: {issue.suggestion}</span>}
-                                                  </div>
-                                                  {issue.suggestion && (
-                                                      <button 
-                                                        onClick={() => handleApplySuggestion(issue.id)}
-                                                        className="text-[10px] bg-brand-500 hover:bg-brand-400 text-white px-2 py-1 rounded font-bold transition-colors"
-                                                      >
-                                                          Apply
-                                                      </button>
-                                                  )}
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </div>
-                              )}
-
-                              {reviewTab === 'metadata' && (
-                                  <div className="grid grid-cols-2 gap-6">
-                                      <Input label="Contract Type" value={selectedFile.metadata.type || ''} />
-                                      <Input label="Counterparty" value={selectedFile.metadata.counterparty || ''} className={!selectedFile.metadata.counterparty ? 'border-red-500/50 bg-red-500/5' : ''}/>
-                                      <Input label="Effective Date" type="date" value={selectedFile.metadata.effectiveDate || ''} className={!selectedFile.metadata.effectiveDate ? 'border-red-500/50 bg-red-500/5' : ''}/>
-                                      <Input label="Total Value (USD)" value={selectedFile.metadata.value || ''} />
-                                      <Input label="Jurisdiction" value={selectedFile.metadata.jurisdiction || ''} />
-                                      <div className="flex items-center gap-2 pt-6">
-                                          <Switch checked={selectedFile.metadata.autoRenewal || false} onChange={()=>{}} />
-                                          <span className="text-sm text-slate-300">Auto-Renewal Clause Detected</span>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {reviewTab === 'obligations' && (
-                                  <div className="space-y-4">
-                                      <div className="flex justify-between items-center">
-                                          <h4 className="text-xs font-bold text-slate-500 uppercase">Extracted Milestones</h4>
-                                          <button className="text-xs text-brand-400 hover:underline">+ Add Manually</button>
-                                      </div>
-                                      {selectedFile.obligations.length > 0 ? selectedFile.obligations.map(ob => (
-                                          <div key={ob.id} className="p-3 bg-dark-900 border border-dark-700 rounded-xl flex justify-between items-center">
-                                              <div className="flex gap-3 items-center">
-                                                  <div className={`p-2 rounded-lg ${ob.type === 'Payment' ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'}`}>
-                                                      {ob.type === 'Payment' ? <DollarSign size={16}/> : <Calendar size={16}/>}
-                                                  </div>
-                                                  <div>
-                                                      <p className="text-sm font-bold text-white">{ob.description}</p>
-                                                      <p className="text-xs text-slate-500">Due: {ob.dueDate}</p>
-                                                  </div>
-                                              </div>
-                                              <Badge color={ob.riskLevel === 'High' ? 'red' : 'green'}>{ob.riskLevel} Risk</Badge>
-                                          </div>
-                                      )) : (
-                                          <div className="text-center py-8 text-slate-500 text-xs italic">No obligations extracted.</div>
-                                      )}
-                                  </div>
-                              )}
-
-                              {reviewTab === 'clauses' && (
-                                  <div className="space-y-4">
-                                      {selectedFile.clauses.map((cl, i) => (
-                                          <div key={i} className="p-4 bg-dark-900 border border-dark-700 rounded-xl">
-                                              <div className="flex justify-between items-center mb-2">
-                                                  <span className="text-sm font-bold text-white">{cl.name}</span>
-                                                  <Badge color={cl.deviation === 'Standard' ? 'green' : cl.deviation === 'High Risk' ? 'red' : 'yellow'}>{cl.deviation}</Badge>
-                                              </div>
-                                              <p className="text-xs text-slate-400 font-serif italic border-l-2 border-dark-700 pl-3">{cl.text}</p>
-                                          </div>
-                                      ))}
-                                      {selectedFile.clauses.length === 0 && <div className="text-center py-8 text-slate-500 text-xs italic">No clauses analyzed.</div>}
-                                  </div>
-                              )}
-
-                              {reviewTab === 'preview' && (
-                                  <div className="h-full bg-white rounded-lg flex items-center justify-center text-black">
-                                      <div className="text-center opacity-50">
-                                          <FileText size={48} className="mx-auto mb-2"/>
-                                          <p>PDF Viewer Mock</p>
-                                      </div>
-                                  </div>
-                              )}
-                          </div>
-
-                          <div className="p-4 border-t border-dark-700 bg-dark-950 flex justify-between items-center">
-                              <div className="text-xs text-slate-500">
-                                  AI Confidence: <span className={`font-bold ${selectedFile.confidence > 90 ? 'text-green-400' : 'text-yellow-400'}`}>{selectedFile.confidence}%</span>
-                              </div>
-                              <div className="flex gap-3">
-                                  <Button variant="secondary" onClick={() => setSelectedFileId(null)}>Skip</Button>
-                                  <Button variant="primary" onClick={handleMarkReady} disabled={selectedFile.issues.length > 0}>
-                                      <Check size={16} className="mr-2"/> Mark as Verified
-                                  </Button>
-                              </div>
-                          </div>
-                      </>
-                  ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                          <Search size={48} className="mb-4 opacity-20"/>
-                          <p>Select a file to remediate</p>
-                      </div>
-                  )}
-              </div>
-          </div>
-      </div>
-  );
-
-  const renderMapping = () => (
-      <div className="flex flex-col items-center justify-center py-12 animate-in fade-in zoom-in-95 max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-white mb-4">Workflow & Repository Mapping</h2>
-              <p className="text-slate-400 max-w-lg mx-auto">
-                  How should these {readyCount} verified contracts be routed?
-              </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-8 w-full mb-10">
-              <div className="p-8 bg-dark-900 border border-dark-700 hover:border-brand-500/50 rounded-2xl cursor-pointer group text-center transition-all hover:-translate-y-1">
-                  <div className="w-16 h-16 bg-dark-800 rounded-full flex items-center justify-center mb-6 mx-auto group-hover:text-brand-400 transition-colors">
-                      <Workflow size={32}/>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Map to Existing Workflow</h3>
-                  <p className="text-sm text-slate-500 mb-4">Route into current "Signed Contract" process.</p>
-                  <Select options={[{label: 'General Archival', value: 'arch'}, {label: 'Vendor Onboarding', value: 'vendor'}]} className="bg-dark-950"/>
-              </div>
-
-              <div className="p-8 bg-purple-500/10 border border-purple-500/30 rounded-2xl cursor-pointer group text-center transition-all hover:-translate-y-1 relative overflow-hidden" onClick={() => setStep('complete')}>
-                  <div className="w-16 h-16 bg-purple-500 text-white rounded-full flex items-center justify-center mb-6 mx-auto shadow-lg shadow-purple-500/30">
-                      <Wand2 size={32}/>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">AI Auto-Generate</h3>
-                  <p className="text-sm text-purple-200 mb-4">Create new workflow based on document types.</p>
-                  <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500 text-white text-xs font-bold">Recommended</div>
-              </div>
-          </div>
-      </div>
-  );
-
-  const renderComplete = () => (
-      <div className="flex flex-col items-center justify-center h-full animate-in zoom-in-95">
-        <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 text-green-500 ring-1 ring-green-500/30 shadow-[0_0_40px_rgba(34,197,94,0.2)]">
-           <ArchiveRestore size={48} />
-        </div>
-        <h2 className="text-4xl font-bold text-white mb-4">Migration Successful</h2>
-        <p className="text-slate-400 text-lg max-w-md text-center mb-10">
-           <strong className="text-white">{readyCount} documents</strong> have been secured in the repository. 
-           Obligations tracked, risks labeled, and workflows activated.
-        </p>
-        <div className="flex gap-4">
-           <Button variant="secondary" onClick={() => window.location.reload()}><Download size={16} className="mr-2"/> Download Report</Button>
-           <Button variant="primary" onClick={() => window.location.hash = '#/repository'}>Go to Repository</Button>
-        </div>
-     </div>
-  );
+const LegacyMigration: React.FC = () => {
+  const [stage, setStage] = useState<MigrationStage>('connect');
+  const [files, setFiles] = useState<MigrationFile[]>(INITIAL_FILES);
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col">
-      {/* Header Stepper */}
-      <div className="flex items-center justify-between mb-8 shrink-0">
-         <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-               <ArchiveRestore className="text-brand-400" /> Legacy Migration Engine
-            </h1>
-            <p className="text-slate-400 text-sm">AI-powered ingestion for historical agreements.</p>
-         </div>
-         <div className="flex items-center gap-2 bg-dark-900 p-1 rounded-xl border border-dark-700">
-             {[
-                 { id: 'connect', label: 'Connect', icon: LinkIcon },
-                 { id: 'dedupe', label: 'Scan', icon: GitMerge },
-                 { id: 'analyze', label: 'Extract', icon: Sparkles },
-                 { id: 'review', label: 'Review', icon: CheckCircle2 },
-                 { id: 'mapping', label: 'Map', icon: Workflow },
-                 { id: 'complete', label: 'Done', icon: Check }
-             ].map(s => (
-                 <StageBadge key={s.id} current={step} stage={s.id as MigrationStage} label={s.label} icon={s.icon} />
-             ))}
-         </div>
-      </div>
+    <div className="h-[calc(100vh-8rem)] flex bg-dark-950 border border-dark-700 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Left Rail: Navigation */}
+        <div className="w-64 bg-dark-900 border-r border-dark-700 flex flex-col p-4">
+            <div className="mb-6">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <ArchiveRestore className="text-brand-400" size={20}/> Migration
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">Project: Legacy 2024</p>
+            </div>
 
-      {/* Main Canvas */}
-      <div className="flex-1 bg-dark-950 border border-dark-700 rounded-2xl shadow-2xl overflow-hidden relative">
-         <div className="absolute inset-0 pointer-events-none opacity-30" style={{backgroundImage: 'radial-gradient(#1e293b 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
-         <div className="relative z-10 h-full p-8 overflow-y-auto custom-scrollbar">
-            {step === 'connect' && renderConnect()}
-            {step === 'dedupe' && renderDedupe()}
-            {step === 'analyze' && renderAnalyze()}
-            {step === 'review' && renderReview()}
-            {step === 'mapping' && renderMapping()}
-            {step === 'complete' && renderComplete()}
-         </div>
-      </div>
+            <nav className="flex-1 space-y-1">
+                {[
+                    { id: 'connect', label: 'Connect Source', icon: LinkIcon },
+                    { id: 'dedupe', label: 'Deduplication', icon: GitMerge, count: 3 },
+                    { id: 'analyze', label: 'AI Analysis', icon: Sparkles },
+                    { id: 'review', label: 'Review Queue', icon: CheckSquare, count: files.filter(f => f.status === 'review_needed').length },
+                    { id: 'mapping', label: 'Map & Route', icon: Workflow },
+                    { id: 'complete', label: 'Finalize', icon: Check }
+                ].map(s => (
+                    <StageBadge 
+                        key={s.id} 
+                        id={s.id}
+                        current={stage} 
+                        label={s.label} 
+                        icon={s.icon} 
+                        count={s.count}
+                        onClick={() => setStage(s.id as MigrationStage)}
+                    />
+                ))}
+            </nav>
+
+            <div className="p-4 bg-dark-950 rounded-xl border border-dark-800 mt-4">
+                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Progress</span>
+                    <span>45%</span>
+                </div>
+                <div className="w-full bg-dark-800 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-brand-500 h-full w-[45%]"></div>
+                </div>
+            </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+            <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:20px_20px] opacity-20 pointer-events-none"></div>
+            
+            <div className="flex-1 overflow-hidden z-10">
+                {stage === 'connect' && (
+                    <div className="h-full flex items-center justify-center p-8">
+                        <div className="max-w-2xl w-full space-y-8">
+                            <div className="text-center">
+                                <h1 className="text-3xl font-bold text-white mb-3">Import Legacy Contracts</h1>
+                                <p className="text-slate-400">Securely connect to your existing repository or upload files directly.</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                {[
+                                    { label: 'SharePoint', icon: FileCode, active: false },
+                                    { label: 'Google Drive', icon: Cloud, active: false },
+                                    { label: 'S3 Bucket', icon: Server, active: false },
+                                    { label: 'Local Upload', icon: UploadCloud, active: true },
+                                ].map(opt => (
+                                    <button 
+                                        key={opt.label}
+                                        onClick={() => opt.active && setStage('dedupe')}
+                                        className={`p-6 rounded-xl border flex flex-col items-center gap-3 transition-all group ${opt.active ? 'bg-dark-900 border-dark-700 hover:border-brand-500 hover:bg-brand-500/5 cursor-pointer' : 'bg-dark-950 border-dark-800 opacity-50 cursor-not-allowed'}`}
+                                    >
+                                        <div className={`p-3 rounded-full ${opt.active ? 'bg-dark-800 text-white group-hover:bg-brand-500 group-hover:text-white' : 'bg-dark-900 text-slate-600'}`}>
+                                            <opt.icon size={24}/>
+                                        </div>
+                                        <span className="font-bold text-slate-300 group-hover:text-white">{opt.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <div className="border-2 border-dashed border-dark-700 rounded-xl p-10 text-center hover:border-brand-500/50 transition-colors cursor-pointer bg-dark-900/50" onClick={() => setStage('dedupe')}>
+                                <UploadCloud size={48} className="mx-auto text-slate-500 mb-4"/>
+                                <p className="text-slate-300 font-medium">Drag and drop files here</p>
+                                <p className="text-xs text-slate-500 mt-2">Supported: PDF, DOCX (Max 50MB)</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {stage === 'dedupe' && (
+                    <div className="h-full flex flex-col p-8">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">Conflict Resolution</h2>
+                                <p className="text-slate-400 text-sm">We found duplicates. Select the master record to preserve.</p>
+                            </div>
+                            <Button variant="primary" onClick={() => setStage('analyze')}>Resolve All <ArrowRight size={16} className="ml-2"/></Button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
+                            {INITIAL_DUPLICATES.map(group => (
+                                <div key={group.id} className="bg-dark-900 border border-dark-700 rounded-xl overflow-hidden">
+                                    <div className="p-4 bg-dark-950/50 border-b border-dark-700 flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <Badge color="yellow">Duplicate Set</Badge>
+                                            <span className="font-mono text-xs text-slate-500">{group.id}</span>
+                                        </div>
+                                        <span className="text-xs text-brand-400 font-bold">Match Score: {group.matchScore}%</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 divide-x divide-dark-700">
+                                        {group.files.map((file, i) => (
+                                            <div key={file.id} className={`p-6 flex flex-col gap-4 relative ${i === 0 ? 'bg-brand-500/5' : ''}`}>
+                                                {i === 0 && <div className="absolute top-2 right-2 text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-bold">Recommended</div>}
+                                                <div className="flex items-center gap-3">
+                                                    <FileText size={24} className="text-slate-400"/>
+                                                    <div className="overflow-hidden">
+                                                        <p className="font-bold text-white text-sm truncate" title={file.name}>{file.name}</p>
+                                                        <p className="text-xs text-slate-500">{file.size}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2 text-xs">
+                                                    <div className="flex justify-between"><span className="text-slate-500">Date</span> <span className="text-slate-200">{file.uploadDate}</span></div>
+                                                    <div className="flex justify-between"><span className="text-slate-500">Pages</span> <span className="text-slate-200">{file.pageCount || 12}</span></div>
+                                                    <div className="flex justify-between"><span className="text-slate-500">Author</span> <span className="text-slate-200">{file.author || 'Unknown'}</span></div>
+                                                </div>
+                                                <Button variant={i === 0 ? 'primary' : 'secondary'} className="w-full text-xs mt-auto">
+                                                    {i === 0 ? 'Keep Master' : 'Merge as Version'}
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {stage === 'analyze' && (
+                    <div className="h-full flex items-center justify-center">
+                        <div className="text-center max-w-md">
+                            <div className="relative w-32 h-32 mx-auto mb-8">
+                                <div className="absolute inset-0 border-4 border-dark-800 rounded-full"></div>
+                                <div className="absolute inset-0 border-4 border-brand-500 rounded-full border-t-transparent animate-spin"></div>
+                                <Sparkles size={32} className="absolute inset-0 m-auto text-brand-400 animate-pulse"/>
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2">AI Processing in Progress</h2>
+                            <p className="text-slate-400 text-sm mb-8">Extracting metadata, analyzing clauses, and scoring risk for 142 documents.</p>
+                            
+                            <div className="bg-dark-900 rounded-xl p-4 text-left space-y-3 border border-dark-700">
+                                <div className="flex items-center gap-3 text-xs text-slate-300">
+                                    <CheckCircle2 size={14} className="text-green-500"/> OCR Text Recognition
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-300">
+                                    <CheckCircle2 size={14} className="text-green-500"/> Entity Extraction
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-300">
+                                    <Loader2 size={14} className="animate-spin text-brand-400"/> Risk Scoring
+                                </div>
+                            </div>
+                            
+                            <Button variant="ghost" className="mt-8" onClick={() => setStage('review')}>Skip Animation (Dev)</Button>
+                        </div>
+                    </div>
+                )}
+
+                {stage === 'review' && (
+                    <ReviewConsole files={files} onComplete={() => setStage('mapping')} />
+                )}
+
+                {stage === 'mapping' && (
+                    <div className="h-full p-8 flex flex-col">
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">Workflow Routing</h2>
+                                <p className="text-slate-400 text-sm">Map migrated contracts to their target destination.</p>
+                            </div>
+                            <Button variant="primary" onClick={() => setStage('complete')}>Start Migration</Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-8">
+                            <Card title="Logic Rules" className="h-full">
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-dark-950 border border-dark-800 rounded-lg flex items-center gap-3">
+                                        <span className="text-xs font-bold text-brand-400 bg-brand-500/10 px-2 py-1 rounded">IF</span>
+                                        <span className="text-sm text-white">Contract Type</span>
+                                        <span className="text-slate-500">==</span>
+                                        <span className="text-sm text-white">"MSA"</span>
+                                        <ArrowRight size={14} className="text-slate-600"/>
+                                        <Badge color="blue">Global Procurement</Badge>
+                                    </div>
+                                    <Button variant="secondary" className="w-full text-xs">+ Add Rule</Button>
+                                </div>
+                            </Card>
+
+                            <Card title="Simulator" className="h-full bg-dark-900/50">
+                                <div className="text-center py-12">
+                                    <Play size={48} className="mx-auto text-slate-600 mb-4"/>
+                                    <p className="text-slate-400 text-sm">Run simulation to verify routing for 142 files.</p>
+                                    <Button variant="secondary" className="mt-4">Run Test</Button>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+                )}
+
+                {stage === 'complete' && (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                        <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-6 text-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)] animate-in zoom-in duration-500">
+                            <Check size={48}/>
+                        </div>
+                        <h2 className="text-4xl font-bold text-white mb-4">Migration Complete</h2>
+                        <p className="text-slate-400 max-w-md mb-8">
+                            3 files have been successfully indexed, enriched, and routed to the repository.
+                        </p>
+                        <div className="flex gap-4">
+                            <Button variant="secondary" onClick={() => window.location.hash = '#/reports'}>View Report</Button>
+                            <Button variant="primary" onClick={() => window.location.hash = '#/repository'}>Go to Repository</Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     </div>
   );
 };
