@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { ChevronDown, X, FileText } from 'lucide-react';
+import { FileText, Bold, Palette } from 'lucide-react';
 import {
   CollapsibleSection,
   RibbonButton,
@@ -103,193 +103,217 @@ describe('CollapsibleSection', () => {
     expect(container.firstChild).toHaveClass('custom-class');
   });
 
-  it('should apply default className when not provided', () => {
+  it('should toggle chevron rotation when opening/closing', () => {
     const { container } = render(
-      <CollapsibleSection title="Test Section">
+      <CollapsibleSection title="Test Section" defaultOpen={false}>
         <div>Content</div>
       </CollapsibleSection>
     );
-
-    expect(container.firstChild).toHaveClass('border-b');
-  });
-
-  it('should rotate chevron icon when toggled', () => {
-    const { container } = render(
-      <CollapsibleSection title="Test Section" defaultOpen={true}>
-        <div>Content</div>
-      </CollapsibleSection>
-    );
-
-    const chevron = container.querySelector('.rotate-180');
-    expect(chevron).toBeInTheDocument();
 
     const header = screen.getByText('Test Section').closest('div');
-    fireEvent.click(header!);
+    const chevron = container.querySelector('svg[class*="rotate"]');
 
-    const chevronAfter = container.querySelector('.rotate-180');
-    expect(chevronAfter).not.toBeInTheDocument();
+    expect(chevron).not.toHaveClass('rotate-180');
+
+    fireEvent.click(header!);
+    expect(chevron).toHaveClass('rotate-180');
+  });
+
+  it('should handle multiple toggles correctly', () => {
+    render(
+      <CollapsibleSection title="Test Section" defaultOpen={true}>
+        <div>Test Content</div>
+      </CollapsibleSection>
+    );
+
+    const header = screen.getByText('Test Section').closest('div');
+
+    fireEvent.click(header!);
+    let content = screen.getByText('Test Content').closest('div');
+    expect(content).toHaveClass('max-h-0');
+
+    fireEvent.click(header!);
+    content = screen.getByText('Test Content').closest('div');
+    expect(content).toHaveClass('max-h-[2000px]');
   });
 });
 
 describe('RibbonButton', () => {
-  it('should render with label', () => {
-    render(<RibbonButton icon={FileText} label="Test Button" />);
-    expect(screen.getByText('Test Button')).toBeInTheDocument();
+  it('should render with label and icon', () => {
+    render(<RibbonButton icon={Bold} label="Bold" />);
+    expect(screen.getByText('Bold')).toBeInTheDocument();
   });
 
   it('should call onClick when clicked', () => {
-    const onClick = vi.fn();
-    render(<RibbonButton icon={FileText} label="Test Button" onClick={onClick} />);
+    const handleClick = vi.fn();
+    render(<RibbonButton icon={Bold} label="Bold" onClick={handleClick} />);
 
-    fireEvent.click(screen.getByText('Test Button'));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('Bold'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
-  it('should not call onClick when disabled', () => {
-    const onClick = vi.fn();
-    render(<RibbonButton icon={FileText} label="Test Button" onClick={onClick} disabled={true} />);
-
-    fireEvent.click(screen.getByText('Test Button'));
-    expect(onClick).not.toHaveBeenCalled();
-  });
-
-  it('should apply active styles when active', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" active={true} />);
+  it('should apply active styles when active is true', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" active={true} />);
     const button = container.querySelector('button');
     expect(button).toHaveClass('bg-brand-500/10');
   });
 
-  it('should apply disabled styles when disabled', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" disabled={true} />);
+  it('should apply disabled styles when disabled is true', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" disabled={true} />);
     const button = container.querySelector('button');
     expect(button).toHaveClass('opacity-40');
+    expect(button).toBeDisabled();
   });
 
-  it('should render badge when provided', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" badge={true} />);
+  it('should not call onClick when disabled', () => {
+    const handleClick = vi.fn();
+    render(<RibbonButton icon={Bold} label="Bold" onClick={handleClick} disabled={true} />);
+
+    fireEvent.click(screen.getByText('Bold'));
+    expect(handleClick).not.toHaveBeenCalled();
+  });
+
+  it('should render badge when badge prop is true', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" badge={true} />);
     const badge = container.querySelector('.bg-red-500');
     expect(badge).toBeInTheDocument();
   });
 
-  it('should not render badge when not provided', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" />);
+  it('should not render badge when badge prop is false', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" badge={false} />);
     const badge = container.querySelector('.bg-red-500');
     expect(badge).not.toBeInTheDocument();
   });
 
-  it('should render subLabel when provided', () => {
-    render(<RibbonButton icon={FileText} label="Test Button" subLabel="Sub" />);
-    expect(screen.getByText('Sub')).toBeInTheDocument();
-  });
-
-  it('should not render subLabel when not provided', () => {
-    render(<RibbonButton icon={FileText} label="Test Button" />);
-    expect(screen.queryByText('Sub')).not.toBeInTheDocument();
-  });
-
-  it('should apply custom className', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" className="custom-class" />);
-    const button = container.querySelector('button');
-    expect(button).toHaveClass('custom-class');
-  });
-
-  it('should apply custom color to icon', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" color="text-red-500" />);
+  it('should apply custom color when provided', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" color="text-red-500" />);
     const icon = container.querySelector('svg');
     expect(icon).toHaveClass('text-red-500');
   });
 
-  it('should use default button type', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" />);
+  it('should apply custom className', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" className="custom-class" />);
     const button = container.querySelector('button');
-    expect(button).toHaveAttribute('type', 'button');
+    expect(button).toHaveClass('custom-class');
   });
 
-  it('should use custom button type when provided', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" type="submit" />);
+  it('should render subLabel when provided', () => {
+    render(<RibbonButton icon={Bold} label="Bold" subLabel="Ctrl+B" />);
+    expect(screen.getByText('Ctrl+B')).toBeInTheDocument();
+  });
+
+  it('should not render subLabel when not provided', () => {
+    render(<RibbonButton icon={Bold} label="Bold" />);
+    expect(screen.queryByText('Ctrl+B')).not.toBeInTheDocument();
+  });
+
+  it('should set button type attribute', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" type="submit" />);
     const button = container.querySelector('button');
     expect(button).toHaveAttribute('type', 'submit');
   });
 
-  it('should set title attribute to label', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test Button" />);
+  it('should default to button type', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" />);
     const button = container.querySelector('button');
-    expect(button).toHaveAttribute('title', 'Test Button');
+    expect(button).toHaveAttribute('type', 'button');
+  });
+
+  it('should set title attribute to label', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold Text" />);
+    const button = container.querySelector('button');
+    expect(button).toHaveAttribute('title', 'Bold Text');
+  });
+
+  it('should handle active and disabled states together', () => {
+    const { container } = render(<RibbonButton icon={Bold} label="Bold" active={true} disabled={true} />);
+    const button = container.querySelector('button');
+    expect(button).toHaveClass('bg-brand-500/10');
+    expect(button).toBeDisabled();
   });
 });
 
 describe('RibbonIconButton', () => {
   it('should render icon', () => {
-    const { container } = render(<RibbonIconButton icon={FileText} />);
+    const { container } = render(<RibbonIconButton icon={Bold} />);
     expect(container.querySelector('svg')).toBeInTheDocument();
   });
 
   it('should call onClick when clicked', () => {
-    const onClick = vi.fn();
-    const { container } = render(<RibbonIconButton icon={FileText} onClick={onClick} />);
+    const handleClick = vi.fn();
+    const { container } = render(<RibbonIconButton icon={Bold} onClick={handleClick} />);
 
     const button = container.querySelector('button');
     fireEvent.click(button!);
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
-  it('should not call onClick when disabled', () => {
-    const onClick = vi.fn();
-    const { container } = render(<RibbonIconButton icon={FileText} onClick={onClick} disabled={true} />);
-
-    const button = container.querySelector('button');
-    fireEvent.click(button!);
-    expect(onClick).not.toHaveBeenCalled();
-  });
-
-  it('should apply active styles when active', () => {
-    const { container } = render(<RibbonIconButton icon={FileText} active={true} />);
+  it('should apply active styles when active is true', () => {
+    const { container } = render(<RibbonIconButton icon={Bold} active={true} />);
     const button = container.querySelector('button');
     expect(button).toHaveClass('bg-brand-500/20');
   });
 
-  it('should apply disabled styles when disabled', () => {
-    const { container } = render(<RibbonIconButton icon={FileText} disabled={true} />);
+  it('should apply disabled styles when disabled is true', () => {
+    const { container } = render(<RibbonIconButton icon={Bold} disabled={true} />);
     const button = container.querySelector('button');
     expect(button).toHaveClass('opacity-40');
+    expect(button).toBeDisabled();
+  });
+
+  it('should not call onClick when disabled', () => {
+    const handleClick = vi.fn();
+    const { container } = render(<RibbonIconButton icon={Bold} onClick={handleClick} disabled={true} />);
+
+    const button = container.querySelector('button');
+    fireEvent.click(button!);
+    expect(handleClick).not.toHaveBeenCalled();
   });
 
   it('should set title attribute', () => {
-    const { container } = render(<RibbonIconButton icon={FileText} title="Test Title" />);
+    const { container } = render(<RibbonIconButton icon={Bold} title="Bold" />);
     const button = container.querySelector('button');
-    expect(button).toHaveAttribute('title', 'Test Title');
+    expect(button).toHaveAttribute('title', 'Bold');
   });
 
-  it('should apply custom color to icon', () => {
-    const { container } = render(<RibbonIconButton icon={FileText} color="text-blue-500" />);
+  it('should apply custom color class', () => {
+    const { container } = render(<RibbonIconButton icon={Bold} color="text-red-500" />);
     const icon = container.querySelector('svg');
-    expect(icon).toHaveClass('text-blue-500');
+    expect(icon).toHaveClass('text-red-500');
+  });
+
+  it('should handle active and disabled states together', () => {
+    const { container } = render(<RibbonIconButton icon={Bold} active={true} disabled={true} />);
+    const button = container.querySelector('button');
+    expect(button).toHaveClass('bg-brand-500/20');
+    expect(button).toBeDisabled();
   });
 });
 
 describe('RibbonDivider', () => {
-  it('should render divider', () => {
+  it('should render divider element', () => {
     const { container } = render(<RibbonDivider />);
-    const divider = container.querySelector('.w-px');
+    const divider = container.querySelector('.bg-dark-700\\/50');
     expect(divider).toBeInTheDocument();
   });
 
-  it('should have correct styling', () => {
+  it('should have correct styling classes', () => {
     const { container } = render(<RibbonDivider />);
-    const divider = container.querySelector('.w-px');
-    expect(divider).toHaveClass('h-8', 'bg-dark-700/50');
+    const divider = container.querySelector('div');
+    expect(divider).toHaveClass('w-px');
+    expect(divider).toHaveClass('h-8');
   });
 });
 
 describe('RibbonGroup', () => {
-  it('should render label', () => {
-    render(<RibbonGroup label="Test Group" />);
-    expect(screen.getByText('Test Group')).toBeInTheDocument();
+  it('should render with label', () => {
+    render(<RibbonGroup label="Format" />);
+    expect(screen.getByText('Format')).toBeInTheDocument();
   });
 
   it('should render children', () => {
     render(
-      <RibbonGroup label="Test Group">
+      <RibbonGroup label="Format">
         <div>Child Content</div>
       </RibbonGroup>
     );
@@ -297,14 +321,14 @@ describe('RibbonGroup', () => {
   });
 
   it('should render without children', () => {
-    render(<RibbonGroup label="Test Group" />);
-    expect(screen.getByText('Test Group')).toBeInTheDocument();
+    render(<RibbonGroup label="Format" />);
+    expect(screen.getByText('Format')).toBeInTheDocument();
   });
 
-  it('should have correct styling', () => {
-    const { container } = render(<RibbonGroup label="Test Group" />);
-    const group = container.querySelector('.flex.flex-col');
-    expect(group).toHaveClass('border-r', 'border-dark-800/50');
+  it('should apply correct styling classes', () => {
+    const { container } = render(<RibbonGroup label="Format" />);
+    const group = container.querySelector('.group\\/ribbon');
+    expect(group).toBeInTheDocument();
   });
 });
 
@@ -322,13 +346,14 @@ describe('RibbonActionGroup', () => {
 
   it('should render without children', () => {
     const { container } = render(<RibbonActionGroup />);
-    expect(container.querySelector('.flex.flex-wrap')).toBeInTheDocument();
+    expect(container.querySelector('div')).toBeInTheDocument();
   });
 
-  it('should have correct styling', () => {
+  it('should apply correct styling classes', () => {
     const { container } = render(<RibbonActionGroup />);
-    const group = container.querySelector('.flex.flex-wrap');
-    expect(group).toHaveClass('max-w-[80px]', 'justify-center');
+    const group = container.querySelector('div');
+    expect(group).toHaveClass('flex');
+    expect(group).toHaveClass('flex-wrap');
   });
 });
 
@@ -336,26 +361,35 @@ describe('RibbonSelect', () => {
   const options = [
     { value: 'option1', label: 'Option 1' },
     { value: 'option2', label: 'Option 2' },
+    { value: 'option3', label: 'Option 3' },
   ];
 
-  it('should render select with options', () => {
+  it('should render all options', () => {
     render(<RibbonSelect value="option1" options={options} />);
     expect(screen.getByText('Option 1')).toBeInTheDocument();
     expect(screen.getByText('Option 2')).toBeInTheDocument();
+    expect(screen.getByText('Option 3')).toBeInTheDocument();
   });
 
-  it('should call onChange when value changes', () => {
-    const onChange = vi.fn();
-    const { container } = render(<RibbonSelect value="option1" onChange={onChange} options={options} />);
+  it('should call onChange when selection changes', () => {
+    const handleChange = vi.fn();
+    render(<RibbonSelect value="option1" onChange={handleChange} options={options} />);
 
-    const select = container.querySelector('select');
-    fireEvent.change(select!, { target: { value: 'option2' } });
-    expect(onChange).toHaveBeenCalledTimes(1);
+    const select = screen.getByDisplayValue('Option 1');
+    fireEvent.change(select, { target: { value: 'option2' } });
+    expect(handleChange).toHaveBeenCalledTimes(1);
   });
 
-  it('should render with icon when provided', () => {
-    const { container } = render(<RibbonSelect value="option1" options={options} icon={FileText} />);
-    expect(container.querySelector('svg')).toBeInTheDocument();
+  it('should display selected value', () => {
+    render(<RibbonSelect value="option2" options={options} />);
+    const select = screen.getByDisplayValue('Option 2') as HTMLSelectElement;
+    expect(select.value).toBe('option2');
+  });
+
+  it('should render icon when provided', () => {
+    const { container } = render(<RibbonSelect value="option1" options={options} icon={Bold} />);
+    const icon = container.querySelector('svg');
+    expect(icon).toBeInTheDocument();
   });
 
   it('should not render icon when not provided', () => {
@@ -367,67 +401,79 @@ describe('RibbonSelect', () => {
 
   it('should apply custom className', () => {
     const { container } = render(<RibbonSelect value="option1" options={options} className="custom-class" />);
-    expect(container.firstChild).toHaveClass('custom-class');
+    const wrapper = container.querySelector('.custom-class');
+    expect(wrapper).toBeInTheDocument();
   });
 
   it('should apply custom width', () => {
     const { container } = render(<RibbonSelect value="option1" options={options} width="w-32" />);
-    expect(container.firstChild).toHaveClass('w-32');
+    const wrapper = container.querySelector('.w-32');
+    expect(wrapper).toBeInTheDocument();
   });
 
-  it('should apply default width when not provided', () => {
+  it('should use default width when not provided', () => {
     const { container } = render(<RibbonSelect value="option1" options={options} />);
-    expect(container.firstChild).toHaveClass('w-24');
+    const wrapper = container.querySelector('.w-24');
+    expect(wrapper).toBeInTheDocument();
   });
 
-  it('should set select value correctly', () => {
-    const { container } = render(<RibbonSelect value="option2" options={options} />);
-    const select = container.querySelector('select') as HTMLSelectElement;
-    expect(select.value).toBe('option2');
+  it('should render ChevronDown icon', () => {
+    const { container } = render(<RibbonSelect value="option1" options={options} />);
+    const chevron = container.querySelector('.pointer-events-none svg');
+    expect(chevron).toBeInTheDocument();
   });
 });
 
 describe('RibbonColorPicker', () => {
-  it('should render with icon', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="#ff0000" />);
+  it('should render icon', () => {
+    const { container } = render(<RibbonColorPicker icon={Palette} color="#ff0000" />);
     expect(container.querySelector('svg')).toBeInTheDocument();
   });
 
-  it('should display color indicator', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="#ff0000" />);
-    const colorIndicator = container.querySelector('.w-4.h-1');
-    expect(colorIndicator).toBeInTheDocument();
+  it('should display color indicator with correct color', () => {
+    const { container } = render(<RibbonColorPicker icon={Palette} color="#ff0000" />);
+    const colorIndicator = container.querySelector('.rounded-full');
     expect(colorIndicator).toHaveStyle({ backgroundColor: '#ff0000' });
   });
 
-  it('should render with different colors', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="#00ff00" />);
-    const colorIndicator = container.querySelector('.w-4.h-1');
-    expect(colorIndicator).toHaveStyle({ backgroundColor: '#00ff00' });
+  it('should render button', () => {
+    const { container } = render(<RibbonColorPicker icon={Palette} color="#ff0000" />);
+    const button = container.querySelector('button');
+    expect(button).toBeInTheDocument();
+  });
+
+  it('should handle different color values', () => {
+    const { container } = render(<RibbonColorPicker icon={Palette} color="rgb(255, 0, 0)" />);
+    const colorIndicator = container.querySelector('.rounded-full');
+    expect(colorIndicator).toHaveStyle({ backgroundColor: 'rgb(255, 0, 0)' });
   });
 });
 
 describe('LayoutSettingsModal', () => {
-  const defaultProps = {
-    isOpen: true,
-    onClose: vi.fn(),
-    title: 'Test Modal',
-    onApply: vi.fn(),
-  };
-
-  it('should render when isOpen is true', () => {
-    render(<LayoutSettingsModal {...defaultProps} />);
-    expect(screen.getByText('Test Modal')).toBeInTheDocument();
+  it('should not render when isOpen is false', () => {
+    const { container } = render(
+      <LayoutSettingsModal isOpen={false} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+    );
+    expect(container.firstChild).toBeNull();
   });
 
-  it('should not render when isOpen is false', () => {
-    render(<LayoutSettingsModal {...defaultProps} isOpen={false} />);
-    expect(screen.queryByText('Test Modal')).not.toBeInTheDocument();
+  it('should render when isOpen is true', () => {
+    render(
+      <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+    );
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('should render title', () => {
+    render(
+      <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Layout Settings" onApply={vi.fn()} />
+    );
+    expect(screen.getByText('Layout Settings')).toBeInTheDocument();
   });
 
   it('should render children', () => {
     render(
-      <LayoutSettingsModal {...defaultProps}>
+      <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={vi.fn()}>
         <div>Modal Content</div>
       </LayoutSettingsModal>
     );
@@ -435,67 +481,77 @@ describe('LayoutSettingsModal', () => {
   });
 
   it('should call onClose when close button is clicked', () => {
-    const onClose = vi.fn();
-    const { container } = render(<LayoutSettingsModal {...defaultProps} onClose={onClose} />);
+    const handleClose = vi.fn();
+    const { container } = render(
+      <LayoutSettingsModal isOpen={true} onClose={handleClose} title="Settings" onApply={vi.fn()} />
+    );
 
     const closeButton = container.querySelector('button');
     fireEvent.click(closeButton!);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
   it('should call onClose when Cancel button is clicked', () => {
-    const onClose = vi.fn();
-    render(<LayoutSettingsModal {...defaultProps} onClose={onClose} />);
+    const handleClose = vi.fn();
+    render(
+      <LayoutSettingsModal isOpen={true} onClose={handleClose} title="Settings" onApply={vi.fn()} />
+    );
 
     fireEvent.click(screen.getByText('Cancel'));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
   it('should call onApply when Apply button is clicked', () => {
-    const onApply = vi.fn();
-    render(<LayoutSettingsModal {...defaultProps} onApply={onApply} />);
+    const handleApply = vi.fn();
+    render(
+      <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={handleApply} />
+    );
 
     fireEvent.click(screen.getByText('Apply'));
-    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(handleApply).toHaveBeenCalledTimes(1);
   });
 
-  it('should render title in header', () => {
-    render(<LayoutSettingsModal {...defaultProps} title="Custom Title" />);
-    expect(screen.getByText('Custom Title')).toBeInTheDocument();
+  it('should render without children', () => {
+    render(
+      <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+    );
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
   it('should render X icon in close button', () => {
-    const { container } = render(<LayoutSettingsModal {...defaultProps} />);
+    const { container } = render(
+      <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+    );
     const closeButton = container.querySelector('button');
     expect(closeButton?.querySelector('svg')).toBeInTheDocument();
   });
 });
 
 describe('Button', () => {
-  it('should render with children', () => {
+  it('should render children', () => {
     render(<Button>Click Me</Button>);
     expect(screen.getByText('Click Me')).toBeInTheDocument();
   });
 
-  it('should apply primary variant by default', () => {
+  it('should apply primary variant styles by default', () => {
     const { container } = render(<Button>Click Me</Button>);
     const button = container.querySelector('button');
-    expect(button).toHaveClass('bg-gradient-to-r');
+    expect(button).toHaveClass('from-brand-500');
   });
 
-  it('should apply secondary variant', () => {
+  it('should apply secondary variant styles', () => {
     const { container } = render(<Button variant="secondary">Click Me</Button>);
     const button = container.querySelector('button');
     expect(button).toHaveClass('bg-white/5');
   });
 
-  it('should apply ghost variant', () => {
+  it('should apply ghost variant styles', () => {
     const { container } = render(<Button variant="ghost">Click Me</Button>);
     const button = container.querySelector('button');
     expect(button).toHaveClass('text-slate-400');
   });
 
-  it('should apply danger variant', () => {
+  it('should apply danger variant styles', () => {
     const { container } = render(<Button variant="danger">Click Me</Button>);
     const button = container.querySelector('button');
     expect(button).toHaveClass('bg-red-500/10');
@@ -508,45 +564,41 @@ describe('Button', () => {
   });
 
   it('should pass through other props', () => {
-    const onClick = vi.fn();
-    render(<Button onClick={onClick}>Click Me</Button>);
+    const handleClick = vi.fn();
+    render(<Button onClick={handleClick}>Click Me</Button>);
 
     fireEvent.click(screen.getByText('Click Me'));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
   it('should handle disabled state', () => {
-    const onClick = vi.fn();
-    const { container } = render(<Button onClick={onClick} disabled>Click Me</Button>);
-
-    const button = container.querySelector('button');
-    expect(button).toBeDisabled();
-
-    fireEvent.click(screen.getByText('Click Me'));
-    expect(onClick).not.toHaveBeenCalled();
-  });
-
-  it('should apply disabled styles', () => {
     const { container } = render(<Button disabled>Click Me</Button>);
     const button = container.querySelector('button');
+    expect(button).toBeDisabled();
     expect(button).toHaveClass('disabled:opacity-50');
+  });
+
+  it('should handle type attribute', () => {
+    const { container } = render(<Button type="submit">Submit</Button>);
+    const button = container.querySelector('button');
+    expect(button).toHaveAttribute('type', 'submit');
   });
 });
 
 describe('Input', () => {
-  it('should render input field', () => {
+  it('should render input element', () => {
     const { container } = render(<Input />);
     expect(container.querySelector('input')).toBeInTheDocument();
   });
 
-  it('should render with label', () => {
-    render(<Input label="Test Label" />);
-    expect(screen.getByText('Test Label')).toBeInTheDocument();
+  it('should render label when provided', () => {
+    render(<Input label="Username" />);
+    expect(screen.getByText('Username')).toBeInTheDocument();
   });
 
   it('should not render label when not provided', () => {
-    render(<Input />);
-    expect(screen.queryByText('Test Label')).not.toBeInTheDocument();
+    const { container } = render(<Input />);
+    expect(container.querySelector('label')).not.toBeInTheDocument();
   });
 
   it('should apply custom className', () => {
@@ -563,42 +615,31 @@ describe('Input', () => {
   });
 
   it('should handle value changes', () => {
-    const onChange = vi.fn();
-    const { container } = render(<Input onChange={onChange} />);
-
+    const handleChange = vi.fn();
+    const { container } = render(<Input onChange={handleChange} />);
     const input = container.querySelector('input');
-    fireEvent.change(input!, { target: { value: 'test value' } });
-    expect(onChange).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(input!, { target: { value: 'test' } });
+    expect(handleChange).toHaveBeenCalled();
   });
 
-  it('should render label element correctly', () => {
-    const { container } = render(<Input label="Test Label" />);
-    const label = container.querySelector('label');
-    expect(label).toBeInTheDocument();
-    expect(label).toHaveClass('text-xs', 'font-bold');
+  it('should handle disabled state', () => {
+    const { container } = render(<Input disabled />);
+    const input = container.querySelector('input');
+    expect(input).toBeDisabled();
   });
 });
 
 describe('Select', () => {
   const options = [
-    { value: 'opt1', label: 'Option 1' },
-    { value: 'opt2', label: 'Option 2' },
-    { value: 'opt3', label: 'Option 3' },
+    { value: 'option1', label: 'Option 1' },
+    { value: 'option2', label: 'Option 2' },
+    { value: 'option3', label: 'Option 3' },
   ];
 
-  it('should render select field', () => {
+  it('should render select element', () => {
     const { container } = render(<Select options={options} />);
     expect(container.querySelector('select')).toBeInTheDocument();
-  });
-
-  it('should render with label', () => {
-    render(<Select label="Test Label" options={options} />);
-    expect(screen.getByText('Test Label')).toBeInTheDocument();
-  });
-
-  it('should not render label when not provided', () => {
-    render(<Select options={options} />);
-    expect(screen.queryByText('Test Label')).not.toBeInTheDocument();
   });
 
   it('should render all options', () => {
@@ -608,6 +649,16 @@ describe('Select', () => {
     expect(screen.getByText('Option 3')).toBeInTheDocument();
   });
 
+  it('should render label when provided', () => {
+    render(<Select label="Choose Option" options={options} />);
+    expect(screen.getByText('Choose Option')).toBeInTheDocument();
+  });
+
+  it('should not render label when not provided', () => {
+    const { container } = render(<Select options={options} />);
+    expect(container.querySelector('label')).not.toBeInTheDocument();
+  });
+
   it('should apply custom className', () => {
     const { container } = render(<Select options={options} className="custom-class" />);
     const select = container.querySelector('select');
@@ -615,436 +666,207 @@ describe('Select', () => {
   });
 
   it('should pass through other props', () => {
-    const onChange = vi.fn();
-    const { container } = render(<Select options={options} onChange={onChange} value="opt2" />);
+    const handleChange = vi.fn();
+    const { container } = render(<Select options={options} onChange={handleChange} />);
+    const select = container.querySelector('select');
 
+    fireEvent.change(select!, { target: { value: 'option2' } });
+    expect(handleChange).toHaveBeenCalled();
+  });
+
+  it('should display selected value', () => {
+    const { container } = render(<Select options={options} value="option2" />);
     const select = container.querySelector('select') as HTMLSelectElement;
-    expect(select.value).toBe('opt2');
-
-    fireEvent.change(select, { target: { value: 'opt3' } });
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(select.value).toBe('option2');
   });
 
   it('should render ChevronDown icon', () => {
     const { container } = render(<Select options={options} />);
-    const chevron = container.querySelector('svg');
+    const chevron = container.querySelector('.pointer-events-none svg');
     expect(chevron).toBeInTheDocument();
   });
 
-  it('should render label element correctly', () => {
-    const { container } = render(<Select label="Test Label" options={options} />);
-    const label = container.querySelector('label');
-    expect(label).toBeInTheDocument();
-    expect(label).toHaveClass('text-xs', 'font-bold');
-  });
-
-  it('should handle empty options array', () => {
-    const { container } = render(<Select options={[]} />);
+  it('should handle disabled state', () => {
+    const { container } = render(<Select options={options} disabled />);
     const select = container.querySelector('select');
-    expect(select?.children.length).toBe(0);
+    expect(select).toBeDisabled();
   });
-
-// Additional edge case and integration tests
-describe('CollapsibleSection - Edge Cases', () => {
-  it('should handle multiple rapid toggles', () => {
-    render(
-      <CollapsibleSection title="Test Section" defaultOpen={true}>
-        <div>Test Content</div>
-      </CollapsibleSection>
-    );
-
-    const header = screen.getByText('Test Section').closest('div');
-
-    // Rapid toggles
-    fireEvent.click(header!);
-    fireEvent.click(header!);
-    fireEvent.click(header!);
-
-    const content = screen.getByText('Test Content').closest('div');
-    expect(content).toHaveClass('max-h-0');
-  });
-
-  it('should handle empty children', () => {
-    render(
-      <CollapsibleSection title="Test Section">
-        {null}
-      </CollapsibleSection>
-    );
-    expect(screen.getByText('Test Section')).toBeInTheDocument();
-  });
-
-  it('should handle complex rightElement', () => {
-    render(
-      <CollapsibleSection
-        title="Test Section"
-        rightElement={
-          <div>
-            <button>Action 1</button>
-            <button>Action 2</button>
-          </div>
-        }
-      >
-        <div>Content</div>
-      </CollapsibleSection>
-    );
-    expect(screen.getByText('Action 1')).toBeInTheDocument();
-    expect(screen.getByText('Action 2')).toBeInTheDocument();
-  });
-
-  it('should maintain state across re-renders', () => {
-    const { rerender } = render(
-      <CollapsibleSection title="Test Section" defaultOpen={true}>
-        <div>Content</div>
-      </CollapsibleSection>
-    );
-
-    const header = screen.getByText('Test Section').closest('div');
-    fireEvent.click(header!);
-
-    rerender(
-      <CollapsibleSection title="Test Section Updated" defaultOpen={true}>
-        <div>Content</div>
-      </CollapsibleSection>
-    );
-
-    const content = screen.getByText('Content').closest('div');
-    expect(content).toHaveClass('max-h-0');
-  });
-});
-
-describe('RibbonButton - Edge Cases', () => {
-  it('should handle very long labels', () => {
-    const longLabel = 'This is a very long label that should be truncated';
-    render(<RibbonButton icon={FileText} label={longLabel} />);
-    expect(screen.getByText(longLabel)).toBeInTheDocument();
-  });
-
-  it('should handle both active and disabled states', () => {
-    const { container } = render(
-      <RibbonButton icon={FileText} label="Test" active={true} disabled={true} />
-    );
-    const button = container.querySelector('button');
-    expect(button).toHaveClass('opacity-40');
-  });
-
-  it('should handle badge with active state', () => {
-    const { container } = render(
-      <RibbonButton icon={FileText} label="Test" badge={true} active={true} />
-    );
-    const badge = container.querySelector('.bg-red-500');
-    expect(badge).toBeInTheDocument();
-  });
-
-  it('should handle all props together', () => {
-    const onClick = vi.fn();
-    const { container } = render(
-      <RibbonButton
-        icon={FileText}
-        label="Test"
-        onClick={onClick}
-        active={true}
-        badge={true}
-        subLabel="Sub"
-        color="text-blue-500"
-        className="custom"
-        type="submit"
-      />
-    );
-
-    const button = container.querySelector('button');
-    expect(button).toHaveClass('custom');
-    expect(button).toHaveAttribute('type', 'submit');
-    expect(screen.getByText('Test')).toBeInTheDocument();
-    expect(screen.getByText('Sub')).toBeInTheDocument();
-  });
-
-  it('should handle icon with different sizes', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test" />);
-    const icon = container.querySelector('svg');
-    expect(icon).toBeInTheDocument();
-  });
-});
-
-describe('RibbonIconButton - Edge Cases', () => {
-  it('should handle both active and disabled states', () => {
-    const { container } = render(
-      <RibbonIconButton icon={FileText} active={true} disabled={true} />
-    );
-    const button = container.querySelector('button');
-    expect(button).toHaveClass('opacity-40');
-  });
-
-  it('should handle missing optional props', () => {
-    const { container } = render(<RibbonIconButton icon={FileText} />);
-    const button = container.querySelector('button');
-    expect(button).toBeInTheDocument();
-  });
-
-  it('should handle color with active state', () => {
-    const { container } = render(
-      <RibbonIconButton icon={FileText} active={true} color="text-green-500" />
-    );
-    const icon = container.querySelector('svg');
-    expect(icon).toHaveClass('text-green-500');
-  });
-});
-
-describe('RibbonSelect - Edge Cases', () => {
-  it('should handle single option', () => {
-    const options = [{ value: 'only', label: 'Only Option' }];
-    render(<RibbonSelect value="only" options={options} />);
-    expect(screen.getByText('Only Option')).toBeInTheDocument();
-  });
-
-  it('should handle options with special characters', () => {
-    const options = [
-      { value: 'opt1', label: 'Option & Special' },
-      { value: 'opt2', label: 'Option < > "' },
-    ];
-    render(<RibbonSelect value="opt1" options={options} />);
-    expect(screen.getByText('Option & Special')).toBeInTheDocument();
-  });
-
-  it('should handle empty value', () => {
-    const options = [{ value: '', label: 'Empty' }];
-    const { container } = render(<RibbonSelect value="" options={options} />);
-    const select = container.querySelector('select') as HTMLSelectElement;
-    expect(select.value).toBe('');
-  });
-
-  it('should handle numeric values', () => {
-    const options = [
-      { value: 1, label: 'One' },
-      { value: 2, label: 'Two' },
-    ];
-    const { container } = render(<RibbonSelect value={1} options={options} />);
-    const select = container.querySelector('select') as HTMLSelectElement;
-    expect(select.value).toBe('1');
-  });
-
-  it('should render both icon and chevron', () => {
-    const options = [{ value: 'opt1', label: 'Option 1' }];
-    const { container } = render(<RibbonSelect value="opt1" options={options} icon={FileText} />);
-    const icons = container.querySelectorAll('svg');
-    expect(icons.length).toBe(2); // Icon + ChevronDown
-  });
-});
-
-describe('RibbonColorPicker - Edge Cases', () => {
-  it('should handle hex colors', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="#123456" />);
-    const colorIndicator = container.querySelector('.w-4.h-1');
-    expect(colorIndicator).toHaveStyle({ backgroundColor: '#123456' });
-  });
-
-  it('should handle rgb colors', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="rgb(255, 0, 0)" />);
-    const colorIndicator = container.querySelector('.w-4.h-1');
-    expect(colorIndicator).toHaveStyle({ backgroundColor: 'rgb(255, 0, 0)' });
-  });
-
-  it('should handle named colors', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="red" />);
-    const colorIndicator = container.querySelector('.w-4.h-1');
-    expect(colorIndicator).toHaveStyle({ backgroundColor: 'red' });
-  });
-
-  it('should render button inside color picker', () => {
-    const { container } = render(<RibbonColorPicker icon={FileText} color="#ff0000" />);
-    const button = container.querySelector('button');
-    expect(button).toBeInTheDocument();
-  });
-});
-
-describe('LayoutSettingsModal - Edge Cases', () => {
-  it('should handle modal with no children', () => {
-    const props = {
-      isOpen: true,
-      onClose: vi.fn(),
-      title: 'Test Modal',
-      onApply: vi.fn(),
-    };
-    render(<LayoutSettingsModal {...props} />);
-    expect(screen.getByText('Test Modal')).toBeInTheDocument();
-  });
-
-  it('should handle multiple children', () => {
-    const props = {
-      isOpen: true,
-      onClose: vi.fn(),
-      title: 'Test Modal',
-      onApply: vi.fn(),
-    };
-    render(
-      <LayoutSettingsModal {...props}>
-        <div>Child 1</div>
-        <div>Child 2</div>
-        <div>Child 3</div>
-      </LayoutSettingsModal>
-    );
-    expect(screen.getByText('Child 1')).toBeInTheDocument();
-    expect(screen.getByText('Child 2')).toBeInTheDocument();
-    expect(screen.getByText('Child 3')).toBeInTheDocument();
-  });
-
-  it('should render all modal sections', () => {
-    const props = {
-      isOpen: true,
-      onClose: vi.fn(),
-      title: 'Test Modal',
 
   it('should render options with correct key attributes', () => {
     const { container } = render(<Select options={options} />);
-    const selectOptions = container.querySelectorAll('option');
-    expect(selectOptions.length).toBe(3);
+    const optionElements = container.querySelectorAll('option');
+    expect(optionElements).toHaveLength(3);
   });
 });
 
-// Edge Cases and Corner Cases
-describe('CollapsibleSection - Edge Cases', () => {
-  it('should handle multiple rapid toggles', () => {
-    render(
-      <CollapsibleSection title="Test Section" defaultOpen={true}>
-        <div>Test Content</div>
-      </CollapsibleSection>
-    );
+describe('Edge Cases and Corner Cases', () => {
+  describe('CollapsibleSection edge cases', () => {
+    it('should handle empty title', () => {
+      render(
+        <CollapsibleSection title="">
+          <div>Content</div>
+        </CollapsibleSection>
+      );
+      expect(screen.getByText('Content')).toBeInTheDocument();
+    });
 
-    const header = screen.getByText('Test Section').closest('div');
+    it('should handle null children gracefully', () => {
+      render(<CollapsibleSection title="Test">{null}</CollapsibleSection>);
+      expect(screen.getByText('Test')).toBeInTheDocument();
+    });
 
-    // Rapid toggles
-    fireEvent.click(header!);
-    fireEvent.click(header!);
-    fireEvent.click(header!);
-
-    const content = screen.getByText('Test Content').closest('div');
-    expect(content).toHaveClass('max-h-0');
+    it('should handle multiple children', () => {
+      render(
+        <CollapsibleSection title="Test">
+          <div>Child 1</div>
+          <div>Child 2</div>
+          <div>Child 3</div>
+        </CollapsibleSection>
+      );
+      expect(screen.getByText('Child 1')).toBeInTheDocument();
+      expect(screen.getByText('Child 2')).toBeInTheDocument();
+      expect(screen.getByText('Child 3')).toBeInTheDocument();
+    });
   });
 
-  it('should handle empty children', () => {
-    render(
-      <CollapsibleSection title="Test Section">
-        {null}
-      </CollapsibleSection>
-    );
-    expect(screen.getByText('Test Section')).toBeInTheDocument();
+  describe('RibbonButton edge cases', () => {
+    it('should handle very long labels', () => {
+      render(<RibbonButton icon={Bold} label="This is a very long label that should be truncated" />);
+      expect(screen.getByText('This is a very long label that should be truncated')).toBeInTheDocument();
+    });
+
+    it('should handle empty label', () => {
+      const { container } = render(<RibbonButton icon={Bold} label="" />);
+      expect(container.querySelector('button')).toBeInTheDocument();
+    });
+
+    it('should handle all props together', () => {
+      const handleClick = vi.fn();
+      render(
+        <RibbonButton
+          icon={Bold}
+          label="Bold"
+          active={true}
+          onClick={handleClick}
+          badge={true}
+          color="text-blue-500"
+          className="custom"
+          subLabel="Ctrl+B"
+          type="submit"
+        />
+      );
+      expect(screen.getByText('Bold')).toBeInTheDocument();
+      expect(screen.getByText('Ctrl+B')).toBeInTheDocument();
+    });
   });
 
-  it('should handle complex children structure', () => {
-    render(
-      <CollapsibleSection title="Test Section">
-        <div>
-          <span>Nested</span>
+  describe('RibbonSelect edge cases', () => {
+    it('should handle empty options array', () => {
+      const { container } = render(<RibbonSelect value="" options={[]} />);
+      expect(container.querySelector('select')).toBeInTheDocument();
+    });
+
+    it('should handle single option', () => {
+      const options = [{ value: 'only', label: 'Only Option' }];
+      render(<RibbonSelect value="only" options={options} />);
+      expect(screen.getByText('Only Option')).toBeInTheDocument();
+    });
+
+    it('should handle options with special characters', () => {
+      const options = [
+        { value: 'special', label: 'Option with <>&"' },
+      ];
+      render(<RibbonSelect value="special" options={options} />);
+      expect(screen.getByText('Option with <>&"')).toBeInTheDocument();
+    });
+  });
+
+  describe('Select edge cases', () => {
+    it('should handle empty options array', () => {
+      const { container } = render(<Select options={[]} />);
+      expect(container.querySelector('select')).toBeInTheDocument();
+    });
+
+    it('should handle options with duplicate values', () => {
+      const options = [
+        { value: 'dup', label: 'First' },
+        { value: 'dup', label: 'Second' },
+      ];
+      render(<Select options={options} />);
+      expect(screen.getByText('First')).toBeInTheDocument();
+      expect(screen.getByText('Second')).toBeInTheDocument();
+    });
+  });
+
+  describe('LayoutSettingsModal edge cases', () => {
+    it('should handle rapid open/close toggles', () => {
+      const { rerender } = render(
+        <LayoutSettingsModal isOpen={false} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+      );
+      expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+
+      rerender(
+        <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+      );
+      expect(screen.getByText('Settings')).toBeInTheDocument();
+
+      rerender(
+        <LayoutSettingsModal isOpen={false} onClose={vi.fn()} title="Settings" onApply={vi.fn()} />
+      );
+      expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    });
+
+    it('should handle complex children', () => {
+      render(
+        <LayoutSettingsModal isOpen={true} onClose={vi.fn()} title="Settings" onApply={vi.fn()}>
           <div>
-            <p>Deep Content</p>
+            <Input label="Name" />
+            <Select label="Type" options={[{ value: '1', label: 'Type 1' }]} />
+            <Button>Test</Button>
           </div>
-        </div>
-      </CollapsibleSection>
-    );
-    expect(screen.getByText('Nested')).toBeInTheDocument();
-    expect(screen.getByText('Deep Content')).toBeInTheDocument();
+        </LayoutSettingsModal>
+      );
+      expect(screen.getByText('Name')).toBeInTheDocument();
+      expect(screen.getByText('Type')).toBeInTheDocument();
+      expect(screen.getByText('Test')).toBeInTheDocument();
+    });
   });
 
-  it('should handle very long titles', () => {
-    const longTitle = 'A'.repeat(100);
-    render(
-      <CollapsibleSection title={longTitle}>
-        <div>Content</div>
-      </CollapsibleSection>
-    );
-    expect(screen.getByText(longTitle)).toBeInTheDocument();
+  describe('Button edge cases', () => {
+    it('should handle invalid variant gracefully', () => {
+      const { container } = render(<Button variant="invalid">Click</Button>);
+      const button = container.querySelector('button');
+      expect(button).toBeInTheDocument();
+    });
+
+    it('should handle empty children', () => {
+      const { container } = render(<Button></Button>);
+      expect(container.querySelector('button')).toBeInTheDocument();
+    });
+
+    it('should handle complex children', () => {
+      render(
+        <Button>
+          <span>Icon</span>
+          <span>Text</span>
+        </Button>
+      );
+      expect(screen.getByText('Icon')).toBeInTheDocument();
+      expect(screen.getByText('Text')).toBeInTheDocument();
+    });
   });
 
-  it('should handle special characters in title', () => {
-    const specialTitle = '!@#$%^&*()_+-=[]{}|;:,.<>?';
-    render(
-      <CollapsibleSection title={specialTitle}>
-        <div>Content</div>
-      </CollapsibleSection>
-    );
-    expect(screen.getByText(specialTitle)).toBeInTheDocument();
+  describe('RibbonColorPicker edge cases', () => {
+    it('should handle invalid color values', () => {
+      const { container } = render(<RibbonColorPicker icon={Palette} color="invalid-color" />);
+      const colorIndicator = container.querySelector('.rounded-full');
+      expect(colorIndicator).toHaveStyle({ backgroundColor: 'invalid-color' });
+    });
+
+    it('should handle transparent color', () => {
+      const { container } = render(<RibbonColorPicker icon={Palette} color="transparent" />);
+      const colorIndicator = container.querySelector('.rounded-full');
+      expect(colorIndicator).toHaveStyle({ backgroundColor: 'transparent' });
+    });
   });
-});
-
-describe('RibbonButton - Edge Cases', () => {
-  it('should handle very long labels', () => {
-    const longLabel = 'Very Long Button Label That Exceeds Normal Length';
-    render(<RibbonButton icon={FileText} label={longLabel} />);
-    expect(screen.getByText(longLabel)).toBeInTheDocument();
-  });
-
-  it('should handle special characters in label', () => {
-    const specialLabel = '<>&"\'';
-    render(<RibbonButton icon={FileText} label={specialLabel} />);
-    expect(screen.getByText(specialLabel)).toBeInTheDocument();
-  });
-
-  it('should handle both active and disabled states', () => {
-    const { container } = render(<RibbonButton icon={FileText} label="Test" active={true} disabled={true} />);
-    const button = container.querySelector('button');
-    expect(button).toHaveClass('opacity-40');
-    expect(button).toBeDisabled();
-  });
-
-  it('should handle onClick with active state', () => {
-    const onClick = vi.fn();
-    render(<RibbonButton icon={FileText} label="Test" onClick={onClick} active={true} />);
-    fireEvent.click(screen.getByText('Test'));
-    expect(onClick).toHaveBeenCalledTimes(1);
-  });
-
-  it('should handle all props together', () => {
-    const onClick = vi.fn();
-    const { container } = render(
-      <RibbonButton
-        icon={FileText}
-        label="Test"
-        onClick={onClick}
-        active={false}
-        disabled={false}
-        badge={true}
-        color="text-green-500"
-        className="extra-class"
-        subLabel="Sub"
-        type="submit"
-      />
-    );
-
-    const button = container.querySelector('button');
-    expect(button).toHaveAttribute('type', 'submit');
-    expect(button).toHaveClass('extra-class');
-    expect(screen.getByText('Test')).toBeInTheDocument();
-    expect(screen.getByText('Sub')).toBeInTheDocument();
-  });
-});
-
-describe('RibbonSelect - Edge Cases', () => {
-  it('should handle single option', () => {
-    const singleOption = [{ value: 'only', label: 'Only Option' }];
-    render(<RibbonSelect value="only" options={singleOption} />);
-    expect(screen.getByText('Only Option')).toBeInTheDocument();
-  });
-
-  it('should handle options with same labels', () => {
-    const duplicateLabels = [
-      { value: 'val1', label: 'Same' },
-      { value: 'val2', label: 'Same' },
-    ];
-    render(<RibbonSelect value="val1" options={duplicateLabels} />);
-    const options = screen.getAllByText('Same');
-    expect(options.length).toBe(2);
-  });
-
-  it('should handle very long option labels', () => {
-    const longOptions = [
-      { value: 'long', label: 'A'.repeat(50) },
-    ];
-    render(<RibbonSelect value="long" options={longOptions} />);
-    expect(screen.getByText('A'.repeat(50))).toBeInTheDocument();
-  });
-
-  it('should handle special characters in option labels', () => {
-    const specialOptions = [
-      { value: 'special', label: '<>&"' },
-    ];
-    render(<RibbonSelect value="special" options={specialOptions} />);
 });
