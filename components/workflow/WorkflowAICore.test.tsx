@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-var-requires */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WorkflowAICore } from './WorkflowAICore';
