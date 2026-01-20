@@ -643,4 +643,159 @@ describe('Select', () => {
     const select = container.querySelector('select');
     expect(select?.children.length).toBe(0);
   });
+
+  it('should render options with correct key attributes', () => {
+    const { container } = render(<Select options={options} />);
+    const selectOptions = container.querySelectorAll('option');
+    expect(selectOptions.length).toBe(3);
+  });
+});
+
+// Edge Cases and Corner Cases
+describe('CollapsibleSection - Edge Cases', () => {
+  it('should handle multiple rapid toggles', () => {
+    render(
+      <CollapsibleSection title="Test Section" defaultOpen={true}>
+        <div>Test Content</div>
+      </CollapsibleSection>
+    );
+
+    const header = screen.getByText('Test Section').closest('div');
+
+    // Rapid toggles
+    fireEvent.click(header!);
+    fireEvent.click(header!);
+    fireEvent.click(header!);
+
+    const content = screen.getByText('Test Content').closest('div');
+    expect(content).toHaveClass('max-h-0');
+  });
+
+  it('should handle empty children', () => {
+    render(
+      <CollapsibleSection title="Test Section">
+        {null}
+      </CollapsibleSection>
+    );
+    expect(screen.getByText('Test Section')).toBeInTheDocument();
+  });
+
+  it('should handle complex children structure', () => {
+    render(
+      <CollapsibleSection title="Test Section">
+        <div>
+          <span>Nested</span>
+          <div>
+            <p>Deep Content</p>
+          </div>
+        </div>
+      </CollapsibleSection>
+    );
+    expect(screen.getByText('Nested')).toBeInTheDocument();
+    expect(screen.getByText('Deep Content')).toBeInTheDocument();
+  });
+
+  it('should handle very long titles', () => {
+    const longTitle = 'A'.repeat(100);
+    render(
+      <CollapsibleSection title={longTitle}>
+        <div>Content</div>
+      </CollapsibleSection>
+    );
+    expect(screen.getByText(longTitle)).toBeInTheDocument();
+  });
+
+  it('should handle special characters in title', () => {
+    const specialTitle = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    render(
+      <CollapsibleSection title={specialTitle}>
+        <div>Content</div>
+      </CollapsibleSection>
+    );
+    expect(screen.getByText(specialTitle)).toBeInTheDocument();
+  });
+});
+
+describe('RibbonButton - Edge Cases', () => {
+  it('should handle very long labels', () => {
+    const longLabel = 'Very Long Button Label That Exceeds Normal Length';
+    render(<RibbonButton icon={FileText} label={longLabel} />);
+    expect(screen.getByText(longLabel)).toBeInTheDocument();
+  });
+
+  it('should handle special characters in label', () => {
+    const specialLabel = '<>&"\'';
+    render(<RibbonButton icon={FileText} label={specialLabel} />);
+    expect(screen.getByText(specialLabel)).toBeInTheDocument();
+  });
+
+  it('should handle both active and disabled states', () => {
+    const { container } = render(<RibbonButton icon={FileText} label="Test" active={true} disabled={true} />);
+    const button = container.querySelector('button');
+    expect(button).toHaveClass('opacity-40');
+    expect(button).toBeDisabled();
+  });
+
+  it('should handle onClick with active state', () => {
+    const onClick = vi.fn();
+    render(<RibbonButton icon={FileText} label="Test" onClick={onClick} active={true} />);
+    fireEvent.click(screen.getByText('Test'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle all props together', () => {
+    const onClick = vi.fn();
+    const { container } = render(
+      <RibbonButton
+        icon={FileText}
+        label="Test"
+        onClick={onClick}
+        active={false}
+        disabled={false}
+        badge={true}
+        color="text-green-500"
+        className="extra-class"
+        subLabel="Sub"
+        type="submit"
+      />
+    );
+
+    const button = container.querySelector('button');
+    expect(button).toHaveAttribute('type', 'submit');
+    expect(button).toHaveClass('extra-class');
+    expect(screen.getByText('Test')).toBeInTheDocument();
+    expect(screen.getByText('Sub')).toBeInTheDocument();
+  });
+});
+
+describe('RibbonSelect - Edge Cases', () => {
+  it('should handle single option', () => {
+    const singleOption = [{ value: 'only', label: 'Only Option' }];
+    render(<RibbonSelect value="only" options={singleOption} />);
+    expect(screen.getByText('Only Option')).toBeInTheDocument();
+  });
+
+  it('should handle options with same labels', () => {
+    const duplicateLabels = [
+      { value: 'val1', label: 'Same' },
+      { value: 'val2', label: 'Same' },
+    ];
+    render(<RibbonSelect value="val1" options={duplicateLabels} />);
+    const options = screen.getAllByText('Same');
+    expect(options.length).toBe(2);
+  });
+
+  it('should handle very long option labels', () => {
+    const longOptions = [
+      { value: 'long', label: 'A'.repeat(50) },
+    ];
+    render(<RibbonSelect value="long" options={longOptions} />);
+    expect(screen.getByText('A'.repeat(50))).toBeInTheDocument();
+  });
+
+  it('should handle special characters in option labels', () => {
+    const specialOptions = [
+      { value: 'special', label: '<>&"' },
+    ];
+    render(<RibbonSelect value="special" options={specialOptions} />);
 });
