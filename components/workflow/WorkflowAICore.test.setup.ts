@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-var-requires */
 import '@testing-library/jest-dom';
 
 // Mock scrollIntoView
