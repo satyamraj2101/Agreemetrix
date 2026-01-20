@@ -71,6 +71,335 @@ describe('WorkflowAICore', () => {
   ];
 
   const defaultProps = {
+
+  describe('Message Sending', () => {
+    it('should send a message when input has value', async () => {
+      const { getByPlaceholderText, getByRole } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      const sendButton = getByRole('button', { name: /send/i });
+
+      fireEvent.change(textarea, { target: { value: 'Create an NDA workflow' } });
+      fireEvent.click(sendButton);
+
+      await waitFor(() => {
+        expect(textarea).toHaveValue('');
+      });
+    });
+
+    it('should not send message when input is empty', () => {
+      const { getByRole } = render(<WorkflowAICore {...mockProps} />);
+
+      const sendButton = getByRole('button', { name: /send/i });
+      fireEvent.click(sendButton);
+
+      expect(mockProps.onUpdateGraph).not.toHaveBeenCalled();
+    });
+
+    it('should not send message when input contains only whitespace', () => {
+      const { getByPlaceholderText, getByRole } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      const sendButton = getByRole('button', { name: /send/i });
+
+      fireEvent.change(textarea, { target: { value: '   ' } });
+      fireEvent.click(sendButton);
+
+      expect(textarea).toHaveValue('   ');
+    });
+
+    it('should send message on Enter key press', async () => {
+      const { getByPlaceholderText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+
+      fireEvent.change(textarea, { target: { value: 'Test message' } });
+      fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+
+      await waitFor(() => {
+        expect(textarea).toHaveValue('');
+      });
+    });
+
+    it('should not send message on Shift+Enter', () => {
+      const { getByPlaceholderText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+
+      fireEvent.change(textarea, { target: { value: 'Test message' } });
+      fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });
+
+      expect(textarea).toHaveValue('Test message');
+    });
+
+    it('should show typing indicator after sending message', async () => {
+      const { getByPlaceholderText, getByRole, container } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      const sendButton = getByRole('button', { name: /send/i });
+
+      fireEvent.change(textarea, { target: { value: 'Test' } });
+      fireEvent.click(sendButton);
+
+      await waitFor(() => {
+        const typingIndicator = container.querySelector('.animate-bounce');
+        expect(typingIndicator).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('AI Intent Processing - Generate Flow', () => {
+    it('should process NDA intent', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'Create an NDA workflow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/I've designed a standard NDA workflow/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should process create intent', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'create a new workflow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/I've designed a standard NDA workflow/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should process generate intent', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'generate standard workflow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/I've designed a standard NDA workflow/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+  });
+
+  describe('AI Intent Processing - Optimize/Fix', () => {
+    it('should detect orphaned node and suggest fix', async () => {
+      const orphanedNode: WorkflowNode = {
+        id: 'orphan1',
+        category: 'action',
+        type: 'email',
+        label: 'Send Email',
+        x: 100,
+        y: 100,
+        config: {}
+      };
+
+      const propsWithOrphan = {
+        ...mockProps,
+        nodes: [mockNodes[0], orphanedNode],
+        connections: []
+      };
+
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...propsWithOrphan} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'fix this workflow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/I detected an issue/i)).toBeInTheDocument();
+        expect(getByText(/Send Email/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should report no issues when workflow is optimal', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'optimize this flow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/everything looks optimal/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should process debug intent', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'debug validation errors' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/everything looks optimal/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+  });
+
+  describe('AI Intent Processing - Explain', () => {
+    it('should explain workflow when asked', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'explain this workflow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/This workflow starts with a manual request/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should handle "what does" query', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'what does this do' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/This workflow starts with a manual request/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+  });
+
+  describe('AI Intent Processing - Default', () => {
+    it('should provide default response for unknown intent', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'random query' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        expect(getByText(/I can help you generate workflows/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+  });
+
+  describe('Action Handling', () => {
+    it('should generate NDA workflow when action is clicked', async () => {
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'Create NDA' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        const applyButton = getByText('Apply Workflow');
+        expect(applyButton).toBeInTheDocument();
+        fireEvent.click(applyButton);
+      }, { timeout: 2000 });
+
+      await waitFor(() => {
+        expect(mockProps.onUpdateGraph).toHaveBeenCalled();
+        const [nodes, connections] = mockProps.onUpdateGraph.mock.calls[0];
+        expect(nodes).toHaveLength(5);
+        expect(connections).toHaveLength(5);
+        expect(nodes[0].label).toBe('NDA Request');
+      });
+    });
+
+    it('should fix orphaned node when fix action is clicked', async () => {
+      const orphanedNode: WorkflowNode = {
+        id: 'orphan1',
+        category: 'action',
+        type: 'email',
+        label: 'Send Email',
+        x: 100,
+        y: 100,
+        config: {}
+      };
+
+      const propsWithOrphan = {
+        ...mockProps,
+        nodes: [mockNodes[0], orphanedNode],
+        connections: []
+      };
+
+      const { getByPlaceholderText, getByRole, getByText } = render(<WorkflowAICore {...propsWithOrphan} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'fix workflow' } });
+      fireEvent.click(getByRole('button', { name: /send/i }));
+
+      await waitFor(() => {
+        const fixButton = getByText('Fix Connection');
+        expect(fixButton).toBeInTheDocument();
+        fireEvent.click(fixButton);
+      }, { timeout: 2000 });
+
+      await waitFor(() => {
+        expect(propsWithOrphan.onUpdateGraph).toHaveBeenCalled();
+        const [nodes, connections] = propsWithOrphan.onUpdateGraph.mock.calls[0];
+        expect(connections).toHaveLength(1);
+        expect(connections[0].target).toBe('orphan1');
+      });
+    });
+  });
+
+  describe('Quick Action Buttons', () => {
+    it('should trigger optimize intent when Optimize button is clicked', async () => {
+      const { getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const optimizeButton = getByText('Optimize');
+      fireEvent.click(optimizeButton);
+
+      await waitFor(() => {
+        expect(getByText(/everything looks optimal/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should trigger generate intent when Generate button is clicked', async () => {
+      const { getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const generateButton = getByText('Generate');
+      fireEvent.click(generateButton);
+
+      await waitFor(() => {
+        expect(getByText(/I've designed a standard NDA workflow/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should trigger explain intent when Explain button is clicked', async () => {
+      const { getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const explainButton = getByText('Explain');
+      fireEvent.click(explainButton);
+
+      await waitFor(() => {
+        expect(getByText(/This workflow starts with a manual request/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+
+    it('should trigger debug intent when Debug button is clicked', async () => {
+      const { getByText } = render(<WorkflowAICore {...mockProps} />);
+
+      const debugButton = getByText('Debug');
+      fireEvent.click(debugButton);
+
+      await waitFor(() => {
+        expect(getByText(/everything looks optimal/i)).toBeInTheDocument();
+      }, { timeout: 2000 });
+    });
+  });
+
+  describe('UI Interactions', () => {
+    it('should update input value on change', () => {
+      const { getByPlaceholderText } = render(<WorkflowAICore {...mockProps} />);
+
+      const textarea = getByPlaceholderText('Describe a workflow or ask a question...');
+      fireEvent.change(textarea, { target: { value: 'New message' } });
+
+      expect(textarea).toHaveValue('New message');
+    });
+
+    it('should disable send button when input is empty', () => {
+      const { getByRole } = render(<WorkflowAICore {...mockProps} />);
     nodes: mockNodes,
     connections: mockConnections,
     stages: mockStages,
