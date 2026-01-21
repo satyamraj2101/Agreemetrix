@@ -1,3 +1,26 @@
+/**
+ * Unit Tests for AppTypeManager Component
+ *
+ * This test suite provides comprehensive coverage for the AppTypeManager component,
+ * including:
+ *
+ * 1. Component Rendering - Tests all UI elements, icons, buttons, and cards
+ * 2. Tab Functionality - Tests switching between published, drafts, and archived tabs
+ * 3. Search Functionality - Tests filtering by name and key with various inputs
+ * 4. App Card Rendering - Tests display of app information, badges, and metadata
+ * 5. Navigation - Tests routing to detail pages and creation flow
+ * 6. Edge Cases - Tests special characters, whitespace, long strings, and empty results
+ * 7. Filter Logic - Tests combined filtering of tabs and search
+ * 8. State Management - Tests initialization and updates of component state
+ * 9. Accessibility - Tests interactive elements and semantic HTML
+ * 10. Integration Tests - Tests complete user workflows
+ *
+ * Coverage Goals:
+ * - Line Coverage: 100%
+ * - Branch Coverage: 100%
+ * - Function Coverage: 100%
+ */
+
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
