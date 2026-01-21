@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import AppTypeManager from './AppTypeManager';
@@ -55,7 +55,8 @@ describe('AppTypeManager', () => {
       renderWithRouter(<AppTypeManager />);
 
       expect(screen.getByText('Documentation')).toBeInTheDocument();
-      expect(screen.getByText('Create New Type')).toBeInTheDocument();
+      const createButtons = screen.getAllByText('Create New Type');
+      expect(createButtons.length).toBeGreaterThan(0);
     });
 
     it('should render all tab buttons', () => {
@@ -71,155 +72,6 @@ describe('AppTypeManager', () => {
 
       const searchInput = screen.getByPlaceholderText('Search by name or key...');
       expect(searchInput).toBeInTheDocument();
-
-  describe('Tab Filtering', () => {
-    it('should filter apps by published status when published tab is active', () => {
-      render(<AppTypeManager />);
-
-      const publishedTab = screen.getByRole('button', { name: /published/i });
-      fireEvent.click(publishedTab);
-
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
-      expect(screen.queryByText('Sales Order')).not.toBeInTheDocument();
-    });
-
-    it('should filter apps by draft status when drafts tab is active', () => {
-      render(<AppTypeManager />);
-
-      const draftsTab = screen.getByRole('button', { name: /drafts/i });
-      fireEvent.click(draftsTab);
-
-      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
-      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
-      expect(screen.getByText('Sales Order')).toBeInTheDocument();
-    });
-
-    it('should filter apps by archived status when archived tab is active', () => {
-      render(<AppTypeManager />);
-
-      const archivedTab = screen.getByRole('button', { name: /archived/i });
-      fireEvent.click(archivedTab);
-
-      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
-      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
-      expect(screen.queryByText('Sales Order')).not.toBeInTheDocument();
-    });
-
-    it('should apply correct styling to active tab', () => {
-      render(<AppTypeManager />);
-
-      const publishedTab = screen.getByRole('button', { name: /published/i });
-      const draftsTab = screen.getByRole('button', { name: /drafts/i });
-
-      expect(publishedTab).toHaveClass('bg-brand-500');
-      expect(draftsTab).not.toHaveClass('bg-brand-500');
-
-      fireEvent.click(draftsTab);
-
-      expect(draftsTab).toHaveClass('bg-brand-500');
-      expect(publishedTab).not.toHaveClass('bg-brand-500');
-    });
-  });
-
-  describe('Search Functionality', () => {
-    it('should filter apps by name when searching', () => {
-      render(<AppTypeManager />);
-
-      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
-      fireEvent.change(searchInput, { target: { value: 'NDA' } });
-
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
-    });
-
-    it('should filter apps by key when searching', () => {
-      render(<AppTypeManager />);
-
-      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
-      fireEvent.change(searchInput, { target: { value: 'VEND_ONB' } });
-
-      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
-      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
-    });
-
-    it('should be case insensitive when searching', () => {
-      render(<AppTypeManager />);
-
-      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
-      fireEvent.change(searchInput, { target: { value: 'nda' } });
-
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-    });
-
-    it('should show no results when search does not match', () => {
-      render(<AppTypeManager />);
-
-      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
-      fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
-
-      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
-      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
-    });
-
-    it('should combine search and tab filters', () => {
-      render(<AppTypeManager />);
-
-      const draftsTab = screen.getByRole('button', { name: /drafts/i });
-      fireEvent.click(draftsTab);
-
-      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
-      fireEvent.change(searchInput, { target: { value: 'Sales' } });
-
-      expect(screen.getByText('Sales Order')).toBeInTheDocument();
-      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('App Card Rendering', () => {
-    it('should display app details correctly', () => {
-      render(<AppTypeManager />);
-
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-      expect(screen.getByText('NDA_REQ')).toBeInTheDocument();
-      expect(screen.getByText('Standard Non-Disclosure Agreement request flow.')).toBeInTheDocument();
-      expect(screen.getByText('1240')).toBeInTheDocument();
-      expect(screen.getByText('Legal Ops')).toBeInTheDocument();
-      expect(screen.getByText(/2 days ago/i)).toBeInTheDocument();
-    });
-
-    it('should display correct badge color for published status', () => {
-      render(<AppTypeManager />);
-
-      const badges = screen.getAllByText('Published');
-      expect(badges.length).toBeGreaterThan(0);
-    });
-
-    it('should display correct badge color for draft status', () => {
-      render(<AppTypeManager />);
-
-      const draftsTab = screen.getByRole('button', { name: /drafts/i });
-      fireEvent.click(draftsTab);
-
-      expect(screen.getByText('Draft')).toBeInTheDocument();
-    });
-
-    it('should render configure link with correct path', () => {
-      render(<AppTypeManager />);
-
-      const configureLinks = screen.getAllByText(/configure/i);
-      const firstLink = configureLinks[0].closest('a');
-
-      expect(firstLink).toHaveAttribute('href', '/admin/application-types/at_nda');
-    });
-
-    it('should render all app cards for published apps', () => {
-      render(<AppTypeManager />);
-
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
-    });
-  });
     });
 
     it('should render filter button', () => {
@@ -227,6 +79,22 @@ describe('AppTypeManager', () => {
 
       const filterButtons = screen.getAllByTestId('filter-icon');
       expect(filterButtons.length).toBeGreaterThan(0);
+    });
+
+    it('should render all required icons', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getAllByTestId('box-icon').length).toBeGreaterThan(0);
+      expect(screen.getAllByTestId('plus-icon').length).toBeGreaterThan(0);
+      expect(screen.getAllByTestId('search-icon').length).toBeGreaterThan(0);
+      expect(screen.getAllByTestId('filter-icon').length).toBeGreaterThan(0);
+      expect(screen.getAllByTestId('file-text-icon').length).toBeGreaterThan(0);
+    });
+
+    it('should render create new placeholder card', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getByText('Start from scratch or clone existing')).toBeInTheDocument();
     });
   });
 
@@ -274,6 +142,7 @@ describe('AppTypeManager', () => {
       // Drafts tab should show draft apps
       expect(screen.getByText('Sales Order')).toBeInTheDocument();
       expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
     });
 
     it('should show no apps in archived tab', () => {
@@ -286,6 +155,36 @@ describe('AppTypeManager', () => {
       expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
       expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
       expect(screen.queryByText('Sales Order')).not.toBeInTheDocument();
+    });
+
+    it('should apply correct styling to active tab', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const publishedButton = screen.getByText('published');
+      const draftsButton = screen.getByText('drafts');
+
+      expect(publishedButton).toHaveClass('bg-brand-500');
+      expect(draftsButton).not.toHaveClass('bg-brand-500');
+
+      fireEvent.click(draftsButton);
+
+      expect(draftsButton).toHaveClass('bg-brand-500');
+      expect(publishedButton).not.toHaveClass('bg-brand-500');
+    });
+
+    it('should handle rapid tab switching', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const publishedButton = screen.getByText('published');
+      const draftsButton = screen.getByText('drafts');
+      const archivedButton = screen.getByText('archived');
+
+      fireEvent.click(draftsButton);
+      fireEvent.click(archivedButton);
+      fireEvent.click(publishedButton);
+
+      expect(publishedButton).toHaveClass('bg-brand-500');
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
     });
   });
 
@@ -317,6 +216,15 @@ describe('AppTypeManager', () => {
       fireEvent.change(searchInput, { target: { value: 'nda' } });
 
       expect(screen.getByText('NDA Request')).toBeInTheDocument();
+    });
+
+    it('should search by lowercase key', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'vend_onb' } });
+
+      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
     });
 
     it('should show no results for non-matching search', () => {
@@ -351,124 +259,6 @@ describe('AppTypeManager', () => {
       fireEvent.change(searchInput, { target: { value: '' } });
       expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
     });
-  });
-
-  describe('App Card Rendering', () => {
-    it('should render app cards with correct information', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const ndaApp = MOCK_APP_TYPES.find(app => app.key === 'NDA_REQ');
-
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-      expect(screen.getByText('NDA_REQ')).toBeInTheDocument();
-      expect(screen.getByText('Standard Non-Disclosure Agreement request flow.')).toBeInTheDocument();
-      expect(screen.getByText('1240')).toBeInTheDocument();
-      expect(screen.getByText('Legal Ops')).toBeInTheDocument();
-    });
-
-    it('should render status badges correctly', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const publishedBadges = screen.getAllByText('Published');
-      expect(publishedBadges.length).toBeGreaterThan(0);
-    });
-
-    it('should render usage count for each app', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      expect(screen.getByText('1240')).toBeInTheDocument();
-      expect(screen.getByText('450')).toBeInTheDocument();
-    });
-
-    it('should render owner for each app', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      expect(screen.getByText('Legal Ops')).toBeInTheDocument();
-      expect(screen.getByText('Procurement')).toBeInTheDocument();
-    });
-
-    it('should render last modified time', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      expect(screen.getByText(/Updated 2 days ago/)).toBeInTheDocument();
-      expect(screen.getByText(/Updated 1 week ago/)).toBeInTheDocument();
-    });
-
-    it('should render configure buttons for each app', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const configureButtons = screen.getAllByText('Configure');
-      expect(configureButtons.length).toBe(2); // 2 published apps
-    });
-  });
-
-  describe('Navigation', () => {
-    it('should navigate to new app type when Create New Type button is clicked', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const createButton = screen.getByText('Create New Type');
-      fireEvent.click(createButton);
-
-      expect(mockNavigate).toHaveBeenCalledWith('/admin/application-types/new');
-    });
-
-    it('should navigate to new app type when placeholder card is clicked', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const placeholderButtons = screen.getAllByText('Create New Type');
-      const placeholderCard = placeholderButtons[placeholderButtons.length - 1];
-      fireEvent.click(placeholderCard);
-
-      expect(mockNavigate).toHaveBeenCalledWith('/admin/application-types/new');
-    });
-
-    it('should have correct link to app detail page', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const configureLinks = screen.getAllByRole('link');
-      const ndaConfigureLink = configureLinks.find(link =>
-        link.getAttribute('href')?.includes('at_nda')
-      );
-
-      expect(ndaConfigureLink).toHaveAttribute('href', '/admin/application-types/at_nda');
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('should handle empty search results gracefully', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const searchInput = screen.getByPlaceholderText('Search by name or key...');
-      fireEvent.change(searchInput, { target: { value: 'XYZ123' } });
-
-      // Should still show the create new placeholder
-      expect(screen.getByText('Create New Type')).toBeInTheDocument();
-    });
-
-    it('should handle special characters in search', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const searchInput = screen.getByPlaceholderText('Search by name or key...');
-      fireEvent.change(searchInput, { target: { value: '@#$%' } });
-
-      // Should not crash and show no results
-      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
-    });
-
-    it('should handle rapid tab switching', () => {
-      renderWithRouter(<AppTypeManager />);
-
-      const publishedButton = screen.getByText('published');
-      const draftsButton = screen.getByText('drafts');
-      const archivedButton = screen.getByText('archived');
-
-      fireEvent.click(draftsButton);
-      fireEvent.click(archivedButton);
-      fireEvent.click(publishedButton);
-
-      expect(publishedButton).toHaveClass('bg-brand-500');
-      expect(screen.getByText('NDA Request')).toBeInTheDocument();
-    });
 
     it('should handle search with tab switching', () => {
       renderWithRouter(<AppTypeManager />);
@@ -502,22 +292,400 @@ describe('AppTypeManager', () => {
 
       expect(searchInput.value).toBe('Test');
     });
-  });
 
-  describe('UI Elements', () => {
-    it('should render all required icons', () => {
+    it('should handle partial name matches', () => {
       renderWithRouter(<AppTypeManager />);
 
-      expect(screen.getAllByTestId('box-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('plus-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('search-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('filter-icon').length).toBeGreaterThan(0);
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'Vendor' } });
+
+      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
     });
 
-    it('should render create new placeholder card', () => {
+    it('should handle partial key matches', () => {
       renderWithRouter(<AppTypeManager />);
 
-      expect(screen.getByText('Start from scratch or clone existing')).toBeInTheDocument();
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'NDA_' } });
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('App Card Rendering', () => {
+    it('should render app cards with correct information', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.getByText('NDA_REQ')).toBeInTheDocument();
+      expect(screen.getByText('Standard Non-Disclosure Agreement request flow.')).toBeInTheDocument();
+      expect(screen.getByText('1240')).toBeInTheDocument();
+      expect(screen.getByText('Legal Ops')).toBeInTheDocument();
+    });
+
+    it('should render status badges correctly for published apps', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const publishedBadges = screen.getAllByText('Published');
+      expect(publishedBadges.length).toBe(2);
+    });
+
+    it('should render status badge correctly for draft apps', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const draftsButton = screen.getByText('drafts');
+      fireEvent.click(draftsButton);
+
+      expect(screen.getByText('Draft')).toBeInTheDocument();
+    });
+
+    it('should render usage count for each app', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getByText('1240')).toBeInTheDocument();
+      expect(screen.getByText('450')).toBeInTheDocument();
+    });
+
+    it('should render owner for each app', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getByText('Legal Ops')).toBeInTheDocument();
+      expect(screen.getByText('Procurement')).toBeInTheDocument();
+    });
+
+    it('should render last modified time', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getByText(/Updated 2 days ago/)).toBeInTheDocument();
+      expect(screen.getByText(/Updated 1 week ago/)).toBeInTheDocument();
+    });
+
+    it('should render configure buttons for each app', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const configureButtons = screen.getAllByText('Configure');
+      expect(configureButtons.length).toBe(2); // 2 published apps
+    });
+
+    it('should render app description', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      expect(screen.getByText('Standard Non-Disclosure Agreement request flow.')).toBeInTheDocument();
+      expect(screen.getByText('End-to-end vendor qualification and MSA generation.')).toBeInTheDocument();
+    });
+
+    it('should render all published apps on initial load', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const publishedApps = MOCK_APP_TYPES.filter(app => app.status === 'Published');
+      publishedApps.forEach(app => {
+        expect(screen.getByText(app.name)).toBeInTheDocument();
+      });
+    });
+
+    it('should render copy button for each app', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const copyIcons = screen.getAllByTestId('copy-icon');
+      expect(copyIcons.length).toBe(2); // 2 published apps
+    });
+
+    it('should render more vertical icon for each app', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const moreIcons = screen.getAllByTestId('more-vertical-icon');
+      expect(moreIcons.length).toBe(2); // 2 published apps
+    });
+
+    it('should render clock icon for last modified time', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const clockIcons = screen.getAllByTestId('clock-icon');
+      expect(clockIcons.length).toBe(2); // 2 published apps
+    });
+
+    it('should render settings icon in configure button', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const settingsIcons = screen.getAllByTestId('settings-icon');
+      expect(settingsIcons.length).toBe(2); // 2 published apps
+    });
+  });
+
+  describe('Navigation', () => {
+    it('should navigate to new app type when Create New Type button is clicked', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const createButtons = screen.getAllByText('Create New Type');
+      const headerButton = createButtons[0];
+      fireEvent.click(headerButton);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/admin/application-types/new');
+    });
+
+    it('should navigate to new app type when placeholder card is clicked', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const placeholderButtons = screen.getAllByText('Create New Type');
+      const placeholderCard = placeholderButtons[placeholderButtons.length - 1];
+      fireEvent.click(placeholderCard);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/admin/application-types/new');
+    });
+
+    it('should have correct link to app detail page for NDA', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const configureLinks = screen.getAllByRole('link');
+      const ndaConfigureLink = configureLinks.find(link =>
+        link.getAttribute('href')?.includes('at_nda')
+      );
+
+      expect(ndaConfigureLink).toHaveAttribute('href', '/admin/application-types/at_nda');
+    });
+
+    it('should have correct link to app detail page for Vendor', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const configureLinks = screen.getAllByRole('link');
+      const vendorConfigureLink = configureLinks.find(link =>
+        link.getAttribute('href')?.includes('at_vendor')
+      );
+
+      expect(vendorConfigureLink).toHaveAttribute('href', '/admin/application-types/at_vendor');
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle empty search results gracefully', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'XYZ123' } });
+
+      // Should still show the create new placeholder
+      expect(screen.getByText('Create New Type')).toBeInTheDocument();
+    });
+
+    it('should handle special characters in search', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: '@#$%' } });
+
+      // Should not crash and show no results
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+    });
+
+    it('should handle whitespace in search', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: '   NDA   ' } });
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+    });
+
+    it('should handle numeric search', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: '123' } });
+
+      // Should not crash
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+    });
+
+    it('should handle very long search strings', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      const longString = 'a'.repeat(1000);
+      fireEvent.change(searchInput, { target: { value: longString } });
+
+      // Should not crash
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+    });
+
+    it('should handle search with only spaces', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: '     ' } });
+
+      // Should show all apps (spaces should match nothing specific)
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
+    });
+  });
+
+  describe('Filter Logic', () => {
+    it('should filter by both name and key simultaneously', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+
+      // Search should match either name OR key
+      fireEvent.change(searchInput, { target: { value: 'Request' } });
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: 'REQ' } });
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+    });
+
+    it('should apply tab filter before search filter', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const draftsButton = screen.getByText('drafts');
+      fireEvent.click(draftsButton);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'NDA' } });
+
+      // NDA is published, not draft, so should not appear
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+    });
+
+    it('should handle archived status filter correctly', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const archivedButton = screen.getByText('archived');
+      fireEvent.click(archivedButton);
+
+      // No archived apps in mock data
+      const appCards = screen.queryByText('NDA Request');
+      expect(appCards).not.toBeInTheDocument();
+    });
+  });
+
+  describe('State Management', () => {
+    it('should initialize with published tab active', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const publishedButton = screen.getByText('published');
+      expect(publishedButton).toHaveClass('bg-brand-500');
+    });
+
+    it('should initialize with empty search term', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...') as HTMLInputElement;
+      expect(searchInput.value).toBe('');
+    });
+
+    it('should update search term state on input change', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...') as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: 'test' } });
+
+      expect(searchInput.value).toBe('test');
+    });
+
+    it('should update active tab state on tab click', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const draftsButton = screen.getByText('drafts');
+      const publishedButton = screen.getByText('published');
+
+      expect(publishedButton).toHaveClass('bg-brand-500');
+      expect(draftsButton).not.toHaveClass('bg-brand-500');
+
+      fireEvent.click(draftsButton);
+
+      expect(draftsButton).toHaveClass('bg-brand-500');
+      expect(publishedButton).not.toHaveClass('bg-brand-500');
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('should have accessible search input', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      expect(searchInput).toHaveAttribute('type', 'text');
+    });
+
+    it('should have clickable tab buttons', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const publishedButton = screen.getByText('published');
+      const draftsButton = screen.getByText('drafts');
+      const archivedButton = screen.getByText('archived');
+
+      expect(publishedButton.tagName).toBe('BUTTON');
+      expect(draftsButton.tagName).toBe('BUTTON');
+      expect(archivedButton.tagName).toBe('BUTTON');
+    });
+
+    it('should have clickable create buttons', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      const createButtons = screen.getAllByText('Create New Type');
+      createButtons.forEach(button => {
+        expect(button.tagName).toBe('BUTTON');
+      });
+    });
+  });
+
+  describe('Integration Tests', () => {
+    it('should handle complete user workflow: search and navigate', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      // Search for an app
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'NDA' } });
+
+      // Verify filtered results
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+
+      // Click configure link
+      const configureLinks = screen.getAllByRole('link');
+      const ndaLink = configureLinks.find(link =>
+        link.getAttribute('href')?.includes('at_nda')
+      );
+      expect(ndaLink).toBeInTheDocument();
+    });
+
+    it('should handle complete user workflow: tab switch and create', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      // Switch to drafts
+      const draftsButton = screen.getByText('drafts');
+      fireEvent.click(draftsButton);
+
+      // Verify draft apps shown
+      expect(screen.getByText('Sales Order')).toBeInTheDocument();
+
+      // Click create new
+      const createButtons = screen.getAllByText('Create New Type');
+      fireEvent.click(createButtons[0]);
+
+      // Verify navigation called
+      expect(mockNavigate).toHaveBeenCalledWith('/admin/application-types/new');
+    });
+
+    it('should handle complete user workflow: search, tab switch, and clear', () => {
+      renderWithRouter(<AppTypeManager />);
+
+      // Search
+      const searchInput = screen.getByPlaceholderText('Search by name or key...');
+      fireEvent.change(searchInput, { target: { value: 'Sales' } });
+
+      // Switch to drafts
+      const draftsButton = screen.getByText('drafts');
+      fireEvent.click(draftsButton);
+
+      // Verify results
+      expect(screen.getByText('Sales Order')).toBeInTheDocument();
+
+      // Clear search
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      // Should show all draft apps
+      expect(screen.getByText('Sales Order')).toBeInTheDocument();
     });
   });
 });
