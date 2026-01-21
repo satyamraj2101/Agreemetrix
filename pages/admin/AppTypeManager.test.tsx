@@ -71,6 +71,155 @@ describe('AppTypeManager', () => {
 
       const searchInput = screen.getByPlaceholderText('Search by name or key...');
       expect(searchInput).toBeInTheDocument();
+
+  describe('Tab Filtering', () => {
+    it('should filter apps by published status when published tab is active', () => {
+      render(<AppTypeManager />);
+
+      const publishedTab = screen.getByRole('button', { name: /published/i });
+      fireEvent.click(publishedTab);
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
+      expect(screen.queryByText('Sales Order')).not.toBeInTheDocument();
+    });
+
+    it('should filter apps by draft status when drafts tab is active', () => {
+      render(<AppTypeManager />);
+
+      const draftsTab = screen.getByRole('button', { name: /drafts/i });
+      fireEvent.click(draftsTab);
+
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
+      expect(screen.getByText('Sales Order')).toBeInTheDocument();
+    });
+
+    it('should filter apps by archived status when archived tab is active', () => {
+      render(<AppTypeManager />);
+
+      const archivedTab = screen.getByRole('button', { name: /archived/i });
+      fireEvent.click(archivedTab);
+
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
+      expect(screen.queryByText('Sales Order')).not.toBeInTheDocument();
+    });
+
+    it('should apply correct styling to active tab', () => {
+      render(<AppTypeManager />);
+
+      const publishedTab = screen.getByRole('button', { name: /published/i });
+      const draftsTab = screen.getByRole('button', { name: /drafts/i });
+
+      expect(publishedTab).toHaveClass('bg-brand-500');
+      expect(draftsTab).not.toHaveClass('bg-brand-500');
+
+      fireEvent.click(draftsTab);
+
+      expect(draftsTab).toHaveClass('bg-brand-500');
+      expect(publishedTab).not.toHaveClass('bg-brand-500');
+    });
+  });
+
+  describe('Search Functionality', () => {
+    it('should filter apps by name when searching', () => {
+      render(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
+      fireEvent.change(searchInput, { target: { value: 'NDA' } });
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
+    });
+
+    it('should filter apps by key when searching', () => {
+      render(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
+      fireEvent.change(searchInput, { target: { value: 'VEND_ONB' } });
+
+      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+    });
+
+    it('should be case insensitive when searching', () => {
+      render(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
+      fireEvent.change(searchInput, { target: { value: 'nda' } });
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+    });
+
+    it('should show no results when search does not match', () => {
+      render(<AppTypeManager />);
+
+      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
+      fireEvent.change(searchInput, { target: { value: 'NonExistent' } });
+
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+      expect(screen.queryByText('Vendor Onboarding')).not.toBeInTheDocument();
+    });
+
+    it('should combine search and tab filters', () => {
+      render(<AppTypeManager />);
+
+      const draftsTab = screen.getByRole('button', { name: /drafts/i });
+      fireEvent.click(draftsTab);
+
+      const searchInput = screen.getByPlaceholderText(/search by name or key/i);
+      fireEvent.change(searchInput, { target: { value: 'Sales' } });
+
+      expect(screen.getByText('Sales Order')).toBeInTheDocument();
+      expect(screen.queryByText('NDA Request')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('App Card Rendering', () => {
+    it('should display app details correctly', () => {
+      render(<AppTypeManager />);
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.getByText('NDA_REQ')).toBeInTheDocument();
+      expect(screen.getByText('Standard Non-Disclosure Agreement request flow.')).toBeInTheDocument();
+      expect(screen.getByText('1240')).toBeInTheDocument();
+      expect(screen.getByText('Legal Ops')).toBeInTheDocument();
+      expect(screen.getByText(/2 days ago/i)).toBeInTheDocument();
+    });
+
+    it('should display correct badge color for published status', () => {
+      render(<AppTypeManager />);
+
+      const badges = screen.getAllByText('Published');
+      expect(badges.length).toBeGreaterThan(0);
+    });
+
+    it('should display correct badge color for draft status', () => {
+      render(<AppTypeManager />);
+
+      const draftsTab = screen.getByRole('button', { name: /drafts/i });
+      fireEvent.click(draftsTab);
+
+      expect(screen.getByText('Draft')).toBeInTheDocument();
+    });
+
+    it('should render configure link with correct path', () => {
+      render(<AppTypeManager />);
+
+      const configureLinks = screen.getAllByText(/configure/i);
+      const firstLink = configureLinks[0].closest('a');
+
+      expect(firstLink).toHaveAttribute('href', '/admin/application-types/at_nda');
+    });
+
+    it('should render all app cards for published apps', () => {
+      render(<AppTypeManager />);
+
+      expect(screen.getByText('NDA Request')).toBeInTheDocument();
+      expect(screen.getByText('Vendor Onboarding')).toBeInTheDocument();
+    });
+  });
     });
 
     it('should render filter button', () => {
